@@ -43,6 +43,14 @@ What this does:
 
 Use the exact same command later to update.
 
+If you still see old git checkout errors (for example: `local changes would be overwritten by checkout`), force a fresh bootstrap script fetch with cache-busting:
+
+```bash
+curl -fsSL "https://raw.githubusercontent.com/imCharlieB/PiBarTicker/main/scripts/pi/bootstrap.sh?ts=$(date +%s)" | sudo bash -s -- \
+  --repo https://github.com/imCharlieB/PiBarTicker.git \
+  --branch main
+```
+
 ## Install on the Pi
 
 1. Clone or copy this repo to the Pi.
@@ -122,6 +130,18 @@ sudo bash scripts/pi/install_pi.sh
 - Display mode not applied:
   - Run `xrandr` and verify your exact mode exists.
   - Add a custom mode in Raspberry Pi display settings if needed.
+
+## Branding assets
+
+App logo assets now ship in frontend public files:
+
+- `frontend/public/pibarticker-logo.svg`
+- `frontend/public/favicon.svg`
+
+Pre-desktop splash branding note:
+
+- Replacing the logo shown before desktop load is controlled by Raspberry Pi OS splash/boot configuration (outside app runtime).
+- Use `frontend/public/pibarticker-logo.svg` as the master artwork and convert/export to PNG for your chosen splash mechanism.
 
 ## Manual uninstall
 

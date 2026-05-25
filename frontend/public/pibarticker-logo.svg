@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">PiBarTicker Logo</title>
+  <desc id="desc">Rounded square logo with ticker line and stylized PB monogram.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#071022"/>
+      <stop offset="100%" stop-color="#0a1b34"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1dd3a7"/>
+      <stop offset="100%" stop-color="#17b5d6"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <rect x="54" y="350" width="404" height="84" rx="42" fill="url(#accent)"/>
+
+  <g fill="none" stroke="#e8f3ff" stroke-width="30" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M110 280V114h110c40 0 74 31 74 70s-34 70-74 70z"/>
+    <path d="M292 280V114h76c33 0 60 26 60 58 0 20-10 37-26 48 20 10 34 31 34 55 0 33-28 61-63 61z"/>
+  </g>
+
+  <path d="M108 302h54l30-54 38 86 44-74 28 40h108" fill="none" stroke="#9fe7ff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

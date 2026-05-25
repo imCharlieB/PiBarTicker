@@ -133,6 +133,17 @@ systemctl enable "${SERVICE_NAME}.service"
 systemctl restart "${SERVICE_NAME}.service"
 
 echo "Configuring kiosk autostart for user ${APP_USER}..."
+mkdir -p "${APP_HOME}/.config/autostart"
+cat > "${APP_HOME}/.config/autostart/pibarticker-kiosk.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=PiBarTicker Kiosk
+Comment=Launch PiBarTicker kiosk on desktop login
+Exec=${APP_DIR}/scripts/pi/launch-kiosk.sh
+Terminal=false
+X-GNOME-Autostart-enabled=true
+EOF
+
 mkdir -p "${APP_HOME}/.config/lxsession/LXDE-pi"
 if [[ ! -f "${APP_HOME}/.config/lxsession/LXDE-pi/autostart" ]]; then
   cat > "${APP_HOME}/.config/lxsession/LXDE-pi/autostart" <<'EOF'

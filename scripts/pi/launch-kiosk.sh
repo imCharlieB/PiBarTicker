@@ -6,6 +6,10 @@ CONFIG_FILE="${APP_DIR}/config.json"
 BACKEND_URL="http://127.0.0.1:8000"
 URL="http://127.0.0.1:8000/?kiosk=1"
 
+if [[ -z "${DISPLAY:-}" && -S "/tmp/.X11-unix/X0" ]]; then
+  export DISPLAY=:0
+fi
+
 if [[ ! -f "${CONFIG_FILE}" ]]; then
   echo "Missing ${CONFIG_FILE}; kiosk launcher cannot read setup settings."
   exit 1
@@ -60,13 +64,20 @@ else
 fi
 
 # Keep the pointer hidden while kiosk is active.
-unclutter -idle 0.5 -root >/dev/null 2>&1 &
+if command -v unclutter >/dev/null 2>&1; then
+  unclutter -idle 0.5 -root >/dev/null 2>&1 &
+fi
 
 # Disable DPMS and screen blanking for always-on signage.
-xset s off
-xset -dpms
-xset s noblank
-xrandr -s "${DISPLAY_MODE}" >/dev/null 2>&1 || true
+if command -v xset >/dev/null 2>&1; then
+  xset s off >/dev/null 2>&1 || true
+  xset -dpms >/dev/null 2>&1 || true
+  xset s noblank >/dev/null 2>&1 || true
+fi
+
+if command -v xrandr >/dev/null 2>&1; then
+  xrandr -s "${DISPLAY_MODE}" >/dev/null 2>&1 || true
+fi
 
 # Wait for backend before starting Chromium.
 for _ in $(seq 1 60); do

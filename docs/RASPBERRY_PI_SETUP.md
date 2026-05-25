@@ -111,7 +111,8 @@ sudo bash scripts/pi/install_pi.sh
 
 - Black screen after boot:
   - Confirm desktop session is enabled (Raspberry Pi OS Desktop, not Lite).
-  - Confirm autostart contains `/opt/pibarticker/scripts/pi/launch-kiosk.sh`.
+  - Confirm `~/.config/autostart/pibarticker-kiosk.desktop` exists and references `/opt/pibarticker/scripts/pi/launch-kiosk.sh`.
+  - Legacy LXDE sessions can also use `~/.config/lxsession/LXDE-pi/autostart`.
 - Chromium does not open:
   - Check `kiosk.autoStart` is `autostart` in Setup.
   - Verify Chromium exists: `which chromium-browser || which chromium`.

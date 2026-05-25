@@ -61,11 +61,18 @@ fi
 echo "Installing OS packages..."
 apt-get update
 
+has_install_candidate() {
+  local package_name="$1"
+  local candidate
+  candidate="$(apt-cache policy "${package_name}" | awk '/Candidate:/ { print $2; exit }')"
+  [[ -n "${candidate}" && "${candidate}" != "(none)" ]]
+}
+
 CHROMIUM_PACKAGE=""
-if apt-cache show chromium-browser >/dev/null 2>&1; then
-  CHROMIUM_PACKAGE="chromium-browser"
-elif apt-cache show chromium >/dev/null 2>&1; then
+if has_install_candidate chromium; then
   CHROMIUM_PACKAGE="chromium"
+elif has_install_candidate chromium-browser; then
+  CHROMIUM_PACKAGE="chromium-browser"
 else
   echo "Unable to find Chromium package (expected 'chromium-browser' or 'chromium')."
   exit 1

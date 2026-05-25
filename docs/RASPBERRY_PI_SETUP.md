@@ -35,8 +35,8 @@ curl -fsSL https://raw.githubusercontent.com/imCharlieB/PiBarTicker/main/scripts
 
 What this does:
 
-- clones the repo to `/opt/pibarticker` on first run
-- updates the existing `/opt/pibarticker` checkout on later runs
+- downloads the selected branch as a source archive from GitHub
+- installs or updates `/opt/pibarticker` from that archive (no local git checkout required)
 - runs the same installer each time (`scripts/pi/install_pi.sh`)
 - redeploys backend/frontend/service every run
 - attempts to launch kiosk immediately if a desktop session is active

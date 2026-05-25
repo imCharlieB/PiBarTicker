@@ -105,6 +105,8 @@ curl -fsSL https://raw.githubusercontent.com/imCharlieB/PiBarTicker/main/scripts
 	--branch main
 ```
 
+This bootstrap flow downloads source from GitHub and installs it; it does not rely on a local git checkout on the Pi.
+
 Use the same command later to pull updates and redeploy.
 
 From the repository root on your Raspberry Pi:

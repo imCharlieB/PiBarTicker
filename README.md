@@ -100,8 +100,8 @@ Required OS flavor: Raspberry Pi OS Desktop (`Lite` is not supported for this ki
 One-command install/update from GitHub:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/<owner>/<repo>/main/scripts/pi/bootstrap.sh | sudo bash -s -- \
-	--repo https://github.com/<owner>/<repo>.git \
+curl -fsSL https://raw.githubusercontent.com/imCharlieB/PiBarTicker/main/scripts/pi/bootstrap.sh | sudo bash -s -- \
+	--repo https://github.com/imCharlieB/PiBarTicker.git \
 	--branch main
 ```
 

@@ -25,11 +25,11 @@ OS flavor requirement:
 
 ## One-command install or update from GitHub
 
-Use this command on the Pi (replace `<owner>`, `<repo>`, and branch as needed):
+Use this command on the Pi:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/<owner>/<repo>/main/scripts/pi/bootstrap.sh | sudo bash -s -- \
-  --repo https://github.com/<owner>/<repo>.git \
+curl -fsSL https://raw.githubusercontent.com/imCharlieB/PiBarTicker/main/scripts/pi/bootstrap.sh | sudo bash -s -- \
+  --repo https://github.com/imCharlieB/PiBarTicker.git \
   --branch main
 ```
 

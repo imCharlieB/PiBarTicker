@@ -1,7 +1,8 @@
 __pycache__/
 *.py[cod]
 .venv/
-.vscode/*.log
+.vscode/
+.github/copilot-instructions.md
 backend/.pytest_cache/
 backend/__pycache__/
 frontend/node_modules/

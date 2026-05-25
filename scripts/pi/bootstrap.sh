@@ -13,7 +13,7 @@ Usage:
   sudo bash bootstrap.sh --repo https://github.com/<owner>/<repo>.git [options]
 
 Options:
-  --repo <url>         Required Git repository URL.
+  --repo <url>         Required GitHub repository URL.
   --branch <name>      Branch to install/update from (default: main).
   --app-dir <path>     Install location (default: /opt/pibarticker).
   --user <name>        Linux user owning runtime (default: pi).
@@ -68,22 +68,42 @@ fi
 
 echo "Installing bootstrap dependencies..."
 apt-get update
-apt-get install -y --no-install-recommends git ca-certificates curl
+apt-get install -y --no-install-recommends ca-certificates curl tar rsync
 
-if [[ ! -d "${APP_DIR}/.git" ]]; then
-  echo "Cloning ${REPO_URL} (${BRANCH}) into ${APP_DIR}..."
-  rm -rf "${APP_DIR}"
-  git clone --depth 1 --branch "${BRANCH}" "${REPO_URL}" "${APP_DIR}"
+REPO_TRIMMED="${REPO_URL%.git}"
+REPO_TRIMMED="${REPO_TRIMMED%/}"
+ARCHIVE_URL=""
+
+if [[ "${REPO_TRIMMED}" =~ ^https://github\.com/[^/]+/[^/]+$ ]]; then
+  ARCHIVE_URL="${REPO_TRIMMED}/archive/refs/heads/${BRANCH}.tar.gz"
+elif [[ "${REPO_TRIMMED}" =~ ^git@github\.com:[^/]+/[^/]+$ ]]; then
+  REPO_PATH="${REPO_TRIMMED#git@github.com:}"
+  ARCHIVE_URL="https://github.com/${REPO_PATH}/archive/refs/heads/${BRANCH}.tar.gz"
 else
-  echo "Updating existing checkout in ${APP_DIR}..."
-  git -C "${APP_DIR}" remote set-url origin "${REPO_URL}"
-  git -C "${APP_DIR}" fetch origin "${BRANCH}" --depth 1
-  git -C "${APP_DIR}" checkout -B "${BRANCH}" "origin/${BRANCH}"
+  echo "Unsupported repo URL format: ${REPO_URL}"
+  echo "Use https://github.com/<owner>/<repo>.git or git@github.com:<owner>/<repo>.git"
+  exit 1
+fi
+
+TMP_DIR="$(mktemp -d)"
+cleanup() {
+  rm -rf "${TMP_DIR}"
+}
+trap cleanup EXIT
+
+echo "Downloading ${ARCHIVE_URL}..."
+curl -fsSL "${ARCHIVE_URL}" -o "${TMP_DIR}/source.tar.gz"
+tar -xzf "${TMP_DIR}/source.tar.gz" -C "${TMP_DIR}"
+
+SOURCE_DIR="$(find "${TMP_DIR}" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+if [[ -z "${SOURCE_DIR}" || ! -f "${SOURCE_DIR}/scripts/pi/install_pi.sh" ]]; then
+  echo "Downloaded archive does not contain scripts/pi/install_pi.sh"
+  exit 1
 fi
 
 INSTALL_ARGS=(
   "--app-dir" "${APP_DIR}"
-  "--source-dir" "${APP_DIR}"
+  "--source-dir" "${SOURCE_DIR}"
   "--user" "${APP_USER}"
 )
 
@@ -92,7 +112,7 @@ if [[ "${LAUNCH_NOW}" == "0" ]]; then
 fi
 
 echo "Running installer..."
-bash "${APP_DIR}/scripts/pi/install_pi.sh" "${INSTALL_ARGS[@]}"
+bash "${SOURCE_DIR}/scripts/pi/install_pi.sh" "${INSTALL_ARGS[@]}"
 
 echo
 echo "Done. Re-run this same command anytime to update and redeploy."

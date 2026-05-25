@@ -60,6 +60,17 @@ fi
 
 echo "Installing OS packages..."
 apt-get update
+
+CHROMIUM_PACKAGE=""
+if apt-cache show chromium-browser >/dev/null 2>&1; then
+  CHROMIUM_PACKAGE="chromium-browser"
+elif apt-cache show chromium >/dev/null 2>&1; then
+  CHROMIUM_PACKAGE="chromium"
+else
+  echo "Unable to find Chromium package (expected 'chromium-browser' or 'chromium')."
+  exit 1
+fi
+
 apt-get install -y --no-install-recommends \
   python3 \
   python3-venv \
@@ -68,7 +79,7 @@ apt-get install -y --no-install-recommends \
   npm \
   curl \
   rsync \
-  chromium-browser \
+  "${CHROMIUM_PACKAGE}" \
   x11-xserver-utils \
   xdotool \
   unclutter

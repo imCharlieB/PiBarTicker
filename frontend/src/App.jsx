@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import './App.css'
 import { DARK_PRESET, deriveThemeTokens, LIGHT_PRESET } from './themeTokens'
 
@@ -11,6 +11,28 @@ function parseList(value) {
 
 function listToText(items) {
   return items.join('\n')
+}
+
+const RECOMMENDED_PI_FLAGS = [
+  "--kiosk",
+  "--noerrdialogs",
+  "--disable-infobars",
+  "--force-device-scale-factor=1",
+  "--enable-gpu-rasterization",
+  "--ignore-gpu-blocklist",
+  "--disable-smooth-scrolling",
+  "--overscroll-history-navigation=0",
+  "--disable-translate",
+  "--disable-features=TranslateUI",
+];
+
+function addRecommendedPiFlags(currentFlags) {
+  const existing = Array.isArray(currentFlags) ? currentFlags.map((f) => String(f).trim()) : [];
+  const toAdd = RECOMMENDED_PI_FLAGS.filter((flag) => !existing.includes(flag));
+  if (toAdd.length === 0) {
+    return existing;
+  }
+  return [...existing, ...toAdd];
 }
 
 function pickerValue(value, fallback) {
@@ -48,37 +70,55 @@ function normalizeTeamDataFromScoreboard(payload) {
         : []
 
       for (const competitor of competitors) {
+        // Prefer team, but fall back to athlete for single-person sports
+        // (NASCAR, Indy, Motocross, Golf, F1 drivers in events, etc.)
         const team = competitor?.team || {}
-        if (!team.id) {
+        const athlete = competitor?.athlete || {}
+
+        const entity = team.id ? team : athlete.id ? athlete : null
+        if (!entity || !entity.id) {
           continue
         }
 
-        const incomingLogos = Array.isArray(team.logos)
-          ? team.logos
-          : team.logo
-            ? [{ href: team.logo, alt: team.displayName || team.name || team.abbreviation }]
+        const isAthlete = !team.id && !!athlete.id
+
+        let incomingLogos = Array.isArray(entity.logos)
+          ? entity.logos
+          : entity.logo
+            ? [{ href: entity.logo, alt: entity.displayName || entity.name || entity.abbreviation }]
             : []
 
-        const existing = teams.get(team.id)
+        // For athletes in racing/MMA/etc. that only have a country flag in the raw data,
+        // at least surface the flag so the user sees something instead of completely empty.
+        if (incomingLogos.length === 0 && entity.flag?.href) {
+          incomingLogos = [{
+            href: entity.flag.href,
+            alt: entity.flag.alt || entity.displayName || 'Flag'
+          }]
+        }
+
+        const existing = teams.get(entity.id)
         if (existing) {
           const knownHrefs = new Set(existing.logos.map((logo) => logo.href))
           const mergedLogos = [
             ...existing.logos,
             ...incomingLogos.filter((logo) => logo?.href && !knownHrefs.has(logo.href)),
           ]
-          teams.set(team.id, { ...existing, logos: mergedLogos })
+          teams.set(entity.id, { ...existing, logos: mergedLogos })
           continue
         }
 
-        teams.set(team.id, {
-          id: team.id,
-          name: team.displayName || team.shortDisplayName || team.name || team.abbreviation,
-          shortName: team.shortDisplayName || team.abbreviation || team.name,
-          abbreviation: team.abbreviation || '',
-          location: team.location || '',
-          color: team.color || '',
-          alternateColor: team.alternateColor || '',
+        teams.set(entity.id, {
+          id: entity.id,
+          name: entity.displayName || entity.shortDisplayName || entity.name || entity.abbreviation,
+          shortName: entity.shortDisplayName || entity.abbreviation || entity.name,
+          abbreviation: entity.abbreviation || '',
+          location: entity.location || '',
+          color: entity.color || '',
+          alternateColor: entity.alternateColor || '',
           logos: incomingLogos.filter((logo) => logo?.href),
+          // Mark as athlete so UI and future logic can treat it as an individual
+          _isAthlete: isAthlete,
         })
       }
     }
@@ -151,6 +191,157 @@ function parseLeagueApiParams(scoreboardUrl) {
   }
 }
 
+/**
+ * Determines the primary "entity type" for a league.
+ * This drives UI labels ("Teams" vs "Drivers" vs "Riders" vs "Players")
+ * and future sourcing logic for the logo cache.
+ */
+function isIndividualSport(sport, leagueSlug) {
+  const s = (sport || '').toLowerCase()
+  const l = (leagueSlug || '').toLowerCase()
+  return (
+    s === 'racing' || s === 'motorsports' || s === 'golf' || s === 'mma' || s === 'boxing' || s === 'tennis' ||
+    /racing|motorsport|motogp|nascar|indy|indycar|wec|imsa|supercars|rally|f1|formula/.test(l)
+  )
+}
+
+/**
+ * For racing leagues (NASCAR, F1, IndyCar, MotoGP, WEC, IMSA, Supercars, Rally, etc.),
+ * this tries to extract drivers/athletes from available sources (teams, scoreboard, standings).
+ *
+ * NOTE: For now this is best-effort. A more complete solution (pulling a full current drivers
+ * roster + caching real profiles/headshots from ESPN web/standings) is planned for later.
+ *
+ * The live ticker already works well for these sports using the athlete data from events.
+ */
+async function harvestRacingEntities(league) {
+  const entities = new Map()
+
+  // 1. Try the traditional teams endpoint (constructors for F1, teams for NASCAR/WEC, etc.)
+  try {
+    const teamsUrl = toLeagueTeamsEndpoint(league.url)
+    const resp = await fetch(buildEspnProxyUrl(teamsUrl, 300))
+    if (resp.ok) {
+      const data = await resp.json()
+      const fromTeams = normalizeTeamDataFromTeamsEndpoint(data)
+      for (const t of fromTeams) {
+        entities.set(String(t.id), { ...t, _source: 'teams' })
+      }
+    }
+  } catch (e) {
+    console.warn('harvestRacingEntities: teams endpoint failed', e)
+  }
+
+  // 2. Harvest athletes/drivers from recent scoreboard events for most racing leagues.
+  // For F1 we skip driver harvesting here on purpose: the league grid must only list
+  // the constructor teams. When you click a team you should then see its 2 drivers.
+  const params = parseLeagueApiParams(league.url || '')
+  const leagueSlugForHarvest = (params.league || String(league.id || '')).toLowerCase()
+  const isF1ForHarvest = /f1|formula/.test(leagueSlugForHarvest)
+
+  if (!isF1ForHarvest) {
+    try {
+      const sbResp = await fetch(buildEspnProxyUrl(league.url, 60))
+      if (sbResp.ok) {
+        const sbData = await sbResp.json()
+        const fromScoreboard = normalizeTeamDataFromScoreboard(sbData)
+        for (const e of fromScoreboard) {
+          if (!entities.has(String(e.id))) {
+            entities.set(String(e.id), { ...e, _source: 'scoreboard-athlete' })
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('harvestRacingEntities: scoreboard harvest failed', e)
+    }
+  }
+
+  // 3. Standings-based harvest (best-effort for now)
+  // For F1 we skip here too (drivers belong under the team, not in the top-level grid).
+  try {
+    const params = parseLeagueApiParams(league.url || '')
+    const sport = params.sport || 'racing'
+    const leagueSlug = params.league || String(league.id || '').toLowerCase()
+
+    if (!/f1|formula/.test(leagueSlug) && (sport === 'racing' || /racing|motorsport|nascar|indycar/.test(leagueSlug))) {
+      const standingsUrl = league.url
+        .replace('/scoreboard', '/standings')
+        .replace('site.api.espn.com/apis/site/v2/sports', 'site.api.espn.com/apis/v2/sports')
+
+      const stResp = await fetch(buildEspnProxyUrl(standingsUrl, 300))
+      if (stResp.ok) {
+        const stData = await stResp.json()
+        const children = stData?.children || stData?.standings?.children || []
+
+        for (const child of children) {
+          const entries = child?.standings?.entries || child?.entries || []
+          for (const entry of entries) {
+            const athlete = entry?.athlete || entry?.team || {}
+            if (athlete.id) {
+              const existing = entities.get(String(athlete.id))
+              if (!existing) {
+                entities.set(String(athlete.id), {
+                  id: athlete.id,
+                  name: athlete.displayName || athlete.fullName || athlete.name,
+                  shortName: athlete.shortName || athlete.abbreviation,
+                  abbreviation: athlete.abbreviation || '',
+                  logos: athlete.logos || [],
+                  _source: 'standings',
+                })
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('harvestRacingEntities: standings harvest failed (non-fatal)', e)
+  }
+
+  return Array.from(entities.values())
+}
+
+function getLeagueEntityType(league) {
+  const params = parseLeagueApiParams(league?.url || '')
+  const sport = (params.sport || '').toLowerCase()
+  const leagueSlug = (params.league || league?.id || '').toLowerCase()
+
+  const isRacing = sport === 'racing' || sport === 'motorsports' || 
+    /racing|motorsport|motogp|nascar|indy|indycar|wec|imsa|supercars|rally|f2|f3/.test(leagueSlug)
+  const isGolf = sport === 'golf' || /golf|pga|lpga/.test(leagueSlug)
+  const isMma = sport === 'mma' || /mma|ufc|bellator|pfl|mixed martial/.test(leagueSlug)
+  const isCombat = sport === 'boxing' || /boxing/.test(leagueSlug)
+  const isTennis = sport === 'tennis' || /tennis|atp|wta/.test(leagueSlug)
+
+  if (isRacing) {
+    // F1 is special: it has constructor teams + 2 drivers per team.
+    // Most other racing (NASCAR etc.) is primarily driver-focused.
+    if (leagueSlug.includes('f1') || leagueSlug.includes('formula')) {
+      return { kind: 'hybrid', label: 'Teams & Drivers', singular: 'Entity' }
+    }
+    return { kind: 'individual', label: 'Drivers', singular: 'Driver' }
+  }
+
+  if (isGolf) {
+    return { kind: 'individual', label: 'Players', singular: 'Player' }
+  }
+
+  if (isMma) {
+    return { kind: 'individual', label: 'Fighters', singular: 'Fighter' }
+  }
+
+  if (isCombat) {
+    return { kind: 'individual', label: 'Boxers', singular: 'Boxer' }
+  }
+
+  if (isTennis) {
+    return { kind: 'individual', label: 'Players', singular: 'Player' }
+  }
+
+  // Default = traditional team sport
+  return { kind: 'team', label: 'Teams', singular: 'Team' }
+}
+
 function normalizeTeamDataFromTeamsEndpoint(payload) {
   const teams = []
   const league = payload?.sports?.[0]?.leagues?.[0]
@@ -207,7 +398,11 @@ function buildEspnProxyUrl(targetUrl, cacheTtlSeconds = 120) {
   return `/api/v1/espn/proxy?${params.toString()}`
 }
 
-function buildTickerScoreboardQuery(league, { cacheTtlSeconds = 60 } = {}) {
+function buildTickerScoreboardQuery(league, {
+  cacheTtlSeconds = 60,
+  gameFilterOverride = null,
+  useWeekFilterOverride = null,
+} = {}) {
   const params = parseLeagueApiParams(league?.url || '')
   const resolvedLeague = String(params.league || league?.id || '').trim()
   const resolvedSport = String(params.sport || '').trim()
@@ -224,6 +419,22 @@ function buildTickerScoreboardQuery(league, { cacheTtlSeconds = 60 } = {}) {
     query.set('sport', params.sport)
   }
 
+  // --- Revived server-side game filtering (the correct & efficient path) ---
+  // We prefer explicit overrides (used for fallbackWhenEmpty re-queries) over the saved league value.
+  const effectiveGameFilter = gameFilterOverride ?? league?.gameFilter ?? 'all'
+  if (effectiveGameFilter && effectiveGameFilter !== 'all') {
+    query.set('game_filter', effectiveGameFilter)
+  }
+
+  const effectiveUseWeek = useWeekFilterOverride ?? league?.useWeekFilter ?? false
+  if (effectiveUseWeek) {
+    query.set('use_week_filter', 'true')
+  }
+
+  // Note: We intentionally do NOT compute the actual week number here.
+  // The backend + ESPN calendar logic (when use_week_filter is true) handles
+  // current week narrowing for football leagues. This keeps things simple and reliable.
+
   const includedTeams = Array.isArray(league?.includedTeams) ? league.includedTeams : []
   if (includedTeams.length) {
     query.set('included_teams', includedTeams.join(','))
@@ -235,6 +446,19 @@ function buildTickerScoreboardQuery(league, { cacheTtlSeconds = 60 } = {}) {
   }
 
   return query.toString()
+}
+
+/**
+ * Returns the relaxed game filter we should use when fallbackWhenEmpty triggers.
+ * Strategy: "live" -> "upcoming", "today" -> "upcoming", "this-week" -> "upcoming",
+ * everything else -> "all".
+ */
+function getRelaxedGameFilter(originalFilter) {
+  const f = String(originalFilter || 'all').toLowerCase()
+  if (f === 'live' || f === 'today' || f === 'this-week') {
+    return 'upcoming'
+  }
+  return 'all'
 }
 
 function getLogoVariantLabel(logo, index) {
@@ -350,7 +574,7 @@ function matchesLeagueCatalogSportFilter(entry, filterValue) {
     return (
       sport === 'racing'
       || sport === 'motorsports'
-      || /f1|formula\s*1|nascar|indycar|motogp|rally|racing/.test(haystack)
+      || /f1|formula\s*1|nascar|indycar|motogp|rally|wec|imsa|supercars|racing/.test(haystack)
     )
   }
 
@@ -551,12 +775,26 @@ function leagueStatToggleEnabled(league, field, fallback = true) {
   return fallback
 }
 
+/**
+ * Live game mode drives the entire enhanced live card experience
+ * (baseball diamond with runners, outs/count panel, extra live headers, etc.).
+ *
+ * There is now only ONE control for this: the "Live game mode" checkbox.
+ * The old separate "show live state" toggle has been removed.
+ */
+function hasLiveGameMode(league) {
+  if (!league || typeof league !== 'object') {
+    return false
+  }
+  return Boolean(league.liveGameMode)
+}
+
 function buildRuntimeDetailStats({ rawEvent, game, league, baseballSituationText, venueText, hasBaseballLivePanel = false }) {
   const stats = []
   const state = String(game?.state || '').toLowerCase()
-  const showLiveState = leagueStatToggleEnabled(league, 'showLiveState', false)
+  const hasLiveMode = hasLiveGameMode(league)
 
-  if (showLiveState && leagueStatToggleEnabled(league, 'showStatClock', true)) {
+  if (hasLiveMode && leagueStatToggleEnabled(league, 'showStatClock', true)) {
     const isLive = state === 'in'
     if (isLive) {
       const period = Number.isInteger(Number(game?.status?.period)) ? Number(game.status.period) : null
@@ -570,7 +808,7 @@ function buildRuntimeDetailStats({ rawEvent, game, league, baseballSituationText
     }
   }
 
-  if (showLiveState && leagueStatToggleEnabled(league, 'showStatSituation', true)) {
+  if (hasLiveMode && leagueStatToggleEnabled(league, 'showStatSituation', true)) {
     if (!hasBaseballLivePanel) {
       const downDistance = String(game?.liveState?.downDistanceText || '').trim()
       const liveDetail = String(game?.liveState?.detail || '').trim()
@@ -899,6 +1137,49 @@ function extractBaseballLiveSituation(rawEvent, game) {
   const balls = Number.isInteger(Number(situation?.balls)) ? Number(situation.balls) : null
   const strikes = Number.isInteger(Number(situation?.strikes)) ? Number(situation.strikes) : null
 
+  // Extract inning number and half (top/bottom) from common ESPN fields
+  const detailSources = [
+    game?.liveState?.detail,
+    game?.status?.detail,
+    game?.status?.shortDetail,
+    rawEvent?.status?.type?.detail,
+    rawEvent?.status?.type?.shortDetail,
+    rawEvent?.competitions?.[0]?.status?.type?.detail,
+  ].filter(Boolean).map((s) => String(s))
+
+  let inning = null
+  let halfInning = ''
+
+  const combined = detailSources.join(' ').toLowerCase()
+
+  // Try explicit inning field if present
+  const rawInning = Number(situation?.inning ?? game?.liveState?.inning)
+  if (Number.isInteger(rawInning) && rawInning > 0) {
+    inning = rawInning
+  }
+
+  // Parse half + inning from text like "Top of the 4th", "Bot 7", "T5", "B9th"
+  const topMatch = combined.match(/\b(?:top|t)\s*(?:of\s*(?:the\s*)?)?(\d+)/i)
+  const botMatch = combined.match(/\b(?:bottom|bot|b)\s*(?:of\s*(?:the\s*)?)?(\d+)/i)
+  const shortT = combined.match(/\bT\s*(\d+)/i)
+  const shortB = combined.match(/\bB\s*(\d+)/i)
+
+  if (topMatch || shortT) {
+    halfInning = 'top'
+    const m = topMatch || shortT
+    if (!inning) inning = parseInt(m[1], 10)
+  } else if (botMatch || shortB) {
+    halfInning = 'bottom'
+    const m = botMatch || shortB
+    if (!inning) inning = parseInt(m[1], 10)
+  }
+
+  // Fallback: try to find any number near common markers
+  if (!inning) {
+    const anyInning = combined.match(/(?:^|[\s(])(\d{1,2})(?:st|nd|rd|th|\s|$)/)
+    if (anyInning) inning = parseInt(anyInning[1], 10)
+  }
+
   return {
     outs,
     balls,
@@ -906,6 +1187,8 @@ function extractBaseballLiveSituation(rawEvent, game) {
     onFirst: Boolean(situation?.onFirst),
     onSecond: Boolean(situation?.onSecond),
     onThird: Boolean(situation?.onThird),
+    inning: inning || null,
+    halfInning: halfInning || '',
   }
 }
 
@@ -1119,6 +1402,9 @@ function App() {
   const [selectedTickerLeagueId, setSelectedTickerLeagueId] = useState('')
   const [selectedTickerTeamId, setSelectedTickerTeamId] = useState('')
   const [leagueTeamsById, setLeagueTeamsById] = useState({})
+  const [leagueLogoMetaById, setLeagueLogoMetaById] = useState({}) // new cached logo system data
+  const [logoSyncingLeagues, setLogoSyncingLeagues] = useState({}) // leagueId -> boolean for download status
+  const [logoClearMessageById, setLogoClearMessageById] = useState({}) // transient "cache nuked" confirmation
   const [leagueLoadStateById, setLeagueLoadStateById] = useState({})
   const [leagueGroupsById, setLeagueGroupsById] = useState({})
   const [leagueGroupsLoadStateById, setLeagueGroupsLoadStateById] = useState({})
@@ -1142,11 +1428,306 @@ function App() {
   const [runtimeWindowWidth, setRuntimeWindowWidth] = useState(0)
   const [runtimeLastStableLeagueId, setRuntimeLastStableLeagueId] = useState('')
   const [runtimeLastStableMarqueeGames, setRuntimeLastStableMarqueeGames] = useState([])
+
+  // Computed size for the faint ticker watermark logo.
+  // We measure the actual image so tall logos (UGA etc.) and wide ones all look good
+  // without being tiny or getting clipped in the short ticker bar.
+  const [tickerWatermarkSize, setTickerWatermarkSize] = useState('82%')
+
+  // Memoize the watermark URL so it can be safely used in effects and as a dependency
+  // without temporal dead zone issues.
+  const tickerWatermarkUrl = useMemo(() => {
+    if (!config?.theme?.tickerWatermarkEnabled) return null
+
+    const tt = config.theme.teamTheme || {}
+
+    // Only use the selected team's logo for the watermark when BOTH
+    // "Ticker watermark" AND "Use team theme" are turned on.
+    if (tt.enabled && tt.league && tt.team) {
+      const fromTeam =
+        getCachedOrRemoteLogo(tt.league, { id: tt.team, abbreviation: tt.team }, 'dark') ||
+        getCachedOrRemoteLogo(tt.league, { id: tt.team, abbreviation: tt.team })
+
+      if (fromTeam) return fromTeam
+    }
+
+    // Default to the app logo
+    return '/pibarticker-logo-transparent.png'
+  }, [
+    config?.theme?.tickerWatermarkEnabled,
+    config?.theme?.teamTheme?.enabled,
+    config?.theme?.teamTheme?.league,
+    config?.theme?.teamTheme?.team,
+    leagueLogoMetaById,
+  ])
   const runtimePayloadRef = useRef(runtimePayloadByLeagueId)
   const runtimeLoadStateRef = useRef(runtimeLoadStateByLeagueId)
   const configRef = useRef(null)
   const runtimeMarqueeTrackRef = useRef(null)
   const runtimeMarqueeWindowRef = useRef(null)
+
+  // === Logo cache helpers ===
+  async function loadLeagueLogoMeta(leagueId) {
+    if (!leagueId) return;
+    try {
+      const res = await fetch(`/api/v1/logos/meta/${encodeURIComponent(leagueId)}`);
+      if (!res.ok) return;
+      const meta = await res.json();
+      setLeagueLogoMetaById((current) => ({
+        ...current,
+        [leagueId]: meta,
+      }));
+    } catch (err) {
+      console.warn('Failed to load logo meta:', err);
+    }
+  }
+
+  async function enrichTeamsForLogoSync(league, basicTeams) {
+    if (!league || !Array.isArray(basicTeams) || basicTeams.length === 0) return basicTeams;
+
+    const params = parseLeagueApiParams(league.url || '');
+    const sport = params.sport || '';
+    const leagueSlug = params.league || String(league.id || '').toLowerCase();
+
+    const isFootball = sport === 'football';
+    const isRacingOrIndividual = isIndividualSport(sport, leagueSlug);
+
+    // Enrichment is still useful for football and racing/individual sports.
+    // It pulls better primary logo URLs + colors from the detailed ESPN endpoint.
+    if (!isFootball && !isRacingOrIndividual) {
+      return basicTeams;
+    }
+
+    const total = basicTeams.length;
+    console.log(`[logo-enrich] Starting rich logo fetch for ${leagueSlug} (${total} teams)`);
+
+    const enriched = [...basicTeams];
+    let done = 0;
+
+    for (let i = 0; i < enriched.length; i++) {
+      const team = enriched[i];
+      done += 1;
+
+      // Show live progress in the syncing area
+      setLogoSyncingLeagues((prev) => ({
+        ...prev,
+        [league.id]: `Fetching logos for ${leagueSlug}… ${done}/${total}`,
+      }));
+
+      try {
+        const url = `/api/v1/espn/team-logos?team=${encodeURIComponent(team.id)}&league=${encodeURIComponent(leagueSlug)}&sport=${sport}&cache_ttl_seconds=600`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          const richLogos = Array.isArray(data?.logos) ? data.logos.filter((l) => l?.href) : [];
+
+          if (richLogos.length > 0) {
+            // Replace with the much richer set from the core API
+            enriched[i] = {
+              ...team,
+              logos: richLogos,
+              // Also take better colors if the detailed endpoint had them
+              color: data?.teamProfile?.color || team.color || '',
+              alternateColor: data?.teamProfile?.alternateColor || team.alternateColor || '',
+            };
+          }
+        }
+      } catch (err) {
+        console.warn(`[logo-enrich] Failed to get rich logos for ${team.abbreviation || team.id}`, err);
+      }
+
+      // Be nice to ESPN
+      await new Promise((r) => setTimeout(r, 140));
+    }
+
+    return enriched;
+  }
+
+  async function triggerLogoCacheForLeague(leagueId, teams) {
+    if (!leagueId || !Array.isArray(teams) || teams.length === 0) return;
+
+    setLogoSyncingLeagues((prev) => ({ ...prev, [leagueId]: true }));
+
+    try {
+      await fetch(`/api/v1/logos/cache/${encodeURIComponent(leagueId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(teams),
+      });
+      await loadLeagueLogoMeta(leagueId);
+    } catch (err) {
+      console.warn('Logo cache trigger failed:', err);
+    } finally {
+      setLogoSyncingLeagues((prev) => {
+        const copy = { ...prev };
+        delete copy[leagueId];
+        return copy;
+      });
+    }
+  }
+
+  /**
+   * Per-team "get the extra logos" action.
+   * Fetches the current full logo list from ESPN for just this one team,
+   * then tells the backend to download/cache the variants locally.
+   * After success we reload the league meta so the new files appear in the
+   * "Local Cached Logos" list and can be chosen as preferred_variant.
+   */
+  async function downloadExtrasForTeam(league, team) {
+    if (!league?.id || !team?.id) return;
+
+    const leagueId = league.id;
+    const teamId = String(team.id);
+    const params = parseLeagueApiParams(league.url || '');
+
+    setLogoSyncingLeagues((prev) => ({
+      ...prev,
+      [leagueId]: `Downloading extra variants for ${team.abbreviation || team.name || teamId}…`,
+    }));
+
+    try {
+      // Get the richest possible logo set for this one team.
+      // We prioritize data that already succeeded when you opened the team page,
+      // plus the league teams list (very rich for college). We treat the direct
+      // single-team /team-logos call as best-effort only because some college
+      // team IDs (like 2025) return 404 on the detailed endpoint.
+      let richLogos = [];
+
+      const cacheKey = `${league.id}:${team.id}`;
+      const alreadyLoaded = teamLogoDetailsByKey[cacheKey];
+
+      // 1. Use whatever rich data we already successfully loaded when you clicked into this team.
+      // This is the most reliable source right now.
+      if (alreadyLoaded) {
+        const fromLoaded = (alreadyLoaded.primary || []).concat(alreadyLoaded.extras || []);
+        if (Array.isArray(fromLoaded)) richLogos.push(...fromLoaded);
+      }
+
+      if (params.league) {
+        // 2. Best-effort detailed team call (can 404 for some college IDs — we swallow it)
+        try {
+          const query = new URLSearchParams({
+            sport: params.sport || '',
+            league: params.league,
+            team: teamId,
+            cache_ttl_seconds: '60',
+          });
+          const detailRes = await fetch(`/api/v1/espn/team-logos?${query.toString()}`);
+          if (detailRes.ok) {
+            const detail = await detailRes.json();
+            const fromDetail = detail?.logos || (detail?.teamProfile && detail.teamProfile.logos) || [];
+            if (Array.isArray(fromDetail)) richLogos.push(...fromDetail);
+          }
+          // If 404 or error, we just continue — we have the alreadyLoaded + teams list below
+        } catch (e) { /* ignore 404s and network issues for this source */ }
+
+        // 3. Pull from the full league teams list — this is often the best source for
+        // "tons" of college variants (conference, old logos, etc.) that the single-team call misses.
+        try {
+          const teamsUrl = `/api/v1/espn/teams?sport=${encodeURIComponent(params.sport || '')}&league=${encodeURIComponent(params.league)}&cache_ttl_seconds=300`;
+          const teamsRes = await fetch(teamsUrl);
+          if (teamsRes.ok) {
+            const teamsPayload = await teamsRes.json();
+            const allTeams = teamsPayload?.sports?.[0]?.leagues?.[0]?.teams || [];
+            const match = allTeams.find((t) => {
+              const teamObj = t?.team || t;
+              return String(teamObj?.id) === teamId ||
+                     String(teamObj?.abbreviation || '').toUpperCase() === String(team.abbreviation || '').toUpperCase();
+            });
+            if (match) {
+              const teamObj = match?.team || match;
+              const fromList = teamObj?.logos || [];
+              if (Array.isArray(fromList)) richLogos.push(...fromList);
+            }
+          }
+        } catch (e) { /* ignore */ }
+      }
+
+      // Dedupe by href
+      const seenHrefs = new Set();
+      const combined = [];
+      for (const l of richLogos) {
+        if (l?.href && !seenHrefs.has(l.href)) {
+          seenHrefs.add(l.href);
+          combined.push(l);
+        }
+      }
+      richLogos = combined;
+
+      // Absolute last fallback to whatever the grid had
+      if (richLogos.length === 0 && Array.isArray(team.logos)) {
+        richLogos = team.logos.filter((l) => l?.href);
+      }
+
+      const payload = {
+        logos: richLogos,
+        abbreviation: team.abbreviation,
+        displayName: team.name || team.displayName,
+        color: team.color,
+        alternateColor: team.alternateColor,
+      };
+
+      const res = await fetch(
+        `/api/v1/logos/cache/${encodeURIComponent(leagueId)}/team/${encodeURIComponent(teamId)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+      );
+
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        console.warn('Per-team extras cache failed', res.status, txt);
+        setNotice(`Failed to download extras for this team (server error ${res.status}). Check backend logs.`);
+      }
+
+      // Refresh meta so new variants appear in the cached list immediately
+      await loadLeagueLogoMeta(leagueId);
+    } catch (err) {
+      console.warn('downloadExtrasForTeam failed:', err);
+      setNotice('Failed to download extra logos for this team.');
+    } finally {
+      setLogoSyncingLeagues((prev) => {
+        const copy = { ...prev };
+        delete copy[leagueId];
+        return copy;
+      });
+    }
+  }
+
+  function getCachedOrRemoteLogo(leagueId, team, preferredVariant = null) {
+    const meta = leagueLogoMetaById[leagueId];
+    if (!meta || !meta.teams) return null;
+
+    let cachedTeam = meta.teams[String(team.id)];
+
+    // Fallback: search by abbreviation (common when the stored team value is the abbr like "UGA")
+    if (!cachedTeam) {
+      const upper = String(team.abbreviation || team.id || '').trim().toUpperCase();
+      cachedTeam = Object.values(meta.teams).find(t =>
+        String(t?.abbreviation || '').trim().toUpperCase() === upper
+      );
+    }
+
+    if (!cachedTeam || !cachedTeam.logos) return null;
+
+    if (preferredVariant && cachedTeam.logos[preferredVariant]) {
+      return `/logos/${cachedTeam.logos[preferredVariant]}`;
+    }
+
+    const logos = cachedTeam.logos;
+    const preferredOrder = ['scoreboard', 'default', 'dark', 'full'];
+    for (const v of preferredOrder) {
+      if (logos[v]) {
+        return `/logos/${logos[v]}`;
+      }
+    }
+
+    const first = Object.values(logos)[0];
+    return first ? `/logos/${first}` : null;
+  }
+  // === End logo cache helpers ===
 
   useEffect(() => {
     runtimePayloadRef.current = runtimePayloadByLeagueId
@@ -1179,9 +1760,34 @@ function App() {
         }
 
         const payload = await response.json()
-        setConfig(payload)
-        setSavedConfig(payload)
-        configRef.current = payload
+
+        // Automatically ensure recommended Raspberry Pi Chromium flags are present.
+        // This makes the good defaults appear in the UI without the user having to do anything.
+        const currentFlags = Array.isArray(payload?.kiosk?.chromiumFlags) ? payload.kiosk.chromiumFlags : []
+        const mergedFlags = addRecommendedPiFlags(currentFlags)
+
+        if (mergedFlags.length !== currentFlags.length) {
+          const updatedPayload = {
+            ...payload,
+            kiosk: {
+              ...payload.kiosk,
+              chromiumFlags: mergedFlags,
+            },
+          }
+          setConfig(updatedPayload)
+          setSavedConfig(updatedPayload)
+          configRef.current = updatedPayload
+          // Persist the improved defaults so the good Pi flags survive restarts
+          fetch('/api/v1/config', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedPayload),
+          }).catch(() => {})
+        } else {
+          setConfig(payload)
+          setSavedConfig(payload)
+          configRef.current = payload
+        }
       } catch (loadError) {
         setError(loadError.message)
       } finally {
@@ -1196,7 +1802,7 @@ function App() {
   const homeAssistantBoard = config?.boards.find(
     (board) => board.type === 'home-assistant',
   )
-  const themeTokens = config ? deriveThemeTokens(config.theme, { sportsBoard }) : null
+  const themeTokens = config ? deriveThemeTokens(config.theme, { sportsBoard, leagueLogoMetaById }) : null
   const runtimeLeagues = sportsBoard?.leagues.filter((league) => league.enabled) ?? []
   const runtimeLeagueIdsKey = runtimeLeagues.map((league) => league.id).join('|')
   const activeRuntimeLeague = runtimeLeagues.length
@@ -1229,11 +1835,11 @@ function App() {
     const homeLogoRaw = resolveEventTeamLogo(rawEvent, 'home')
     const awayPaletteRaw = resolveEventTeamPalette(rawEvent, 'away')
     const homePaletteRaw = resolveEventTeamPalette(rawEvent, 'home')
-    const storedTeamStyles = runtimeDisplayLeague?.teamStyles && typeof runtimeDisplayLeague.teamStyles === 'object'
-      ? runtimeDisplayLeague.teamStyles
-      : {}
-    const awayStoredStyle = storedTeamStyles[String(game?.teams?.away?.id || '').trim()] || {}
-    const homeStoredStyle = storedTeamStyles[String(game?.teams?.home?.id || '').trim()] || {}
+
+    // Primary source: new local logo cache (team-meta + local logos)
+    const cachedMeta = runtimeDisplayLeague ? leagueLogoMetaById[runtimeDisplayLeague.id] : null
+    const awayCached = cachedMeta?.teams?.[String(game?.teams?.away?.id || '').trim()]
+    const homeCached = cachedMeta?.teams?.[String(game?.teams?.home?.id || '').trim()]
     const broadcastText = Array.isArray(game?.broadcasts)
       ? game.broadcasts
         .map((item) => String(item || '').trim())
@@ -1244,10 +1850,10 @@ function App() {
     const venueText = String(game?.venue?.name || '').trim()
     const isRacing = isRacingGame(game)
     const useTeamCardColors = leagueStatToggleEnabled(runtimeDisplayLeague, 'useTeamCardColors', false)
-    const showLiveState = leagueStatToggleEnabled(runtimeDisplayLeague, 'showLiveState', false)
+    const hasLiveMode = hasLiveGameMode(runtimeDisplayLeague)
     const nextRace = isRacing ? nextRacingCalendarEvent(activeRuntimePayload, game) : null
     const liveTheme = runtimeLiveTheme(game, rawEvent)
-    const baseballLiveData = showLiveState && liveTheme === 'baseball'
+    const baseballLiveData = hasLiveMode && liveTheme === 'baseball'
       ? (game?.liveState || extractBaseballLiveSituation(rawEvent, game))
       : null
     const baseballBattingSide = baseballLiveData
@@ -1260,7 +1866,7 @@ function App() {
       league: runtimeDisplayLeague,
       baseballSituationText,
       venueText,
-      hasBaseballLivePanel: Boolean(showLiveState && baseballLiveData),
+      hasBaseballLivePanel: Boolean(hasLiveMode && baseballLiveData),
     })
     const racingTopPrimaryLabel = nextRace?.label
       ? 'NEXT RACE'
@@ -1270,22 +1876,43 @@ function App() {
     const racingTopPrimaryText = nextRace?.label
       ? `${nextRace.label}${nextRace.dateText ? ` • ${nextRace.dateText}` : ''}`
       : formatRuntimeStatus(game)
-    const racingTopTvText = showLiveState && runtimeDisplayLeague?.showTV && broadcastText
+    const racingTopTvText = hasLiveMode && runtimeDisplayLeague?.showTV && broadcastText
       ? `TV ${broadcastText}`
       : ''
 
-    const infoParts = [formatRuntimeStatus(game)]
-    if (showLiveState && baseballSituationText && !baseballLiveData) {
-      infoParts.push(baseballSituationText)
-    }
-    if (runtimeDisplayLeague?.showTV && broadcastText && !isRacing) {
-      infoParts.push(`TV ${broadcastText}`)
-    }
-    if (runtimeDisplayLeague?.showOdds && oddsText) {
-      infoParts.push(`Odds ${oddsText}`)
-    }
-    if (runtimeDisplayLeague?.showNews && venueText) {
-      infoParts.push(venueText)
+    // For Large Logo cards with live baseball that have their own big custom inning/count/outs display,
+    // keep the tiny bottom meta line 100% clean — only the extra toggled info (TV, Odds, Venue).
+    // Never include status or inning text in the lower meta for these cards.
+    let finalInfoParts = [];
+
+    const isLargeLogoLiveBaseball = (runtimeDisplayLeague?.cardStyle || 'standard') === 'large-logo' && baseballLiveData;
+
+    if (isLargeLogoLiveBaseball) {
+      // Only the toggled extras, nothing else.
+      if (runtimeDisplayLeague?.showTV && broadcastText && !isRacing) {
+        finalInfoParts.push(`TV ${broadcastText}`);
+      }
+      if (runtimeDisplayLeague?.showOdds && oddsText) {
+        finalInfoParts.push(`Odds ${oddsText}`);
+      }
+      if (runtimeDisplayLeague?.showNews && venueText) {
+        finalInfoParts.push(venueText);
+      }
+    } else {
+      // Normal behavior for everything else
+      finalInfoParts = [formatRuntimeStatus(game)].filter(Boolean).filter(s => s !== 'Scheduled');
+      if (hasLiveMode && baseballSituationText && !baseballLiveData) {
+        finalInfoParts.push(baseballSituationText);
+      }
+      if (runtimeDisplayLeague?.showTV && broadcastText && !isRacing) {
+        finalInfoParts.push(`TV ${broadcastText}`);
+      }
+      if (runtimeDisplayLeague?.showOdds && oddsText) {
+        finalInfoParts.push(`Odds ${oddsText}`);
+      }
+      if (runtimeDisplayLeague?.showNews && venueText) {
+        finalInfoParts.push(venueText);
+      }
     }
 
     return {
@@ -1296,7 +1923,7 @@ function App() {
       liveTheme,
       isRacing,
       useTeamCardColors,
-      showLiveState,
+      showLiveState: hasLiveMode,
       showStatRecords: leagueStatToggleEnabled(runtimeDisplayLeague, 'showStatRecords', true),
       nextRace,
       baseballLiveData,
@@ -1314,10 +1941,10 @@ function App() {
           ...(game?.teams?.away || {}),
           logo: String(game?.teams?.away?.logo || awayLogoRaw || '').trim(),
           palette: {
-            primary: sanitizeHexColor(awayStoredStyle.color)
+            primary: sanitizeHexColor(awayCached?.color)
               || awayPaletteRaw.primary
               || sanitizeHexColor(game?.teams?.away?.color),
-            alternate: sanitizeHexColor(awayStoredStyle.alternateColor)
+            alternate: sanitizeHexColor(awayCached?.alternate_color)
               || awayPaletteRaw.alternate
               || sanitizeHexColor(game?.teams?.away?.alternateColor),
           },
@@ -1326,16 +1953,17 @@ function App() {
           ...(game?.teams?.home || {}),
           logo: String(game?.teams?.home?.logo || homeLogoRaw || '').trim(),
           palette: {
-            primary: sanitizeHexColor(homeStoredStyle.color)
+            primary: sanitizeHexColor(homeCached?.color)
               || homePaletteRaw.primary
               || sanitizeHexColor(game?.teams?.home?.color),
-            alternate: sanitizeHexColor(homeStoredStyle.alternateColor)
+            alternate: sanitizeHexColor(homeCached?.alternate_color)
               || homePaletteRaw.alternate
               || sanitizeHexColor(game?.teams?.home?.alternateColor),
           },
         },
       },
-      cardInfo: infoParts.join(' • '),
+      cardInfo: finalInfoParts.join(' • '),
+      cardStyle: runtimeDisplayLeague?.cardStyle || 'standard',
       slateOrder: index,
     }
   })
@@ -1376,9 +2004,13 @@ function App() {
 
   async function loadLeagueScoreboardWithSettings(league, {
     cacheTtlSeconds = 30,
+    gameFilterOverride = null,
+    useWeekFilterOverride = null,
   } = {}) {
     const query = buildTickerScoreboardQuery(league, {
       cacheTtlSeconds,
+      gameFilterOverride,
+      useWeekFilterOverride,
     })
     const response = await fetch(`/api/v1/espn/scoreboard?${query}`)
     if (!response.ok) {
@@ -1394,6 +2026,14 @@ function App() {
 
     setRuntimeLeagueIndex(0)
     setRuntimeVisibleLeagueId('')
+
+    // Load cached logo meta for all enabled runtime leagues so we can use
+    // modern cached colors/logos (legacy teamStyles in config.json is gone)
+    runtimeLeagues.forEach((league) => {
+      if (!leagueLogoMetaById[league.id]) {
+        loadLeagueLogoMeta(league.id)
+      }
+    })
   }, [isTickerRuntime, runtimeLeagueIdsKey])
 
   useEffect(() => {
@@ -1489,19 +2129,51 @@ function App() {
         fallbackCacheTtlSeconds,
       })
 
-      setRuntimePayloadByLeagueId((current) => ({
-        ...current,
-        [league.id]: payload,
-      }))
       setRuntimeLoadStateByLeagueId((current) => ({
         ...current,
         [league.id]: { loading: false, error: '' },
       }))
 
-      const gameCount = Array.isArray(payload?.normalizedGames) ? payload.normalizedGames.length : 0
+      let finalPayload = payload
+      let gameCount = Array.isArray(payload?.normalizedGames) ? payload.normalizedGames.length : 0
+
+      // === FallbackWhenEmpty behavior (user-requested) ===
+      // If the league has the checkbox on AND we got zero games with the (possibly strict) filter,
+      // re-fetch once with a relaxed filter so the ticker doesn't go blank or auto-skip the league.
+      const wantsFallback = Boolean(league?.fallbackWhenEmpty)
+      if (gameCount === 0 && wantsFallback) {
+        const originalFilter = league?.gameFilter || 'all'
+        const relaxedFilter = getRelaxedGameFilter(originalFilter)
+
+        if (relaxedFilter !== originalFilter) {
+          try {
+            const relaxedPayload = await loadLeagueScoreboardWithSettings(league, {
+              cacheTtlSeconds: fallbackCacheTtlSeconds,
+              gameFilterOverride: relaxedFilter,
+              useWeekFilterOverride: league?.useWeekFilter ?? false,
+            })
+
+            const relaxedCount = Array.isArray(relaxedPayload?.normalizedGames) ? relaxedPayload.normalizedGames.length : 0
+            if (relaxedCount > 0) {
+              finalPayload = {
+                ...relaxedPayload,
+                _fallbackApplied: true,
+                _originalGameFilter: originalFilter,
+                _relaxedGameFilter: relaxedFilter,
+              }
+              gameCount = relaxedCount
+            }
+          } catch {
+            // If the relaxed fetch fails we just keep the empty payload.
+          }
+        }
+      }
+
       if (gameCount > 0 && (!runtimeVisibleLeagueId || runtimeVisibleLeagueId === league.id)) {
         setRuntimeVisibleLeagueId(league.id)
       }
+
+      // Only auto-advance to the next league when we truly have nothing (and fallback didn't save us).
       if (gameCount === 0 && runtimeLeagues.length > 1) {
         const currentIndex = runtimeLeagues.findIndex((item) => item.id === league.id)
         const nextIndex = findNextLeagueIndexInOrder(
@@ -1509,7 +2181,7 @@ function App() {
           runtimeLeagues,
           {
             ...runtimePayloadRef.current,
-            [league.id]: payload,
+            [league.id]: finalPayload,
           },
           {
             ...runtimeLoadStateRef.current,
@@ -1528,11 +2200,17 @@ function App() {
           }, 0)
         }
         if (!runtimeVisibleLeagueId) {
-          return payload
+          return finalPayload
         }
       }
 
-      return payload
+      // Store the (possibly relaxed) payload for runtime + preview
+      setRuntimePayloadByLeagueId((current) => ({
+        ...current,
+        [league.id]: finalPayload,
+      }))
+
+      return finalPayload
     } catch (loadError) {
       setRuntimeLoadStateByLeagueId((current) => ({
         ...current,
@@ -1548,7 +2226,54 @@ function App() {
     }
 
     refreshRuntimeLeaguePayload(runtimeDisplayLeague)
+
+    // Ensure we have cached logo/color data for the current runtime league
+    if (!leagueLogoMetaById[runtimeDisplayLeague.id]) {
+      loadLeagueLogoMeta(runtimeDisplayLeague.id)
+    }
   }, [isTickerRuntime, runtimeDisplayLeague?.id])
+
+  // Measure the watermark image and compute a good size so it looks big but doesn't
+  // get cut off at top/bottom on tall logos (UGA etc.) in the short ticker bar.
+  useEffect(() => {
+    if (!tickerWatermarkUrl) {
+      setTickerWatermarkSize('82%')
+      return
+    }
+
+    const img = new Image()
+    img.onload = () => {
+      const boardH = Number(config?.monitor?.height) || 380
+      // For a sparse elegant pattern ("just a few" larger logos with breathing room),
+      // target the logo to occupy a large portion of the ticker height.
+      const targetHeight = boardH * 0.85
+      let sizePercent = (targetHeight / img.naturalHeight) * 100
+
+      // Wider range for sparse look: bigger logos, more space between repeats
+      sizePercent = Math.max(60, Math.min(95, sizePercent))
+
+      setTickerWatermarkSize(`${sizePercent.toFixed(0)}%`)
+    }
+    img.src = tickerWatermarkUrl
+  }, [tickerWatermarkUrl, config?.monitor?.height])
+
+  // Load the logo meta for the Theme page's selected "Team league" (if any) so that buildThemeTeamOptions
+  // can populate the Teams dropdown from the cached team styles/colors. This runs on mount and when
+  // the configured teamTheme.league changes. Fixes empty teams dropdown for NCAA Football etc.
+  useEffect(() => {
+    const token = String(config?.theme?.teamTheme?.league || '').trim().toLowerCase()
+    if (!token) return
+    const leagues = Array.isArray(sportsBoard?.leagues) ? sportsBoard.leagues : []
+    const league = leagues.find((entry) => {
+      const id = String(entry?.id || '').trim().toLowerCase()
+      const name = String(entry?.name || '').trim().toLowerCase()
+      return token === id || token === name
+    })
+    const leagueId = league?.id
+    if (leagueId && !leagueLogoMetaById[leagueId]) {
+      loadLeagueLogoMeta(leagueId)
+    }
+  }, [config?.theme?.teamTheme?.league, sportsBoard])
 
   function updateConfigSection(section, field, value) {
     commitConfig((current) => ({
@@ -1613,99 +2338,6 @@ function App() {
           leagues: board.leagues.map((league, leagueIndex) =>
             leagueIndex === index ? { ...league, [field]: value } : league,
           ),
-        }
-      }),
-    }))
-  }
-
-  function upsertLeagueTeamStylesByLeagueId(leagueId, teams) {
-    const safeLeagueId = String(leagueId || '').trim()
-    if (!safeLeagueId || !Array.isArray(teams)) {
-      return
-    }
-
-    commitConfig((current) => ({
-      ...current,
-      boards: current.boards.map((board) => {
-        if (board.type !== 'sports') {
-          return board
-        }
-
-        return {
-          ...board,
-          leagues: board.leagues.map((league) => {
-            if (league.id !== safeLeagueId) {
-              return league
-            }
-
-            const existingStyles = league.teamStyles && typeof league.teamStyles === 'object'
-              ? league.teamStyles
-              : {}
-            const nextStyles = { ...existingStyles }
-
-            for (const team of teams) {
-              const teamId = String(team?.id || '').trim()
-              if (!teamId) {
-                continue
-              }
-
-              const previous = existingStyles[teamId] || {}
-              const primaryLogo = resolveTeamPrimaryLogo(team, safeLeagueId)
-              nextStyles[teamId] = {
-                name: String(previous.name || team?.name || '').trim(),
-                abbreviation: String(previous.abbreviation || team?.abbreviation || '').trim(),
-                logo: String(previous.logo || primaryLogo || '').trim(),
-                color: sanitizeHexColor(previous.color || team?.color),
-                alternateColor: sanitizeHexColor(previous.alternateColor || team?.alternateColor),
-              }
-            }
-
-            return {
-              ...league,
-              teamStyles: nextStyles,
-            }
-          }),
-        }
-      }),
-    }))
-  }
-
-  function updateLeagueTeamStyle(index, teamId, updates) {
-    const safeTeamId = String(teamId || '').trim()
-    if (index < 0 || !safeTeamId || !updates || typeof updates !== 'object') {
-      return
-    }
-
-    commitConfig((current) => ({
-      ...current,
-      boards: current.boards.map((board) => {
-        if (board.type !== 'sports') {
-          return board
-        }
-
-        return {
-          ...board,
-          leagues: board.leagues.map((league, leagueIndex) => {
-            if (leagueIndex !== index) {
-              return league
-            }
-
-            const existingStyles = league.teamStyles && typeof league.teamStyles === 'object'
-              ? league.teamStyles
-              : {}
-            const previous = existingStyles[safeTeamId] || {}
-
-            return {
-              ...league,
-              teamStyles: {
-                ...existingStyles,
-                [safeTeamId]: {
-                  ...previous,
-                  ...updates,
-                },
-              },
-            }
-          }),
         }
       }),
     }))
@@ -1807,6 +2439,9 @@ function App() {
     }))
 
     try {
+      const params = parseLeagueApiParams(league.url)
+      const isRacingOrIndividual = isIndividualSport(params.sport, params.league)
+
       const teamsUrl = toLeagueTeamsEndpoint(league.url)
       const response = await fetch(buildEspnProxyUrl(teamsUrl, 300))
       if (!response.ok) {
@@ -1816,7 +2451,44 @@ function App() {
       const payload = await response.json()
       let teams = normalizeTeamDataFromTeamsEndpoint(payload)
 
-      // Fallback for unexpected endpoint shapes so league page remains usable.
+      // For racing leagues (NASCAR, F1, etc.) and other individual sports, use dedicated harvesting
+      // that pulls both teams (constructors) and athletes/drivers where available.
+      if (isRacingOrIndividual) {
+        try {
+          const racingEntities = await harvestRacingEntities(league)
+          if (racingEntities.length > 0) {
+            // Merge with any teams we already got, preferring richer data
+            const byId = new Map(teams.map((t) => [String(t.id), t]))
+            for (const ent of racingEntities) {
+              const key = String(ent.id)
+              if (!byId.has(key)) {
+                byId.set(key, ent)
+              } else {
+                const existing = byId.get(key)
+                if ((ent.logos || []).length > (existing.logos || []).length) {
+                  byId.set(key, { ...existing, ...ent })
+                }
+              }
+            }
+            teams = Array.from(byId.values())
+          }
+        } catch (e) {
+          console.warn('harvestRacingEntities failed (non-fatal)', e)
+        }
+      } else if (!teams.length) {
+        // Original fallback for non-racing leagues
+        try {
+          const scoreboardResponse = await fetch(buildEspnProxyUrl(league.url, 60))
+          if (scoreboardResponse.ok) {
+            const scoreboardPayload = await scoreboardResponse.json()
+            teams = normalizeTeamDataFromScoreboard(scoreboardPayload)
+          }
+        } catch (e) {
+          console.warn('Athlete harvest from scoreboard failed (non-fatal)', e)
+        }
+      }
+
+      // Final fallback for completely empty
       if (!teams.length) {
         const scoreboardResponse = await fetch(buildEspnProxyUrl(league.url, 60))
         if (!scoreboardResponse.ok) {
@@ -1830,7 +2502,9 @@ function App() {
         ...current,
         [league.id]: teams,
       }))
-      upsertLeagueTeamStylesByLeagueId(league.id, teams)
+
+      // Legacy teamStyles writes removed. Logos/colors now live exclusively in the local cache.
+
       setLeagueLoadStateById((current) => ({
         ...current,
         [league.id]: { loading: false, error: '' },
@@ -1842,6 +2516,8 @@ function App() {
       }))
     }
   }
+
+  // (The three functions above were moved earlier in App() to fix TDZ)
 
   async function loadLeagueGroups(league) {
     if (!league?.id || !league?.url) {
@@ -1950,7 +2626,8 @@ function App() {
       const payload = await loadLeagueScoreboardWithSettings(league, {
         cacheTtlSeconds: 60,
         fallbackCacheTtlSeconds: 30,
-        week: options.week || '',
+        // The preview now respects the league's gameFilter / useWeekFilter automatically
+        // via buildTickerScoreboardQuery. We can add explicit overrides here later if needed.
       })
       setLeagueTickerPreviewById((current) => ({
         ...current,
@@ -2029,9 +2706,14 @@ function App() {
           showStatSituation: true,
           showStatVenue: false,
           showStatOdds: false,
+          // Sensible defaults for the revived server-side filters
+          gameFilter: 'all',
+          useWeekFilter: false,
+          fallbackWhenEmpty: false,
           includedTeams: [],
           includedGroups: [],
-          teamStyles: {},
+          cardStyle: 'standard',
+          // (no teamStyles — colors/logos come from the local cache system only)
         }
 
         setNotice(`Added ${newLeague.name}.`)
@@ -2144,6 +2826,8 @@ function App() {
     )
   }
 
+  // (tickerWatermarkUrl is now computed with useMemo above for stable references)
+
   const shellStyle = {
     '--page-bg': themeTokens.pageBg,
     '--page-gradient': themeTokens.pageGradient,
@@ -2158,12 +2842,36 @@ function App() {
     '--lower-text': themeTokens.lowerText,
     '--hero-eyebrow': themeTokens.heroEyebrow,
     '--button-text': themeTokens.buttonText,
+    ...(tickerWatermarkUrl ? { '--ticker-watermark-url': `url(${tickerWatermarkUrl})` } : {}),
+    '--ticker-watermark-size': tickerWatermarkSize  // height-based; larger % = bigger individual logos, fewer repeats, more elegant/sparse look
   }
 
   if (isTickerRuntime) {
     const runtimeBoardWidth = Math.max(320, Number(config?.monitor?.width) || 1920)
     const runtimeBoardHeight = Math.max(120, Number(config?.monitor?.height) || 380)
     const hasEnabledRuntimeLeagues = runtimeLeagues.length > 0
+
+    // Sparse elegant watermark positions — deliberately only a few large logos with good breathing room
+    let watermarkPositions = 'center'
+    let watermarkImages = 'none'
+
+    if (tickerWatermarkUrl) {
+      const url = `url(${tickerWatermarkUrl})`
+
+      if (runtimeBoardWidth > 3000) {
+        // Very wide boards (3840 etc.) — 4 logos, nicely spread
+        watermarkPositions = '8% center, 30% center, 70% center, 92% center'
+        watermarkImages = `${url}, ${url}, ${url}, ${url}`
+      } else if (runtimeBoardWidth > 1800) {
+        // Standard 1920-wide — only 2 logos, spread well toward the edges
+        watermarkPositions = '12% center, 88% center'
+        watermarkImages = `${url}, ${url}`
+      } else {
+        // Narrower boards — 2 logos
+        watermarkPositions = '15% center, 85% center'
+        watermarkImages = `${url}, ${url}`
+      }
+    }
 
     return (
       <main className={`ticker-runtime-shell ${themeTokens.modeClass}`} style={shellStyle}>
@@ -2176,6 +2884,8 @@ function App() {
               width: '100vw',
               maxWidth: `${runtimeBoardWidth}px`,
               height: `min(100vh, ${runtimeBoardHeight}px)`,
+              '--ticker-watermark-images': watermarkImages,
+              '--ticker-watermark-positions': watermarkPositions,
             }}
           >
             <div className="ticker-runtime-marquee-window" ref={runtimeMarqueeWindowRef}>
@@ -2234,15 +2944,16 @@ function App() {
                   const hasLiveRacingTelemetry = racingHasTelemetry(allRacingEntries)
                   const podiumEntries = isFinishedRace && isSoloSlate ? allRacingEntries.slice(0, 3) : []
                   const racingEntries = isFinishedRace && isSoloSlate
-                    ? allRacingEntries.slice(3)
+                    ? allRacingEntries.slice(3, 15)   // show more for NASCAR-style races (was limited before)
                     : allRacingEntries.slice(0, isSoloSlate ? 16 : 6)
 
                   return (
                     <article
                       key={`${game.id || `${away?.id}-${home?.id}-${game?.startTimeUtc || ''}`}-${index}`}
-                      className={`ticker-runtime-card ticker-runtime-card-sport-${sportToken} ticker-runtime-card-state-${stateToken}${isSoloSlate ? ' ticker-runtime-card-solo' : ''}${isDuoSlate ? ' ticker-runtime-card-duo' : ''}${game?.isRacing ? ' ticker-runtime-card-racing' : ''}${game?.isRacing && isSoloSlate ? ' ticker-runtime-card-racing-solo' : ''}${game?.isLiveFeatured ? ` ticker-runtime-card-live ticker-runtime-card-live-${game.liveTheme || 'generic'}` : ''}${game?.useTeamCardColors ? ' ticker-runtime-card-use-team-colors' : ''}`}
+                      className={`ticker-runtime-card ticker-runtime-card-sport-${sportToken} ticker-runtime-card-state-${stateToken} ticker-runtime-card-style-${game.cardStyle || 'standard'}${isSoloSlate ? ' ticker-runtime-card-solo' : ''}${isDuoSlate ? ' ticker-runtime-card-duo' : ''}${game?.isRacing ? ' ticker-runtime-card-racing' : ''}${game?.isRacing && isSoloSlate ? ' ticker-runtime-card-racing-solo' : ''}${game?.isLiveFeatured ? ` ticker-runtime-card-live ticker-runtime-card-live-${game.liveTheme || 'generic'}` : ''}${game?.useTeamCardColors ? ' ticker-runtime-card-use-team-colors' : ''}`}
                       style={runtimeCardStyle(game, game?.useTeamCardColors)}
                       role="listitem"
+                      data-card-style={game.cardStyle || 'standard'}
                     >
                       {game?.isLiveFeatured ? (
                         <p className="ticker-runtime-live-flag">LIVE</p>
@@ -2254,20 +2965,12 @@ function App() {
                               <span className="ticker-runtime-racing-series">MOTORSPORT</span>
                               <strong className="ticker-runtime-racing-title">{racingCardTitle(game, runtimeRenderLeague)}</strong>
                             </div>
-                            {game?.racingTopInfo?.value || game?.racingTopInfo?.tv ? (
+                            {game?.racingTopInfo?.tv ? (
                               <div className="ticker-runtime-racing-head-side" aria-label="Race schedule and TV">
-                                {game?.racingTopInfo?.value ? (
-                                  <p className="ticker-runtime-racing-head-line">
-                                    <span>{game.racingTopInfo.label}</span>
-                                    <strong>{game.racingTopInfo.value}</strong>
-                                  </p>
-                                ) : null}
-                                {game?.racingTopInfo?.tv ? (
-                                  <p className="ticker-runtime-racing-head-line ticker-runtime-racing-head-tv">
-                                    <span>TV</span>
-                                    <strong>{String(game.racingTopInfo.tv).replace(/^TV\s+/, '')}</strong>
-                                  </p>
-                                ) : null}
+                                <p className="ticker-runtime-racing-head-line ticker-runtime-racing-head-tv">
+                                  <span>TV</span>
+                                  <strong>{String(game.racingTopInfo.tv).replace(/^TV\s+/, '')}</strong>
+                                </p>
                               </div>
                             ) : null}
                           </div>
@@ -2323,103 +3026,239 @@ function App() {
                           ) : null}
                         </>
                       ) : (
-                        <>
-                          <div className="ticker-runtime-row ticker-runtime-row-away" style={game?.useTeamCardColors ? teamRowStyle(away) : undefined}>
-                            <div className="ticker-runtime-team">
-                              {awayLogo ? (
-                                <img src={awayLogo} alt={runtimeTeamName(away)} />
-                              ) : (
-                                <span className="ticker-runtime-team-mark" aria-hidden="true">{awayBadge}</span>
-                              )}
-                              <span className="ticker-runtime-team-name-block">
-                                {game?.showStatRecords && teamRecordText(away) ? (
-                                  <span className="ticker-runtime-team-meta-row">
-                                    <span className="ticker-runtime-team-name">{runtimeTeamName(away)}</span>
-                                    <span className="ticker-runtime-team-record">{teamRecordText(away)}</span>
-                                  </span>
-                                ) : (
-                                  <span className="ticker-runtime-team-name">{runtimeTeamName(away)}</span>
-                                )}
-                              </span>
-                            </div>
-                            <span className="ticker-runtime-score-block">
-                              <strong className="ticker-runtime-score">{away?.score || '-'}</strong>
-                              {showAwayBaseDiamond ? (
-                                <div className="ticker-runtime-baseball-diamond ticker-runtime-baseball-diamond-score" aria-label="Away team at bat">
-                                  <span className={`ticker-runtime-base ticker-runtime-base-second${game.baseballLiveData.onSecond ? ' is-occupied' : ''}`} />
-                                  <span className={`ticker-runtime-base ticker-runtime-base-first${game.baseballLiveData.onFirst ? ' is-occupied' : ''}`} />
-                                  <span className="ticker-runtime-base ticker-runtime-base-home" />
-                                  <span className={`ticker-runtime-base ticker-runtime-base-third${game.baseballLiveData.onThird ? ' is-occupied' : ''}`} />
+                        game.cardStyle === 'large-logo' ? (
+                          // Large Logo theme (MLB reference + user spec): completely different from Standard.
+                          // Live: stacked large logos (away top) left + team-colored score box + diamond + inning/arrow + count + 3 yellow outs.
+                          // Postgame final: large left logo (dominant) with FINAL label at top, score at bottom, second logo on right.
+                          <div className="ticker-runtime-ll">
+                            {String(game?.state || '').toLowerCase() === 'in' && game.baseballLiveData ? (
+                              <div className="ll-live">
+                                {/* Left: large logos stacked vertically (visitor/away on top) */}
+                                <div className="ll-logos">
+                                  <div className="ll-logo ll-away">
+                                    {awayLogo ? (
+                                      <img src={awayLogo} alt={runtimeTeamName(away)} />
+                                    ) : (
+                                      <span className="ll-badge">{awayBadge}</span>
+                                    )}
+                                  </div>
+                                  <div className="ll-logo ll-home">
+                                    {homeLogo ? (
+                                      <img src={homeLogo} alt={runtimeTeamName(home)} />
+                                    ) : (
+                                      <span className="ll-badge">{homeBadge}</span>
+                                    )}
+                                  </div>
                                 </div>
-                              ) : null}
-                            </span>
-                          </div>
 
-                          <div className="ticker-runtime-divider" />
-
-                          <div className="ticker-runtime-row ticker-runtime-row-home" style={game?.useTeamCardColors ? teamRowStyle(home) : undefined}>
-                            <div className="ticker-runtime-team">
-                              {homeLogo ? (
-                                <img src={homeLogo} alt={runtimeTeamName(home)} />
-                              ) : (
-                                <span className="ticker-runtime-team-mark" aria-hidden="true">{homeBadge}</span>
-                              )}
-                              <span className="ticker-runtime-team-name-block">
-                                {game?.showStatRecords && teamRecordText(home) ? (
-                                  <span className="ticker-runtime-team-meta-row">
-                                    <span className="ticker-runtime-team-name">{runtimeTeamName(home)}</span>
-                                    <span className="ticker-runtime-team-record">{teamRecordText(home)}</span>
-                                  </span>
-                                ) : (
-                                  <span className="ticker-runtime-team-name">{runtimeTeamName(home)}</span>
-                                )}
-                              </span>
-                            </div>
-                            <span className="ticker-runtime-score-block">
-                              <strong className="ticker-runtime-score">{home?.score || '-'}</strong>
-                              {showHomeBaseDiamond ? (
-                                <div className="ticker-runtime-baseball-diamond ticker-runtime-baseball-diamond-score" aria-label="Home team at bat">
-                                  <span className={`ticker-runtime-base ticker-runtime-base-second${game.baseballLiveData.onSecond ? ' is-occupied' : ''}`} />
-                                  <span className={`ticker-runtime-base ticker-runtime-base-first${game.baseballLiveData.onFirst ? ' is-occupied' : ''}`} />
-                                  <span className="ticker-runtime-base ticker-runtime-base-home" />
-                                  <span className={`ticker-runtime-base ticker-runtime-base-third${game.baseballLiveData.onThird ? ' is-occupied' : ''}`} />
+                                {/* Team colored score box (two bands using team primary colors) */}
+                                <div className="ll-scorebox">
+                                  <div
+                                    className="ll-score ll-away-score"
+                                    style={away?.palette?.primary ? { backgroundColor: away.palette.primary, color: '#fff' } : {}}
+                                  >
+                                    {away?.score ?? '-'}
+                                  </div>
+                                  <div
+                                    className="ll-score ll-home-score"
+                                    style={home?.palette?.primary ? { backgroundColor: home.palette.primary, color: '#fff' } : {}}
+                                  >
+                                    {home?.score ?? '-'}
+                                  </div>
                                 </div>
-                              ) : null}
-                            </span>
-                          </div>
 
-                          {game?.showLiveState && game?.baseballLiveData ? (
-                            <div className="ticker-runtime-baseball-situation-right" aria-label="Baseball live situation">
-                              <div className="ticker-runtime-baseball-live-text">
-                                <p>
-                                  {[
-                                    game.baseballLiveData.outs !== null
-                                      ? `${game.baseballLiveData.outs} out${game.baseballLiveData.outs === 1 ? '' : 's'}`
-                                      : 'Live',
-                                    game.baseballLiveData.balls !== null && game.baseballLiveData.strikes !== null
-                                      ? `Count ${game.baseballLiveData.balls}-${game.baseballLiveData.strikes}`
-                                      : '',
-                                  ].filter(Boolean).join(' • ')}
-                                </p>
+                                {/* Diamond left, compact meta (inning | count + outs under count) right of it — text stays at diamond height, not low in card */}
+                                <div className="ll-side">
+                                  <div className="ll-baseball-field">
+                                    {/* Simple brown infield (dirt) as a visual layer underneath the bases */}
+                                    <div className="ll-infield"></div>
+
+                                    {/* Bases using the explicit top/left positioning from the CodePen you provided (direct children of the field) */}
+                                    <div className="base" id="second-base"></div>
+                                    <div className="base" id="first-base"></div>
+                                    <div className="base" id="third-base"></div>
+                                  </div>
+
+                                  <div className="ll-meta">
+                                    <div className="ll-inning-count">
+                                      <div className="ll-inning">
+                                        {game.baseballLiveData?.inning || '?'}
+                                        <span className="ll-arrow">
+                                          {(game.baseballLiveData?.halfInning || '').toLowerCase().startsWith('top') ? '▲' : '▼'}
+                                        </span>
+                                      </div>
+                                      <div className="ll-count">
+                                        {game.baseballLiveData?.balls ?? 0}-{game.baseballLiveData?.strikes ?? 0}
+                                      </div>
+                                    </div>
+                                    <div className="ll-outs">
+                                      {[0, 1, 2].map((i) => (
+                                        <span
+                                          key={i}
+                                          className={`ll-out ${i < (game.baseballLiveData?.outs || 0) ? 'filled' : ''}`}
+                                        />
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                          ) : null}
+                            ) : String(game?.state || '').toLowerCase() === 'post' ? (
+                              /* FINAL — "FINAL" at very top of card, two large logos, score centered at bottom middle */
+                              <div className="ll-final">
+                                <div className="ll-final-top">FINAL</div>
 
-                          {game?.runtimeDateText ? (
-                            <p className="ticker-runtime-game-date">{game.runtimeDateText}</p>
-                          ) : null}
+                                <div className="ll-final-logos">
+                                  <div className="ll-final-logo">
+                                    {awayLogo ? (
+                                      <img src={awayLogo} alt={runtimeTeamName(away)} />
+                                    ) : (
+                                      <span className="ll-badge ll-big">{awayBadge}</span>
+                                    )}
+                                  </div>
+                                  <div className="ll-final-logo">
+                                    {homeLogo ? (
+                                      <img src={homeLogo} alt={runtimeTeamName(home)} />
+                                    ) : (
+                                      <span className="ll-badge ll-big">{homeBadge}</span>
+                                    )}
+                                  </div>
+                                </div>
 
-                          {Array.isArray(game?.detailStats) && game.detailStats.length ? (
-                            <div className="ticker-runtime-stats" aria-label="Game detail stats">
-                              {game.detailStats.map((item) => (
-                                <p key={`${game.id || index}-${item.label}`} className="ticker-runtime-stat-item">
-                                  <span>{item.label}</span>
-                                  <strong>{item.value}</strong>
-                                </p>
-                              ))}
+                                <div className="ll-final-score-bottom">
+                                  {away?.score ?? '-'} — {home?.score ?? '-'}
+                                </div>
+                              </div>
+                            ) : (
+                              /* Non-live / scheduled / preview / postponed etc. for Large Logo — fancy matchup treatment */
+                              <div className="ll-scheduled">
+                                <div className="ll-sched-logos">
+                                  <div className="ll-logo ll-away ll-sched-logo">
+                                    {awayLogo ? (
+                                      <img src={awayLogo} alt={runtimeTeamName(away)} />
+                                    ) : (
+                                      <span className="ll-badge">{awayBadge}</span>
+                                    )}
+                                  </div>
+                                  <div className="ll-sched-vs">VS</div>
+                                  <div className="ll-logo ll-home ll-sched-logo">
+                                    {homeLogo ? (
+                                      <img src={homeLogo} alt={runtimeTeamName(home)} />
+                                    ) : (
+                                      <span className="ll-badge">{homeBadge}</span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="ll-sched-time">
+                                  {game.runtimeDateText || 'TBD'}
+                                </div>
+
+                                {/* Only show interesting status (Postponed, Delayed, etc.) — never the generic "Scheduled" */}
+                                {game?.status?.detail && !/scheduled|pre/i.test(String(game.status.detail)) ? (
+                                  <div className="ll-sched-detail">{game.status.detail}</div>
+                                ) : null}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <>
+                            <div className="ticker-runtime-row ticker-runtime-row-away" style={game?.useTeamCardColors ? teamRowStyle(away) : undefined}>
+                              <div className="ticker-runtime-team">
+                                {awayLogo ? (
+                                  <img src={awayLogo} alt={runtimeTeamName(away)} />
+                                ) : (
+                                  <span className="ticker-runtime-team-mark" aria-hidden="true">{awayBadge}</span>
+                                )}
+                                <span className="ticker-runtime-team-name-block">
+                                  {game?.showStatRecords && teamRecordText(away) ? (
+                                    <span className="ticker-runtime-team-meta-row">
+                                      <span className="ticker-runtime-team-name">{runtimeTeamName(away)}</span>
+                                      <span className="ticker-runtime-team-record">{teamRecordText(away)}</span>
+                                    </span>
+                                  ) : (
+                                    <span className="ticker-runtime-team-name">{runtimeTeamName(away)}</span>
+                                  )}
+                                </span>
+                              </div>
+                              <span className="ticker-runtime-score-block">
+                                <strong className="ticker-runtime-score">{away?.score || '-'}</strong>
+                                {showAwayBaseDiamond ? (
+                                  <div className="ticker-runtime-baseball-diamond ticker-runtime-baseball-diamond-score" aria-label="Away team at bat">
+                                    <span className={`ticker-runtime-base ticker-runtime-base-second${game.baseballLiveData.onSecond ? ' is-occupied' : ''}`} />
+                                    <span className={`ticker-runtime-base ticker-runtime-base-first${game.baseballLiveData.onFirst ? ' is-occupied' : ''}`} />
+                                    <span className="ticker-runtime-base ticker-runtime-base-home" />
+                                    <span className={`ticker-runtime-base ticker-runtime-base-third${game.baseballLiveData.onThird ? ' is-occupied' : ''}`} />
+                                  </div>
+                                ) : null}
+                              </span>
                             </div>
-                          ) : null}
-                        </>
+
+                            <div className="ticker-runtime-divider" />
+
+                            <div className="ticker-runtime-row ticker-runtime-row-home" style={game?.useTeamCardColors ? teamRowStyle(home) : undefined}>
+                              <div className="ticker-runtime-team">
+                                {homeLogo ? (
+                                  <img src={homeLogo} alt={runtimeTeamName(home)} />
+                                ) : (
+                                  <span className="ticker-runtime-team-mark" aria-hidden="true">{homeBadge}</span>
+                                )}
+                                <span className="ticker-runtime-team-name-block">
+                                  {game?.showStatRecords && teamRecordText(home) ? (
+                                    <span className="ticker-runtime-team-meta-row">
+                                      <span className="ticker-runtime-team-name">{runtimeTeamName(home)}</span>
+                                      <span className="ticker-runtime-team-record">{teamRecordText(home)}</span>
+                                    </span>
+                                  ) : (
+                                    <span className="ticker-runtime-team-name">{runtimeTeamName(home)}</span>
+                                  )}
+                                </span>
+                              </div>
+                              <span className="ticker-runtime-score-block">
+                                <strong className="ticker-runtime-score">{home?.score || '-'}</strong>
+                                {showHomeBaseDiamond ? (
+                                  <div className="ticker-runtime-baseball-diamond ticker-runtime-baseball-diamond-score" aria-label="Home team at bat">
+                                    <span className={`ticker-runtime-base ticker-runtime-base-second${game.baseballLiveData.onSecond ? ' is-occupied' : ''}`} />
+                                    <span className={`ticker-runtime-base ticker-runtime-base-first${game.baseballLiveData.onFirst ? ' is-occupied' : ''}`} />
+                                    <span className="ticker-runtime-base ticker-runtime-base-home" />
+                                    <span className={`ticker-runtime-base ticker-runtime-base-third${game.baseballLiveData.onThird ? ' is-occupied' : ''}`} />
+                                  </div>
+                                ) : null}
+                              </span>
+                            </div>
+
+                            {game?.showLiveState && game?.baseballLiveData ? (
+                              <div className="ticker-runtime-baseball-situation-right" aria-label="Baseball live situation">
+                                <div className="ticker-runtime-baseball-live-text">
+                                  <p>
+                                    {[
+                                      game.baseballLiveData.outs !== null
+                                        ? `${game.baseballLiveData.outs} out${game.baseballLiveData.outs === 1 ? '' : 's'}`
+                                        : 'Live',
+                                      game.baseballLiveData.balls !== null && game.baseballLiveData.strikes !== null
+                                        ? `Count ${game.baseballLiveData.balls}-${game.baseballLiveData.strikes}`
+                                        : '',
+                                    ].filter(Boolean).join(' • ')}
+                                  </p>
+                                </div>
+                              </div>
+                            ) : null}
+
+                            {game?.runtimeDateText ? (
+                              <p className="ticker-runtime-game-date">{game.runtimeDateText}</p>
+                            ) : null}
+
+                            {Array.isArray(game?.detailStats) && game.detailStats.length ? (
+                              <div className="ticker-runtime-stats" aria-label="Game detail stats">
+                                {game.detailStats.map((item) => (
+                                  <p key={`${game.id || index}-${item.label}`} className="ticker-runtime-stat-item">
+                                    <span>{item.label}</span>
+                                    <strong>{item.value}</strong>
+                                  </p>
+                                ))}
+                              </div>
+                            ) : null}
+                          </>
+                        )
                       )}
 
                       <p className="ticker-runtime-meta">{game.cardInfo}</p>
@@ -2430,7 +3269,8 @@ function App() {
             </div>
 
             <footer className="ticker-runtime-lower" aria-label="Lower third">
-              <span className="ticker-runtime-lower-item ticker-runtime-league-brand">
+              {/* Left: League / Bar brand */}
+              <div className="ticker-runtime-lower-brand">
                 {resolveLeagueLogo(runtimeRenderLeague, runtimePayloadByLeagueId[runtimeRenderLeague?.id]) ? (
                   <img
                     src={resolveLeagueLogo(runtimeRenderLeague, runtimePayloadByLeagueId[runtimeRenderLeague?.id])}
@@ -2439,12 +3279,17 @@ function App() {
                 ) : (
                   runtimeRenderLeague?.name || 'Ticker'
                 )}
-              </span>
-              <span className="ticker-runtime-lower-item">
-                {(homeAssistantBoard?.haSensors || []).length
-                  ? homeAssistantBoard.haSensors.slice(0, 4).join(' • ')
-                  : 'Home Assistant sensors not configured'}
-              </span>
+              </div>
+
+              {/* Scrolling info area (sensors + future news) */}
+              <div className="ticker-runtime-lower-scroll">
+                <div className="ticker-runtime-lower-item">
+                  {(homeAssistantBoard?.haSensors || []).length
+                    ? homeAssistantBoard.haSensors.slice(0, 6).join('  •  ')
+                    : 'Home Assistant sensors not configured'}
+                  {/* Future: news items will be injected here and will scroll */}
+                </div>
+              </div>
             </footer>
           </section>
         )}
@@ -2544,18 +3389,23 @@ function App() {
   const selectedTeamLogoLoadState = selectedTeamLogoKey
     ? teamLogoLoadStateByKey[selectedTeamLogoKey] || { loading: false, error: '' }
     : { loading: false, error: '' }
-  const selectedTeamStyle =
-    selectedTickerLeague && selectedTickerTeam
-      ? (selectedTickerLeague.teamStyles && typeof selectedTickerLeague.teamStyles === 'object'
-          ? selectedTickerLeague.teamStyles[String(selectedTickerTeam.id)] || null
-          : null)
-      : null
-  const selectedTeamPrimaryColor = sanitizeHexColor(
-    selectedTeamStyle?.color || selectedTickerTeam?.color,
-  ) || '#123456'
-  const selectedTeamAlternateColor = sanitizeHexColor(
-    selectedTeamStyle?.alternateColor || selectedTickerTeam?.alternateColor,
-  ) || '#0c1626'
+
+  // New cached logo variants from our local system (declared early to avoid TDZ)
+  const cachedTeamMeta = selectedTickerLeague && selectedTickerTeam
+    ? leagueLogoMetaById[selectedTickerLeague.id]?.teams?.[String(selectedTickerTeam.id)]
+    : null
+
+  const cachedVariants = cachedTeamMeta?.logos
+    ? Object.entries(cachedTeamMeta.logos).map(([variant, relativePath]) => ({
+        variant,
+        href: `/logos/${relativePath}`,
+        isCached: true,
+      }))
+    : []
+
+  // Team style/colors now come exclusively from the local logo cache (or raw ESPN data as fallback).
+  const selectedTeamStyle = cachedTeamMeta || null
+  // Color editing state removed — users can no longer override official team colors.
   const selectedTeamPrimaryLogos = selectedTeamLogoDetail?.primary || selectedTickerTeam?.logos || []
   const selectedTeamExtraLogos = selectedTeamLogoDetail?.extras || []
   const selectedTeamProfile = selectedTeamLogoDetail?.teamProfile || null
@@ -2653,11 +3503,10 @@ function App() {
       byValue.set(value, { value, label })
     }
 
-    const teamStyles = league?.teamStyles && typeof league.teamStyles === 'object'
-      ? league.teamStyles
-      : {}
+    // Supplement with any teams present in the new local logo cache (for teams that may not yet be in the live ESPN list).
+    const cachedTeams = league ? (leagueLogoMetaById[league.id]?.teams || {}) : {}
 
-    for (const [teamId, style] of Object.entries(teamStyles)) {
+    for (const [teamId, style] of Object.entries(cachedTeams)) {
       const abbreviation = String(style?.abbreviation || '').trim().toUpperCase()
       const fallbackId = String(teamId || '').trim().toUpperCase()
       const value = abbreviation || fallbackId
@@ -2665,7 +3514,7 @@ function App() {
         continue
       }
 
-      const name = String(style?.name || '').trim()
+      const name = String(style?.display_name || style?.name || '').trim()
       const label = name
         ? `${name}${abbreviation ? ` (${abbreviation})` : ''}`
         : value
@@ -2828,6 +3677,9 @@ function App() {
             <label className="field field-full">
               <span>Chromium flags</span>
               <textarea rows="6" value={listToText(config.kiosk.chromiumFlags)} onChange={(event) => updateConfigSection('kiosk', 'chromiumFlags', parseList(event.target.value))} />
+              <small className="field-help" style={{ marginTop: '4px', display: 'block' }}>
+                Flags passed to Chromium when launching kiosk mode. Recommended Pi flags are included by default for smooth scrolling and no scrollbars.
+              </small>
             </label>
           </div>
         </article>
@@ -2858,9 +3710,22 @@ function App() {
             </label>
 
             <label className="field field-checkbox">
-              <span>Use team theme</span>
-              <input type="checkbox" checked={config.theme.teamTheme.enabled} onChange={(event) => updateThemeTeam('enabled', event.target.checked)} />
+              <span>Ticker watermark</span>
+              <input 
+                type="checkbox" 
+                checked={!!config.theme.tickerWatermarkEnabled} 
+                onChange={(event) => updateConfigSection('theme', 'tickerWatermarkEnabled', event.target.checked)} 
+              />
             </label>
+
+            {/* Team Theme Section */}
+            <div className="field" style={{ gridColumn: '1 / -1', marginTop: '0.5rem' }}>
+              <label className="field-checkbox" style={{ marginBottom: '0.25rem' }}>
+                <span style={{ fontWeight: 600 }}>Use team theme</span>
+                <input type="checkbox" checked={config.theme.teamTheme.enabled} onChange={(event) => updateThemeTeam('enabled', event.target.checked)} />
+              </label>
+              <small className="field-help">Apply the selected team's colors to the entire UI (background, accents, text, etc).</small>
+            </div>
 
             <label className="field">
               <span>Team league</span>
@@ -2875,6 +3740,10 @@ function App() {
                     ? currentTeam
                     : (nextTeamOptions[0]?.value || '')
 
+                  if (nextLeague?.id && !leagueLogoMetaById[nextLeague.id]) {
+                    loadLeagueLogoMeta(nextLeague.id)
+                  }
+
                   commitConfig((current) => ({
                     ...current,
                     theme: {
@@ -2887,14 +3756,13 @@ function App() {
                     },
                   }))
                 }}
+                disabled={!config.theme.teamTheme.enabled}
               >
                 <option value="">Select league</option>
                 {themeLeagueOptions.map((option) => (
                   <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
               </select>
-              <small className="field-help">Choose the league that contains the saved team style you want to use for Team mode.</small>
-              {themeErrors.teamLeague ? <small className="field-error">{themeErrors.teamLeague}</small> : null}
             </label>
 
             <label className="field">
@@ -2902,19 +3770,35 @@ function App() {
               <select
                 value={selectedThemeTeamValue}
                 onChange={(event) => updateThemeTeam('team', String(event.target.value || '').trim().toUpperCase())}
-                disabled={!selectedThemeLeague}
+                disabled={!config.theme.teamTheme.enabled || !selectedThemeLeague}
               >
                 <option value="">Select team</option>
                 {themeTeamOptions.map((option) => (
                   <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
               </select>
-              <small className="field-help">This selects the saved primary and alternate team colors used to derive Team mode tokens.</small>
-              {selectedThemeLeague && themeTeamOptions.length === 0 ? (
-                <small className="field-help">No saved team styles found for this league yet. Open Ticker setup, refresh ESPN teams for this league, then save config.</small>
+              {selectedThemeLeague && themeTeamOptions.length === 0 && config.theme.teamTheme.enabled ? (
+                <small className="field-help">No saved team styles found. Sync logos for this league first.</small>
               ) : null}
-              {themeErrors.teamCode ? <small className="field-error">{themeErrors.teamCode}</small> : null}
             </label>
+
+            {/* Ticker Watermark Section */}
+            <div className="field" style={{ gridColumn: '1 / -1', marginTop: '0.75rem', borderTop: '1px solid var(--panel-border)', paddingTop: '0.75rem' }}>
+              <label className="field-checkbox" style={{ marginBottom: '0.25rem' }}>
+                <span style={{ fontWeight: 600 }}>Ticker watermark</span>
+                <input 
+                  type="checkbox" 
+                  checked={!!config.theme.tickerWatermarkEnabled} 
+                  onChange={(event) => updateConfigSection('theme', 'tickerWatermarkEnabled', event.target.checked)} 
+                />
+              </label>
+              <small className="field-help">
+                Show a faint logo behind the games in the live ticker.
+                {config.theme.teamTheme?.league && config.theme.teamTheme?.team 
+                  ? ' Will use the selected team logo when available.' 
+                  : ' Uses the app logo by default.'}
+              </small>
+            </div>
 
             <div className="field field-full">
               <span>Background override (optional)</span>
@@ -3190,6 +4074,8 @@ function App() {
                       if (!leagueTickerPreviewById[league.id]) {
                         await loadLeagueTickerPreview(league)
                       }
+                      // Always refresh logo meta when opening a league so we pick up any new sync results
+                      loadLeagueLogoMeta(league.id);
                     }}
                   >
                     <div className="league-order-controls" aria-label={`League order controls for ${league.name}`}>
@@ -3225,7 +4111,9 @@ function App() {
                     <p>Teams loaded: {teams.length}</p>
                     <div className="league-logo-strip">
                       {teams.slice(0, 4).map((team) => {
-                        const primaryLogoHref = resolveTeamPrimaryLogo(team, league.id)
+                        // Prefer cached local logo for the league summary strip
+                        const cached = getCachedOrRemoteLogo(league.id, team)
+                        const primaryLogoHref = cached || resolveTeamPrimaryLogo(team, league.id)
                         return primaryLogoHref ? (
                           <img
                             key={`${league.id}-${team.id}`}
@@ -3260,6 +4148,22 @@ function App() {
             {selectedTickerLeagueIndex >= 0 ? (
               <div className="league-settings-panel">
                 <h3>League settings</h3>
+
+                {/* Card Style - placed right below "League settings" and above the toggles/feed sections */}
+                <label className="field" style={{ marginBottom: '12px' }}>
+                  <span>Card style</span>
+                  <select
+                    value={selectedTickerLeague.cardStyle || 'standard'}
+                    onChange={(event) => updateLeague(selectedTickerLeagueIndex, 'cardStyle', event.target.value)}
+                  >
+                    <option value="standard">Standard</option>
+                    <option value="large-logo">Large Logo</option>
+                  </select>
+                  <small className="field-help">
+                    Visual preset for how this league's games appear in the ticker.
+                  </small>
+                </label>
+
                 <div className="league-settings-layout">
                   <div className="league-checkbox-group">
                     <p className="league-checkbox-title">Card and Feed Toggles</p>
@@ -3305,14 +4209,6 @@ function App() {
                         />
                       </label>
                       <label className="field field-checkbox">
-                        <span>Show live state</span>
-                        <input
-                          type="checkbox"
-                          checked={Boolean(selectedTickerLeague.showLiveState)}
-                          onChange={(event) => updateLeague(selectedTickerLeagueIndex, 'showLiveState', event.target.checked)}
-                        />
-                      </label>
-                      <label className="field field-checkbox">
                         <span>Use team card colors</span>
                         <input
                           type="checkbox"
@@ -3320,6 +4216,7 @@ function App() {
                           onChange={(event) => updateLeague(selectedTickerLeagueIndex, 'useTeamCardColors', event.target.checked)}
                         />
                       </label>
+
                       <label className="field field-checkbox">
                         <span>Card stat: team records</span>
                         <input
@@ -3361,6 +4258,42 @@ function App() {
                         />
                       </label>
                     </div>
+                  </div>
+                </div>
+
+                {/* Feed Filter - revives the powerful server-side filtering the backend already supports */}
+                <div className="league-feed-filter">
+                  <p className="league-checkbox-title">Feed Filter (server-side)</p>
+                  <div className="league-filter-controls">
+                    <label className="field">
+                      <span>Game filter</span>
+                      <select
+                        value={selectedTickerLeague.gameFilter || 'all'}
+                        onChange={(event) => updateLeague(selectedTickerLeagueIndex, 'gameFilter', event.target.value)}
+                      >
+                        <option value="all">All (no filter)</option>
+                        <option value="live">Live only</option>
+                        <option value="today">Today</option>
+                        <option value="upcoming">Upcoming</option>
+                        <option value="this-week">This week (football)</option>
+                      </select>
+                      <small className="field-help">
+                        Filters at the ESPN API level for smaller, faster responses (especially useful for NFL / college football).
+                        This only affects which games are fetched — it does not enable the enhanced live card visuals (those come from "Live game mode").
+                      </small>
+                    </label>
+
+                    <label className="field field-checkbox" style={{ marginTop: 8 }}>
+                      <span>Fallback if empty</span>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(selectedTickerLeague.fallbackWhenEmpty)}
+                        onChange={(event) => updateLeague(selectedTickerLeagueIndex, 'fallbackWhenEmpty', event.target.checked)}
+                      />
+                      <small className="field-help" style={{ marginLeft: 8 }}>
+                        If the strict filter returns no games, automatically broaden results (e.g. show upcoming) so the ticker stays useful instead of going blank.
+                      </small>
+                    </label>
                   </div>
                 </div>
 
@@ -3438,6 +4371,9 @@ function App() {
                     <>
                       <p className="field-help">
                         Showing {selectedLeagueTickerPreview.eventCount} of {selectedLeagueTickerPreview.rawEventCount || selectedLeagueTickerPreview.eventCount} events after filters.
+                        {selectedLeagueTickerPreview.appliedFilters?.gameFilter && selectedLeagueTickerPreview.appliedFilters.gameFilter !== 'all' && (
+                          <> (filter: {selectedLeagueTickerPreview.appliedFilters.gameFilter})</>
+                        )}
                       </p>
                       {selectedLeaguePreviewMatchups.length ? (
                         <p className="field-help">
@@ -3457,25 +4393,167 @@ function App() {
 
             <div className="team-explorer-heading">
               <div>
-                <h3>Teams</h3>
-                <p className="team-explorer-subtitle">Select teams to include and open details</p>
+                <h3 style={{ margin: 0 }}>{getLeagueEntityType(selectedTickerLeague).label}</h3>
+                <p className="team-explorer-subtitle">
+                  Select {getLeagueEntityType(selectedTickerLeague).label.toLowerCase()} to include and open details
+                  {isIndividualSport(parseLeagueApiParams(selectedTickerLeague?.url || '').sport, parseLeagueApiParams(selectedTickerLeague?.url || '').league) ? ' (driver list is best-effort for now)' : ''}
+                </p>
               </div>
+
               <button
                 type="button"
                 className="button-link"
-                onClick={() => loadLeagueTeams(selectedTickerLeague)}
+                onClick={async () => {
+                  await loadLeagueTeams(selectedTickerLeague);
+                  let teams = leagueTeamsById[selectedTickerLeague.id] || [];
+
+                  const params = parseLeagueApiParams(selectedTickerLeague.url || '');
+                  const isRacingOrIndividual = isIndividualSport(params.sport, params.league);
+
+                  // For racing leagues (NASCAR, F1, etc.), always try the dedicated racing harvester
+                  // even if the normal load returned nothing.
+                  if (isRacingOrIndividual) {
+                    setLogoSyncingLeagues((prev) => ({
+                      ...prev,
+                      [selectedTickerLeague.id]: 'Harvesting drivers from scoreboard…'
+                    }));
+
+                    // Give immediate feedback
+                    setNotice(`Syncing ${selectedTickerLeague.name} — harvesting drivers/teams...`);
+
+                    try {
+                      const racingEntities = await harvestRacingEntities(selectedTickerLeague);
+                      if (racingEntities.length > 0) {
+                        const byId = new Map(teams.map((t) => [String(t.id), t]));
+                        for (const ent of racingEntities) {
+                          const key = String(ent.id);
+                          if (!byId.has(key)) {
+                            byId.set(key, ent);
+                          }
+                        }
+                        teams = Array.from(byId.values());
+                      }
+                    } catch (e) {
+                      console.warn('Extra harvestRacingEntities during sync failed', e);
+                    }
+
+                    // Clear the harvesting message
+                    setLogoSyncingLeagues((prev) => {
+                      const copy = { ...prev };
+                      if (copy[selectedTickerLeague.id] && typeof copy[selectedTickerLeague.id] === 'string' && copy[selectedTickerLeague.id].includes('Harvesting')) {
+                        delete copy[selectedTickerLeague.id];
+                      }
+                      return copy;
+                    });
+                  }
+
+                  if (teams.length > 0) {
+                    const isFootball = params.sport === 'football';
+
+                    if (isFootball || isRacingOrIndividual) {
+                      // Enrichment still runs for football/racing to get better primary logo URLs + colors
+                      // from the detailed ESPN core endpoint before the logo download step.
+                      setLogoSyncingLeagues((prev) => ({
+                        ...prev,
+                        [selectedTickerLeague.id]: 'Enriching logos for drivers/teams…'
+                      }));
+
+                      teams = await enrichTeamsForLogoSync(selectedTickerLeague, teams);
+
+                      // Clear the temporary enrichment message (the cache trigger will set its own)
+                      setLogoSyncingLeagues((prev) => {
+                        const copy = { ...prev };
+                        if (copy[selectedTickerLeague.id] && typeof copy[selectedTickerLeague.id] === 'string' && copy[selectedTickerLeague.id].includes('Enriching')) {
+                          delete copy[selectedTickerLeague.id];
+                        }
+                        return copy;
+                      });
+                    }
+
+                    triggerLogoCacheForLeague(selectedTickerLeague.id, teams).catch((err) => {
+                      console.warn('Logo cache failed:', err);
+                    });
+
+                    // For racing leagues, always reload meta after sync so any newly downloaded logos appear immediately
+                    if (isRacingOrIndividual) {
+                      setTimeout(() => {
+                        loadLeagueLogoMeta(selectedTickerLeague.id);
+                      }, 300);
+                    }
+                  } else {
+                    if (isRacingOrIndividual) {
+                      setNotice(`Sync for ${selectedTickerLeague.name} didn't find many drivers right now (common for NASCAR etc. depending on season/events). The live ticker still works. A better driver roster pull is planned for later.`);
+                    } else {
+                      setNotice(`Sync found no teams/drivers for ${selectedTickerLeague.name}. Try loading preview first or check the league URL.`);
+                    }
+                  }
+                }}
                 disabled={selectedLeagueLoadState.loading}
               >
-                {selectedLeagueLoadState.loading ? 'Refreshing...' : 'Refresh ESPN teams'}
+                {selectedLeagueLoadState.loading ? 'Syncing...' : 'Sync Teams & Logos'}
+              </button>
+
+              <button
+                type="button"
+                className="button-link"
+                onClick={async () => {
+                  const leagueId = selectedTickerLeague.id;
+                  const leagueName = selectedTickerLeague.name;
+                  try {
+                    await fetch(`/api/v1/logos/cache/${encodeURIComponent(leagueId)}`, { method: 'DELETE' });
+                    setNotice(`Cleared cached logos for ${leagueName} (folder deleted from disk).`);
+                  } catch (e) {
+                    // still clear local even if server had issues
+                  }
+
+                  // Local prominent confirmation that the folder was nuked
+                  setLogoClearMessageById((prev) => ({
+                    ...prev,
+                    [leagueId]: `Cache cleared — logos folder + meta deleted from disk.`,
+                  }));
+
+                  // Auto-dismiss the local message after a few seconds
+                  setTimeout(() => {
+                    setLogoClearMessageById((prev) => {
+                      const next = { ...prev };
+                      delete next[leagueId];
+                      return next;
+                    });
+                  }, 4500);
+
+                  setLeagueLogoMetaById((current) => {
+                    const copy = { ...current };
+                    delete copy[leagueId];
+                    return copy;
+                  });
+                }}
+              >
+                Clear Cached Logos
               </button>
             </div>
+
+            {logoClearMessageById[selectedTickerLeague.id] && (
+              <p style={{ color: '#4ade80', fontSize: '0.85em', margin: '4px 0 6px', fontWeight: 500 }}>
+                {logoClearMessageById[selectedTickerLeague.id]}
+              </p>
+            )}
 
             {selectedLeagueLoadState.loading ? <p>Loading team data from ESPN...</p> : null}
             {selectedLeagueLoadState.error ? <p className="field-error">{selectedLeagueLoadState.error}</p> : null}
 
+            {logoSyncingLeagues[selectedTickerLeague.id] && (
+              <p style={{ color: '#666', fontStyle: 'italic' }}>
+                {typeof logoSyncingLeagues[selectedTickerLeague.id] === 'string'
+                  ? logoSyncingLeagues[selectedTickerLeague.id]
+                  : 'Downloading logo variants… (large leagues like NCAA can take a couple minutes)'}
+              </p>
+            )}
+
             <div className="team-logo-grid">
               {selectedLeagueTeams.map((team) => {
-                const primaryLogoHref = resolveTeamPrimaryLogo(team, selectedTickerLeague.id)
+                // Prefer locally cached logo when available
+                const cachedLogo = getCachedOrRemoteLogo(selectedTickerLeague.id, team);
+                const primaryLogoHref = cachedLogo || resolveTeamPrimaryLogo(team, selectedTickerLeague.id)
                 const includedTeamIds = Array.isArray(selectedTickerLeague.includedTeams)
                   ? selectedTickerLeague.includedTeams
                   : []
@@ -3487,18 +4565,18 @@ function App() {
                     onClick={() => {
                       setSelectedTickerTeamId(team.id)
                       const teamCacheKey = `${selectedTickerLeague.id}:${team.id}`
-                      if (!teamLogoDetailsByKey[teamCacheKey]) {
-                        loadTeamLogosForLeagueTeam(selectedTickerLeague, team)
-                      }
+                      // Always (re)load the live ESPN team logo data when selecting a team.
+                      // This ensures the "Download extra logos" button is available even after
+                      // clearing cache or re-syncing.
+                      loadTeamLogosForLeagueTeam(selectedTickerLeague, team)
+                      loadLeagueLogoMeta(selectedTickerLeague.id)
                     }}
                     onKeyDown={(event) => {
                       if (event.key === 'Enter' || event.key === ' ') {
                         event.preventDefault()
                         setSelectedTickerTeamId(team.id)
                         const teamCacheKey = `${selectedTickerLeague.id}:${team.id}`
-                        if (!teamLogoDetailsByKey[teamCacheKey]) {
-                          loadTeamLogosForLeagueTeam(selectedTickerLeague, team)
-                        }
+                        loadTeamLogosForLeagueTeam(selectedTickerLeague, team)
                       }
                     }}
                     role="button"
@@ -3556,57 +4634,13 @@ function App() {
                   <p><strong>Slug</strong><span>{selectedTeamProfile?.slug || 'N/A'}</span></p>
                 </div>
 
-                <h3>Team style (saved to league)</h3>
+                <h3>Team colors (from cache)</h3>
                 <div className="team-meta-grid">
                   <p><strong>Primary color</strong><span>{selectedTeamStyle?.color || selectedTickerTeam?.color || 'N/A'}</span></p>
-                  <p><strong>Alternate color</strong><span>{selectedTeamStyle?.alternateColor || selectedTickerTeam?.alternateColor || 'N/A'}</span></p>
+                  <p><strong>Alternate color</strong><span>{selectedTeamStyle?.alternate_color || selectedTickerTeam?.alternateColor || 'N/A'}</span></p>
                 </div>
-                <div className="team-style-edit-grid">
-                  <label className="field field-full">
-                    <span>Primary color</span>
-                    <div className="color-control-row">
-                      <input
-                        type="color"
-                        value={selectedTeamPrimaryColor}
-                        onChange={(event) =>
-                          updateLeagueTeamStyle(selectedTickerLeagueIndex, selectedTickerTeam.id, {
-                            color: sanitizeHexColor(event.target.value),
-                          })}
-                      />
-                      <input
-                        type="text"
-                        value={selectedTeamStyle?.color || selectedTickerTeam?.color || ''}
-                        placeholder="#00338d"
-                        onChange={(event) =>
-                          updateLeagueTeamStyle(selectedTickerLeagueIndex, selectedTickerTeam.id, {
-                            color: sanitizeHexColor(event.target.value),
-                          })}
-                      />
-                    </div>
-                  </label>
-                  <label className="field field-full">
-                    <span>Alternate color</span>
-                    <div className="color-control-row">
-                      <input
-                        type="color"
-                        value={selectedTeamAlternateColor}
-                        onChange={(event) =>
-                          updateLeagueTeamStyle(selectedTickerLeagueIndex, selectedTickerTeam.id, {
-                            alternateColor: sanitizeHexColor(event.target.value),
-                          })}
-                      />
-                      <input
-                        type="text"
-                        value={selectedTeamStyle?.alternateColor || selectedTickerTeam?.alternateColor || ''}
-                        placeholder="#c60c30"
-                        onChange={(event) =>
-                          updateLeagueTeamStyle(selectedTickerLeagueIndex, selectedTickerTeam.id, {
-                            alternateColor: sanitizeHexColor(event.target.value),
-                          })}
-                      />
-                    </div>
-                  </label>
-                </div>
+                {/* Color editing removed — official team colors are now authoritative and come from the cache.
+                    Users can no longer override them. */}
 
                 <h3>Standings</h3>
                 <div className="team-meta-grid">
@@ -3629,38 +4663,84 @@ function App() {
                 </div>
               </div>
 
+              {/* Right column - logo management for this team */}
               <div>
-                {selectedTeamLogoLoadState.loading ? <p>Loading team logo variants...</p> : null}
-                {selectedTeamLogoLoadState.error ? <p className="field-error">{selectedTeamLogoLoadState.error}</p> : null}
-
-                <div className="team-logo-variants">
-                  {selectedTeamPrimaryLogos.length ? (
-                    selectedTeamPrimaryLogos.map((logo, index) => (
-                      <div key={`${selectedTickerTeam.id}-${index}`} className="team-logo-variant">
-                        <img src={logo.href} alt={logo.alt || selectedTickerTeam.name} />
-                        <p>{getLogoVariantLabel(logo, index)}</p>
-                      </div>
-                    ))
-                  ) : (
-                    <p>No ESPN logos available for this team from current feed.</p>
-                  )}
-                </div>
-
-                {selectedTeamExtraLogos.length ? (
-                  <>
-                    <p className="team-explorer-subtitle">
-                      Extra ESPN variants (unverified)
+                {/* Download full logo set button - placed near the top as requested */}
+                {selectedTickerTeam && (
+                  <div style={{ marginBottom: 16 }}>
+                    <h3 style={{ marginBottom: 4 }}>More logo variants from ESPN</h3>
+                    <p className="team-explorer-subtitle" style={{ marginBottom: 8 }}>
+                      The full set of logo variants is available from ESPN. Download them for this team only.
                     </p>
-                    <div className="team-logo-variants team-logo-variants-extra">
-                      {selectedTeamExtraLogos.map((logo, index) => (
-                        <div key={`${selectedTickerTeam.id}-extra-${index}`} className="team-logo-variant">
-                          <img src={logo.href} alt={logo.alt || selectedTickerTeam.name} />
-                          <p>{getLogoVariantLabel(logo, index)}</p>
-                        </div>
-                      ))}
+
+                    {logoSyncingLeagues[selectedTickerLeague.id] &&
+                    typeof logoSyncingLeagues[selectedTickerLeague.id] === 'string' &&
+                    logoSyncingLeagues[selectedTickerLeague.id].includes('extra') ? (
+                      <p style={{ color: '#666', fontStyle: 'italic' }}>
+                        {logoSyncingLeagues[selectedTickerLeague.id]}
+                      </p>
+                    ) : (
+                      <button
+                        type="button"
+                        className="button-primary"
+                        onClick={() => downloadExtrasForTeam(selectedTickerLeague, selectedTickerTeam)}
+                      >
+                        Download all logo variants for this team
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {cachedVariants.length > 0 ? (
+                  <>
+                    <h3>
+                      Local Cached Logos
+                      <button
+                        type="button"
+                        className="button-link"
+                        style={{ marginLeft: '12px', fontSize: '0.75em' }}
+                        onClick={() => loadLeagueLogoMeta(selectedTickerLeague.id)}
+                      >
+                        Refresh
+                      </button>
+                    </h3>
+                    <p className="team-explorer-subtitle">
+                      These are the logos downloaded locally for this team. Click one to use it as the preferred variant in the ticker.
+                    </p>
+                    <div className="team-logo-variants">
+                      {cachedVariants.map(({ variant, href }) => {
+                        const isPreferred = cachedTeamMeta?.preferred_variant === variant;
+                        return (
+                          <div
+                            key={variant}
+                            className="team-logo-variant"
+                            onClick={() => {
+                              fetch(`/api/v1/logos/meta/${selectedTickerLeague.id}/override/${selectedTickerTeam.id}`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ variant }),
+                              })
+                                .then(() => loadLeagueLogoMeta(selectedTickerLeague.id))
+                                .catch(() => {});
+                            }}
+                            style={{ cursor: 'pointer', border: isPreferred ? '2px solid var(--accent)' : '1px solid #444' }}
+                          >
+                            <img src={href} alt={variant} />
+                            <p>{variant}{isPreferred ? ' ★' : ''}</p>
+                          </div>
+                        );
+                      })}
                     </div>
                   </>
-                ) : null}
+                ) : (
+                  <p className="team-explorer-subtitle">
+                    {logoSyncingLeagues[selectedTickerLeague.id]
+                      ? 'Logos are still downloading for this league…'
+                      : `No locally cached logos yet for this ${getLeagueEntityType(selectedTickerLeague).singular.toLowerCase()}.`}
+                    <br />
+                    Use "Sync Teams &amp; Logos" above to download logos.
+                  </p>
+                )}
               </div>
             </div>
           </>
@@ -3677,12 +4757,12 @@ function App() {
     <main className={`app-shell ${themeTokens.modeClass}`} style={shellStyle}>
       <div className="page-shell">
         <header className="topbar">
-          <div>
-            <p className="eyebrow">Setup</p>
-            <h1>PiBarTicker</h1>
-            <p className="lede">
-              Configure monitor, services, theme, and league behavior in one place.
-            </p>
+          <div className="topbar-brand">
+            <img
+              src="/pibarticker-logo-transparent.png"
+              alt="PiBarTicker"
+              className="topbar-logo"
+            />
           </div>
           <div className="topbar-actions">
             <a className="button-secondary" href="/">
@@ -3697,40 +4777,33 @@ function App() {
             >
               {isPending ? 'Saving...' : 'Save changes'}
             </button>
-            <button
-              type="button"
-              className="button-secondary"
-              onClick={() => saveConfig(true)}
-              disabled={!setupReady || isPending || !hasUnsavedChanges || activePage === 'overview'}
-              title={
-                activePage === 'overview'
-                  ? 'Open a setup page to use Save and Continue.'
-                  : !setupReady
-                    ? firstSetupError
-                    : ''
-              }
-            >
-              Save and continue
-            </button>
             <button type="button" className="button-secondary" onClick={resetConfig}>
               Reset
             </button>
           </div>
         </header>
 
-        <div className="status-row" aria-live="polite">
-          <span className={`status-chip ${setupReady ? 'status-chip-success' : 'status-chip-error'}`}>
-            Setup: {completedSetupSections}/{sectionChecks.length} complete
+        <div className="status-bar" aria-live="polite">
+          <span className={`status-item ${setupReady ? 'is-good' : 'is-incomplete'}`}>
+            Setup {completedSetupSections}/{sectionChecks.length} complete
           </span>
-          <span className={`status-chip ${hasUnsavedChanges ? 'status-chip-warning' : 'status-chip-success'}`}>
-            {hasUnsavedChanges ? `Unsaved: ${dirtyPageIds.length} section(s)` : 'All changes saved'}
+          <span className="status-sep">•</span>
+          <span className={`status-item ${hasUnsavedChanges ? 'is-dirty' : 'is-clean'}`}>
+            {hasUnsavedChanges ? `${dirtyPageIds.length} unsaved` : 'All saved'}
           </span>
-          <span className="status-chip">Theme: {config.theme.mode}</span>
-          <span className="status-chip">Enabled leagues: {enabledLeagues.length}</span>
-          <span className="status-chip">Resolution: {config.monitor.width} x {config.monitor.height}</span>
-          <span className="status-chip">API connected</span>
-          {notice ? <span className="status-chip status-chip-success">{notice}</span> : null}
-          {error ? <span className="status-chip status-chip-error">{error}</span> : null}
+
+          {notice && (
+            <>
+              <span className="status-sep">•</span>
+              <span className="status-item is-notice">{notice}</span>
+            </>
+          )}
+          {error && (
+            <>
+              <span className="status-sep">•</span>
+              <span className="status-item is-error">{error}</span>
+            </>
+          )}
         </div>
 
         <div className="workspace">
@@ -3751,6 +4824,11 @@ function App() {
               ))}
             </nav>
             <p className="sidebar-note">Edit one section at a time, then save.</p>
+
+            <div className="system-info">
+              <div>{config.monitor.width}×{config.monitor.height} • {enabledLeagues.length} leagues • {config.theme.mode}</div>
+              <div className="api-status">API connected</div>
+            </div>
           </aside>
 
           <section className="content-pane" aria-label="Setup controls">

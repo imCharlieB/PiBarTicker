@@ -20,3 +20,38 @@ body {
 #root {
   min-height: 100vh;
 }
+
+/* Base styles - allow normal scrolling everywhere by default */
+html, body, #root {
+  /* Intentionally do NOT set overflow: hidden here.
+     It was previously killing scrolling on the setup page. */
+}
+
+/* === Kiosk / Ticker Runtime only === 
+   The live ticker view should never show scrollbars.
+   Setup pages should scroll normally.
+*/
+.ticker-runtime-shell {
+  overflow: hidden;
+  scrollbar-width: none !important;
+}
+
+.ticker-runtime-shell::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Also suppress on direct children that might generate scrollbars */
+.ticker-runtime-board,
+.ticker-runtime-marquee-window {
+  overflow: hidden;
+  scrollbar-width: none !important;
+}
+
+.ticker-runtime-board::-webkit-scrollbar,
+.ticker-runtime-marquee-window::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}

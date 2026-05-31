@@ -37,6 +37,13 @@ class KioskConfig(AppBaseModel):
             "--kiosk",
             "--noerrdialogs",
             "--disable-infobars",
+            "--force-device-scale-factor=1",
+            "--enable-gpu-rasterization",
+            "--ignore-gpu-blocklist",
+            "--disable-smooth-scrolling",
+            "--overscroll-history-navigation=0",
+            "--disable-translate",
+            "--disable-features=TranslateUI",
         ]
     )
 
@@ -52,6 +59,10 @@ class ThemeConfig(AppBaseModel):
     background: str = ""
     accent: str = ""
     teamTheme: TeamThemeConfig = Field(default_factory=TeamThemeConfig)
+
+    # Ticker background watermark (faint logo behind the games)
+    tickerWatermarkEnabled: bool = True
+    tickerWatermarkUseTeam: bool = True  # when enabled + team theme active, auto-use the team's logo
 
 
 class LeagueConfig(AppBaseModel):
@@ -77,7 +88,7 @@ class LeagueConfig(AppBaseModel):
     fallbackWhenEmpty: bool = False
     includedTeams: list[str] = Field(default_factory=list)
     includedGroups: list[str] = Field(default_factory=list)
-    teamStyles: dict[str, dict[str, str]] = Field(default_factory=dict)
+    cardStyle: str = "standard"
 
 
 class SportsBoardConfig(AppBaseModel):
@@ -175,7 +186,28 @@ class ConfigStore:
                 self._write_unlocked(config)
                 return config
 
-            return AppConfig.model_validate_json(self._path.read_text(encoding="utf-8"))
+            raw_text = self._path.read_text(encoding="utf-8")
+            data = json.loads(raw_text)
+
+            # One-time hygiene: nuke the dead teamStyles blob that used to live
+            # inside every league in old config.json files. We fully removed the
+            # field from the model. This auto-cleans the user's file on first
+            # startup after the migration so strict validation passes.
+            changed = False
+            boards = data.get("boards")
+            if isinstance(boards, list):
+                for board in boards:
+                    leagues = board.get("leagues") if isinstance(board, dict) else None
+                    if isinstance(leagues, list):
+                        for league in leagues:
+                            if isinstance(league, dict) and "teamStyles" in league:
+                                league.pop("teamStyles", None)
+                                changed = True
+
+            if changed:
+                self._path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+            return AppConfig.model_validate(data)
 
     def save(self, config: AppConfig) -> AppConfig:
         with self._lock:

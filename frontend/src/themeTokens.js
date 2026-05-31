@@ -20,20 +20,25 @@ function sanitizeHexColor(value) {
     return ''
   }
 
-  const trimmed = value.trim()
+  let trimmed = value.trim()
   if (!trimmed) {
     return ''
   }
 
-  if (/^#[0-9a-f]{3}$/i.test(trimmed)) {
-    const r = trimmed[1]
-    const g = trimmed[2]
-    const b = trimmed[3]
+  // Support both "#BA0C2F" and "BA0C2F" (as stored in team-meta cache)
+  if (trimmed[0] === '#') {
+    trimmed = trimmed.slice(1)
+  }
+
+  if (/^[0-9a-f]{3}$/i.test(trimmed)) {
+    const r = trimmed[0]
+    const g = trimmed[1]
+    const b = trimmed[2]
     return `#${r}${r}${g}${g}${b}${b}`.toLowerCase()
   }
 
-  if (/^#[0-9a-f]{6}$/i.test(trimmed)) {
-    return trimmed.toLowerCase()
+  if (/^[0-9a-f]{6}$/i.test(trimmed)) {
+    return `#${trimmed}`.toLowerCase()
   }
 
   return ''
@@ -129,7 +134,26 @@ function ensureContrast(foregroundHex, backgroundHex, minRatio, fallbackHex) {
   return readableTextFor(background)
 }
 
-function findTeamStyle(theme, sportsBoard) {
+function findTeamColorsFromCache(leagueId, teamToken, logoMetaById) {
+  if (!leagueId || !teamToken) return null
+  const meta = logoMetaById?.[String(leagueId)]
+  if (!meta || !meta.teams) return null
+
+  const upperToken = String(teamToken).trim().toUpperCase()
+  for (const t of Object.values(meta.teams)) {
+    const abbr = String(t?.abbreviation || '').trim().toUpperCase()
+    if (abbr === upperToken) {
+      return {
+        color: t?.color || '',
+        alternateColor: t?.alternate_color || '',
+        abbreviation: t?.abbreviation || '',
+      }
+    }
+  }
+  return null
+}
+
+function findTeamStyle(theme, sportsBoard, logoMetaById = {}) {
   const teamTheme = theme?.teamTheme || {}
   const leagueToken = String(teamTheme.league || '').trim().toLowerCase()
   const teamToken = String(teamTheme.team || '').trim().toUpperCase()
@@ -143,21 +167,22 @@ function findTeamStyle(theme, sportsBoard) {
     const name = String(entry?.name || '').trim().toLowerCase()
     return leagueToken === id || leagueToken === name
   })
-  if (!league || !league.teamStyles || typeof league.teamStyles !== 'object') {
+  if (!league) {
     return null
   }
 
-  const styles = Object.values(league.teamStyles)
-  const matched = styles.find((style) => {
-    const abbreviation = String(style?.abbreviation || '').trim().toUpperCase()
-    return abbreviation === teamToken
-  })
+  // Prefer the new local logo cache (colors + meta) over anything else.
+  const fromCache = findTeamColorsFromCache(league.id, teamToken, logoMetaById)
+  if (fromCache) {
+    return fromCache
+  }
 
-  return matched || null
+  // No legacy teamStyles fallback — the old per-league blob in config is gone.
+  return null
 }
 
-function resolveTeamPalette(theme, sportsBoard) {
-  const configured = findTeamStyle(theme, sportsBoard)
+function resolveTeamPalette(theme, sportsBoard, logoMetaById = {}) {
+  const configured = findTeamStyle(theme, sportsBoard, logoMetaById)
   const code = String(theme?.teamTheme?.team || '').trim().toUpperCase()
   const preset = TEAM_PRESETS[code] || { accent: '#1274cf', background: '#1a1a1c' }
 
@@ -215,7 +240,9 @@ export function deriveThemeTokens(theme, options = {}) {
   const resolvedAccentOverride = hasAccentOverride ? accentOverride : ''
   const resolvedBackgroundOverride = hasBackgroundOverride ? backgroundOverride : ''
 
-  if (theme?.mode === 'light') {
+  const teamThemeEnabled = !!(theme?.teamTheme?.enabled && (theme?.teamTheme?.league || theme?.teamTheme?.team))
+
+  if (theme?.mode === 'light' && !teamThemeEnabled) {
     return finalizeTokens({
       pageBg: '#f8f8f8',
       pageGradient: 'linear-gradient(180deg, #ffffff 0%, #f8f8f8 100%)',
@@ -234,8 +261,8 @@ export function deriveThemeTokens(theme, options = {}) {
     })
   }
 
-  if (theme?.mode === 'team') {
-    const palette = resolveTeamPalette(theme, options.sportsBoard)
+  if (theme?.mode === 'team' || teamThemeEnabled) {
+    const palette = resolveTeamPalette(theme, options.sportsBoard, options.leagueLogoMetaById)
     const background = resolvedBackgroundOverride || palette.background
     const accent = resolvedAccentOverride || palette.accent
     const panelBg = blendHex(background, '#101418', 0.36)

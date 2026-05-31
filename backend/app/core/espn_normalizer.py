@@ -294,13 +294,5 @@ def normalize_scoreboard_events(
 
     return normalized_games
 
-
-def event_in_next_week(event_date: datetime | None, *, now_utc: datetime | None = None) -> bool:
-    if event_date is None:
-        return False
-    now = now_utc or datetime.now(timezone.utc)
-    local_now = now.astimezone()
-    local_event = event_date.astimezone()
-    week_start = local_now - timedelta(days=local_now.weekday())
-    week_end = week_start + timedelta(days=6)
-    return week_start.date() <= local_event.date() <= week_end.date()
+# Note: event_in_next_week was removed — the server-side game_filter + week handling in the ESPN scoreboard
+# endpoint (plus the revived frontend query wiring) replaced the need for this client-side helper.

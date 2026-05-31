@@ -51,6 +51,9 @@ def _teams_endpoint_url(*, sport: str, league: str) -> str:
 def _core_team_endpoint_url(*, sport: str, league: str, team_id: str) -> str:
     return f"https://sports.core.api.espn.com/v2/sports/{sport}/leagues/{league}/teams/{team_id}?lang=en&region=us"
 
+def _core_athlete_endpoint_url(*, sport: str, league: str, athlete_id: str) -> str:
+    return f"https://sports.core.api.espn.com/v2/sports/{sport}/leagues/{league}/athletes/{athlete_id}?lang=en&region=us"
+
 
 def _groups_endpoint_url(*, sport: str, league: str) -> str:
     return f"https://site.api.espn.com/apis/site/v2/sports/{sport}/{league}/groups"
@@ -648,6 +651,98 @@ def get_team_logos(
             break
 
     if matched_team is None:
+        # For racing, MMA, and other individual sports, try treating the ID as an athlete
+        # (NASCAR drivers, F1 drivers, MMA fighters, etc. often won't be in the "teams" list)
+        is_individual_sport = sport in ("racing", "motorsports", "mma", "boxing", "golf", "tennis") or any(
+            x in league.lower() for x in ("nascar", "f1", "formula", "indycar", "motogp", "wec", "imsa", "ufc", "bellator")
+        )
+
+        if is_individual_sport:
+            try:
+                athlete_core_url = _core_athlete_endpoint_url(sport=sport, league=league, athlete_id=team)
+                athlete_payload = _http_client.get_json(
+                    athlete_core_url,
+                    use_cache=cache_ttl_seconds > 0,
+                    cache_ttl_seconds=cache_ttl_seconds,
+                )
+                athlete_logos = athlete_payload.get("logos") or athlete_payload.get("headshots") or []
+                if athlete_logos or athlete_payload.get("id"):
+                    # Treat athlete as our "entity"
+                    return {
+                        "sport": sport,
+                        "league": league,
+                        "team": {  # keep response shape compatible
+                            "id": athlete_payload.get("id"),
+                            "name": athlete_payload.get("displayName") or athlete_payload.get("fullName"),
+                            "abbreviation": athlete_payload.get("shortName"),
+                        },
+                        "teamProfile": {
+                            "id": athlete_payload.get("id"),
+                            "name": athlete_payload.get("displayName"),
+                            "logos": athlete_logos,
+                        },
+                        "logoCount": len(athlete_logos) if isinstance(athlete_logos, list) else 0,
+                        "logos": athlete_logos if isinstance(athlete_logos, list) else [],
+                    }
+            except Exception:
+                pass  # fall through to 404
+
+        # Fallback: some college teams (and others) are not present in the main league teams list
+        # response (the /teams endpoint often only returns major conferences or requires group filters).
+        # Try hitting the site team detail directly with the provided ID/slug. This frequently
+        # returns a much richer logos array for individual teams.
+        try:
+            direct_url = _team_detail_endpoint_url(sport=sport, league=league, team=team)
+            direct_payload = _http_client.get_json(
+                direct_url,
+                use_cache=cache_ttl_seconds > 0,
+                cache_ttl_seconds=cache_ttl_seconds,
+            )
+            direct_team = direct_payload.get("team") or {}
+            if direct_team and (direct_team.get("id") or direct_team.get("logos")):
+                logos = direct_team.get("logos") or []
+                team_id = str(direct_team.get("id") or team).strip()
+                team_profile = {
+                    "id": direct_team.get("id"),
+                    "name": direct_team.get("displayName") or direct_team.get("name"),
+                    "abbreviation": direct_team.get("abbreviation"),
+                    "slug": direct_team.get("slug"),
+                    "location": direct_team.get("location"),
+                    "nickname": _normalized_team_nickname(
+                        display_name=direct_team.get("displayName") or direct_team.get("name"),
+                        location=direct_team.get("location"),
+                        nickname=direct_team.get("nickname") or direct_team.get("name"),
+                        short_display_name=direct_team.get("shortDisplayName"),
+                    ),
+                    "color": direct_team.get("color"),
+                    "alternateColor": direct_team.get("alternateColor"),
+                    "isActive": direct_team.get("isActive"),
+                    "recordSummary": "",
+                    "group": None,
+                    "venue": None,
+                    "standings": None,
+                }
+                # Try to enrich venue from the direct payload if present
+                venue = direct_team.get("venue") or {}
+                venue_profile = _venue_profile(venue)
+                if venue_profile:
+                    team_profile["venue"] = venue_profile
+
+                return {
+                    "sport": sport,
+                    "league": league,
+                    "team": {
+                        "id": direct_team.get("id"),
+                        "name": direct_team.get("displayName") or direct_team.get("name"),
+                        "abbreviation": direct_team.get("abbreviation"),
+                    },
+                    "teamProfile": team_profile,
+                    "logoCount": len(logos),
+                    "logos": logos,
+                }
+        except Exception:
+            pass  # fall through to 404
+
         raise HTTPException(
             status_code=404,
             detail=f"Team '{team}' was not found for sport='{sport}' league='{league}'.",

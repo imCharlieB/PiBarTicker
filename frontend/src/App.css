@@ -3,6 +3,7 @@
   padding: 1.25rem 1rem 2.5rem;
   color: var(--text-main);
   background: var(--page-gradient);
+  overflow-y: auto; /* allow the setup page to scroll normally */
 }
 
 .ticker-runtime-shell {
@@ -27,6 +28,21 @@
   width: 100%;
   padding: 0.1rem 0 0;
   background: transparent;
+  position: relative;
+}
+
+/* Faint team/custom logo watermark behind the games */
+.ticker-runtime-board::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--ticker-watermark-images, none);
+  background-position: var(--ticker-watermark-positions, center);
+  background-size: auto var(--ticker-watermark-size, 82%);
+  background-repeat: no-repeat;
+  opacity: 0.11;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .ticker-runtime-marquee-window {
@@ -44,19 +60,26 @@
   width: max-content;
   padding: 0 0.2rem;
   align-items: stretch;
+  /* Prevent any sub-pixel overflow that can trigger scrollbars on Pi */
+  contain: layout style paint;
 }
 
 .ticker-runtime-track-animated {
   animation: runtime-marquee-pass var(--runtime-scroll-seconds, 45s) linear 1 forwards;
   will-change: transform;
+  /* Strong hardware acceleration + containment for smoother + stable animation on Raspberry Pi */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  contain: layout style paint;
 }
 
 @keyframes runtime-marquee-pass {
   0% {
-    transform: translateX(var(--runtime-window-width, 100vw));
+    transform: translateX(var(--runtime-window-width, 100vw)) translateZ(0);
   }
   100% {
-    transform: translateX(calc(-1 * var(--runtime-track-width, 100%)));
+    transform: translateX(calc(-1 * var(--runtime-track-width, 100%))) translateZ(0);
   }
 }
 
@@ -68,20 +91,20 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  border: 1px solid color-mix(in srgb, var(--card-accent) 40%, #1a1d27);
-  border-radius: 0.9rem;
-  padding: 0.44rem 0.56rem;
+  border: 1px solid color-mix(in srgb, var(--card-accent) 32%, #1f232e);
+  border-radius: 0.85rem;
+  padding: 0.42rem 0.58rem;
   width: min(36vw, 560px);
   min-width: 330px;
-  min-height: 10.8rem;
+  min-height: 10.6rem;
   height: 100%;
   background:
-    radial-gradient(circle at 12% 40%, var(--card-accent-soft), transparent 58%),
-    linear-gradient(145deg, color-mix(in srgb, #0f1320 74%, var(--card-accent)), #080b13 60%, #0a0d14);
+    radial-gradient(circle at 14% 38%, var(--card-accent-soft), transparent 62%),
+    linear-gradient(150deg, color-mix(in srgb, #0f1320 72%, var(--card-accent)), #070a12 58%, #090c15);
   box-shadow:
-    0 10px 32px color-mix(in srgb, #000 55%, transparent),
-    inset 0 0 0 1px color-mix(in srgb, var(--card-accent) 20%, transparent);
-  backdrop-filter: blur(8px) saturate(112%);
+    0 12px 36px color-mix(in srgb, #000 58%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, #ffffff 6%, transparent);
+  backdrop-filter: blur(9px) saturate(118%);
   overflow: hidden;
 }
 
@@ -89,9 +112,10 @@
   content: '';
   position: absolute;
   inset: 0 0 auto 0;
-  height: 2px;
-  border-radius: 0.9rem 0.9rem 0 0;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--card-accent) 80%, #6ce0ff), transparent 65%);
+  height: 2.5px;
+  border-radius: 0.85rem 0.85rem 0 0;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--card-accent) 92%, #7ae8ff), transparent 70%);
+  opacity: 0.9;
   pointer-events: none;
 }
 
@@ -136,13 +160,13 @@
 .ticker-runtime-row {
   display: flex;
   justify-content: space-between;
-  gap: 0.8rem;
+  gap: 0.75rem;
   align-items: center;
-  padding: 0.14rem 0.26rem;
-  border-radius: 0.42rem;
-  border: 1px solid var(--team-row-border, color-mix(in srgb, var(--panel-border) 55%, transparent));
-  background: var(--team-row-bg, color-mix(in srgb, #111826 78%, transparent));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #ffffff 7%, transparent);
+  padding: 0.16rem 0.32rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--team-row-border, color-mix(in srgb, var(--panel-border) 48%, transparent));
+  background: var(--team-row-bg, color-mix(in srgb, #0f1420 82%, transparent));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #ffffff 8%, transparent);
 }
 
 .ticker-runtime-score {
@@ -171,6 +195,556 @@
   width: clamp(3rem, 6vw, 4.8rem);
   height: clamp(3rem, 6vw, 4.8rem);
   object-fit: contain;
+}
+
+/* Large logo card style preset - user selectable per league in the future */
+.ticker-runtime-card-style-large-logo .ticker-runtime-team img {
+  width: clamp(4.5rem, 9vw, 7.5rem);
+  height: clamp(4.5rem, 9vw, 7.5rem);
+  object-fit: contain;
+}
+
+.ticker-runtime-card-style-large-logo .ticker-runtime-score {
+  font-size: clamp(2.6rem, 7vw, 5rem);
+}
+
+/* Large Logo theme - MLB Live style (from user reference) */
+.ticker-runtime-large-logo-layout.live-baseball {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.25rem;
+  width: 100%;
+  min-height: 10.5rem;
+}
+
+/* Left column: Two large logos stacked */
+.ticker-runtime-large-logo-logos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.ticker-runtime-large-logo-logos .ticker-runtime-large-logo-team img {
+  width: 4.8rem;
+  height: 4.8rem;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+/* Middle: Team colored score box */
+.ticker-runtime-large-logo-scorebox {
+  background: #222;
+  color: white;
+  font-weight: 900;
+  font-size: 2.1rem;
+  line-height: 1;
+  padding: 0.35rem 0.55rem;
+  border-radius: 6px;
+  min-width: 3.2rem;
+  text-align: center;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.ticker-runtime-large-logo-scorebox .score-line {
+  line-height: 1.05;
+}
+
+/* Right side container */
+.ticker-runtime-large-logo-right {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Diamond */
+.ticker-runtime-large-logo-diamond .diamond {
+  width: 4.2rem;
+  height: 4.2rem;
+  position: relative;
+  background: #1a2a1a;
+  border: 2px solid #4a7c4a;
+  transform: rotate(45deg);
+  border-radius: 4px;
+}
+
+.ticker-runtime-large-logo-diamond .base {
+  position: absolute;
+  width: 0.7rem;
+  height: 0.7rem;
+  background: transparent;
+  border: 2px solid #4a7c4a;
+  transform: rotate(-45deg);
+}
+
+.ticker-runtime-large-logo-diamond .base.occupied {
+  background: #ffeb3b;
+  border-color: #ffeb3b;
+}
+
+.ticker-runtime-large-logo-diamond .second { top: 4px; left: 50%; transform: translateX(-50%) rotate(-45deg); }
+.ticker-runtime-large-logo-diamond .first { top: 50%; right: 4px; transform: translateY(-50%) rotate(-45deg); }
+.ticker-runtime-large-logo-diamond .home { bottom: 4px; left: 50%; transform: translateX(-50%) rotate(-45deg); }
+.ticker-runtime-large-logo-diamond .third { top: 50%; left: 4px; transform: translateY(-50%) rotate(-45deg); }
+
+/* Inning / Count / Outs */
+.ticker-runtime-large-logo-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #ddd;
+}
+
+.ticker-runtime-large-logo-meta .inning-line {
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.ticker-runtime-large-logo-meta .count-line {
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: #fff;
+}
+
+.ticker-runtime-large-logo-meta .outs-line {
+  display: flex;
+  gap: 3px;
+  margin-top: 0.1rem;
+}
+
+.ticker-runtime-large-logo-meta .out {
+  width: 0.72rem;
+  height: 0.72rem;
+  border: 1.5px solid #ffeb3b;
+  border-radius: 2px;
+}
+
+.ticker-runtime-large-logo-meta .out.filled {
+  background: #ffeb3b;
+}
+
+/* =========================================================
+   LARGE LOGO CARD STYLE (per user MLB live/final spec)
+   Only active when league cardStyle === "large-logo"
+   Standard cards are 100% untouched.
+   ========================================================= */
+
+.ticker-runtime-card-style-large-logo {
+  min-height: 13.8rem;
+  padding: 0.2rem 0.35rem;
+}
+
+.ticker-runtime-card-style-large-logo .ticker-runtime-live-flag {
+  margin-bottom: 0.08rem;
+}
+
+/* Main wrapper inside the large-logo cards */
+.ticker-runtime-ll {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* LIVE baseball layout — pushed down from LIVE flag, right side compact so inning block doesn't end up low */
+.ticker-runtime-ll .ll-live {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.4rem;
+  width: 100%;
+  padding: 0.45rem 0.15rem 0.1rem;   /* top padding so content starts below the LIVE green bar */
+}
+
+/* Left: two large logos stacked (away/visitor on top) */
+.ticker-runtime-ll .ll-logos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  flex-shrink: 0;
+}
+
+.ticker-runtime-ll .ll-logo {
+  width: 7.4rem;
+  height: 7.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.ticker-runtime-ll .ll-logo img {
+  max-width: 94%;
+  max-height: 94%;
+  object-fit: contain;
+  display: block;
+}
+
+.ticker-runtime-ll .ll-logo .ll-badge {
+  font-size: 1.35rem;
+  font-weight: 900;
+  color: #9aa4b8;
+  letter-spacing: 0.5px;
+}
+
+/* Middle: team-colored vertical score box — much bolder for distance */
+.ticker-runtime-ll .ll-scorebox {
+  display: flex;
+  flex-direction: column;
+  width: 5.5rem;
+  min-height: 14rem; /* taller to feel more level with the stacked logos */
+  flex-shrink: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  /* no outer box outline — just the team colored bands */
+  align-self: flex-start;
+  justify-content: space-evenly;
+}
+
+.ticker-runtime-ll .ll-score {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3.8rem;
+  font-weight: 900;
+  line-height: 1;
+  padding: 0.4rem 0.05rem;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  min-height: 4.0rem;
+}
+
+.ticker-runtime-ll .ll-score.ll-away-score {
+  background: #c8102e; /* fallback red */
+}
+
+.ticker-runtime-ll .ll-score.ll-home-score {
+  background: #0c2340; /* fallback navy */
+}
+
+/* Diamond with meta (inning | count + outs under count) directly under it */
+.ticker-runtime-ll .ll-side {
+  flex: 1.5;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding-left: 0.1rem;
+}
+
+/* Simple container for the diamond area (no fancy grass/field styling) */
+.ticker-runtime-ll .ll-baseball-field {
+  position: relative;
+  width: 9rem;
+  height: 9rem;
+  flex-shrink: 0;
+}
+
+/* No extra baseline lines — keeping it minimal as requested */
+
+/* Simple brown dirt infield (minimal, as requested — just the bases on dirt) */
+.ticker-runtime-ll .ll-infield {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6rem;
+  height: 6rem;
+  background: #836539;
+  border: 1px solid #5c4730;
+  transform: translate(-50%, -50%) rotate(45deg);
+  border-radius: 2px;
+  z-index: 1;
+}
+
+/* Inner grass ring inside the dirt (like #in-field-grass in the CodePen) */
+.ticker-runtime-ll .ll-diamond::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 3.4rem;
+  height: 3.4rem;
+  background: #2e7d32;
+  transform: translate(-50%, -50%) rotate(-45deg); /* counter-rotate so grass stripes stay straight-ish */
+  border-radius: 2px;
+  z-index: 1;
+}
+
+.ticker-runtime-ll .ll-base {
+  position: absolute;
+  width: 0.7rem;
+  height: 0.7rem;
+  background: #f5f5f5;
+  border: 1px solid #222;
+  transform: rotate(-45deg);
+  border-radius: 1px;
+  z-index: 3;
+}
+
+.ticker-runtime-ll .ll-base.occupied,
+.ticker-runtime-ll .ll-base.filled {
+  background: #ffeb3b;
+  border-color: #f4d03f;
+  box-shadow: 0 0 6px rgba(255, 235, 59, 0.85);
+}
+
+/* Base positioning using the exact structure and explicit top/left approach from the CodePen you pasted.
+   Removed our previous custom .ll-2b/.ll-1b/.ll-3b system. */
+.ticker-runtime-ll .ll-baseball-field .base {
+  position: absolute;
+  height: 0.75rem;
+  width: 0.75rem;
+  border: 1px solid white;
+  background-color: white;
+  transform: rotate(-45deg);
+  z-index: 10;
+}
+
+/* Explicit rem positioning for the bases (the version that previously looked "somewhat in the right shape").
+   These are direct children of the field so the numbers land correctly on the infield visually. */
+.ticker-runtime-ll .ll-baseball-field #second-base {
+  top: 1.6rem;
+  left: 4.15rem;
+}
+
+.ticker-runtime-ll .ll-baseball-field #first-base {
+  top: 4.1rem;
+  left: 6.8rem;
+}
+
+.ticker-runtime-ll .ll-baseball-field #third-base {
+  top: 4.1rem;
+  left: 1.4rem;
+}
+
+/* Inning (left) + count + yellow outs under count */
+.ticker-runtime-ll .ll-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.04rem;
+  font-weight: 800;
+  color: #e6e9f0;
+  font-size: 0.92rem;
+}
+
+/* Inning (left) + count (right) in one tight row, outs directly under the count */
+.ticker-runtime-ll .ll-inning-count {
+  display: flex;
+  align-items: baseline;
+  gap: 0.95rem;
+}
+
+.ticker-runtime-ll .ll-inning {
+  font-size: 1.1rem;
+  font-weight: 900;
+  letter-spacing: 0.4px;
+  display: flex;
+  align-items: center;
+  gap: 0.06rem;
+}
+
+.ticker-runtime-ll .ll-arrow {
+  font-size: 0.9rem;
+  margin-left: 1px;
+  color: #9cf0ff;
+}
+
+.ticker-runtime-ll .ll-count {
+  font-size: 1.32rem;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: 0.4px;
+}
+
+/* Outs row centered under the count (not the whole meta block) */
+.ticker-runtime-ll .ll-outs {
+  display: flex;
+  gap: 3px;
+  margin-left: 1.85rem;
+}
+
+.ticker-runtime-ll .ll-out {
+  width: 0.78rem;
+  height: 0.78rem;
+  border: 2px solid #ffeb3b;
+  border-radius: 2px;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.3);
+}
+
+.ticker-runtime-ll .ll-out.filled {
+  background: #ffeb3b;
+  box-shadow: 0 0 5px rgba(255, 235, 59, 0.9);
+}
+
+/* FINAL state — FINAL label at very top, two large logos in middle, score centered at bottom */
+.ticker-runtime-ll .ll-final {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 11.8rem;
+  padding-top: 0.08rem;
+  padding-bottom: 0.12rem;
+}
+
+.ticker-runtime-ll .ll-final-top {
+  font-size: 1.05rem;
+  font-weight: 900;
+  letter-spacing: 4px;
+  color: #9aa8c2;
+  text-transform: uppercase;
+  margin-bottom: 0.15rem;
+}
+
+.ticker-runtime-ll .ll-final-logos {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 1.4rem;
+  width: 100%;
+}
+
+.ticker-runtime-ll .ll-final-logo {
+  width: 8.6rem;          /* much much larger for distance viewing */
+  height: 8.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  flex-shrink: 0;
+}
+
+.ticker-runtime-ll .ll-final-logo img {
+  max-width: 97%;
+  max-height: 97%;
+  object-fit: contain;
+}
+
+.ticker-runtime-ll .ll-final-score-bottom {
+  font-size: 2.35rem;
+  font-weight: 900;
+  color: #e8f0ff;
+  letter-spacing: 2px;
+  margin-top: 0.2rem;
+}
+
+.ticker-runtime-ll .ll-final-side img {
+  max-width: 92%;
+  max-height: 8.8rem;
+  object-fit: contain;
+}
+
+/* Non-live / scheduled / preview / postponed for Large Logo (fancy matchup view) */
+.ticker-runtime-ll .ll-scheduled {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.2rem 0.35rem;
+  min-height: 11.2rem;
+}
+
+.ticker-runtime-ll .ll-sched-logos {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 1.35rem;
+  width: 100%;
+}
+
+.ticker-runtime-ll .ll-sched-logo {
+  width: 7.4rem;
+  height: 7.4rem;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.ticker-runtime-ll .ll-sched-logo img {
+  max-width: 92%;
+  max-height: 92%;
+}
+
+.ticker-runtime-ll .ll-sched-vs {
+  font-size: 1.85rem;
+  font-weight: 900;
+  color: color-mix(in srgb, var(--accent) 75%, #6b7280);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  user-select: none;
+  margin: 0 0.15rem;
+  opacity: 0.85;
+}
+
+.ticker-runtime-ll .ll-sched-time {
+  font-size: 1.75rem;
+  font-weight: 900;
+  letter-spacing: 0.8px;
+  color: #e6edf7;
+  text-align: center;
+  margin-top: 0.2rem;
+  line-height: 1.05;
+}
+
+.ticker-runtime-ll .ll-sched-detail {
+  font-size: 1.0rem;
+  font-weight: 700;
+  color: #f59e0b;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-top: 0.08rem;
+}
+
+/* Fallback badge sizing inside ll */
+.ticker-runtime-ll .ll-badge.ll-big {
+  font-size: 2.1rem;
+}
+
+/* Large Logo cards keep their main graphic content dominant, but we let a very small
+   meta line show at the absolute bottom when there is extra info (TV, odds, venue, etc.)
+   so the cards respect the same toggles as Standard. */
+.ticker-runtime-card-style-large-logo .ticker-runtime-baseball-situation-right,
+.ticker-runtime-card-style-large-logo .ticker-runtime-game-date,
+.ticker-runtime-card-style-large-logo .ticker-runtime-stats {
+  display: none !important;
+}
+
+/* Bottom meta line (respects extra info toggles). Larger and clearer than before.
+   For live baseball we already show inning/count/outs in the graphic, so this stays minimal. */
+.ticker-runtime-card-style-large-logo .ticker-runtime-meta {
+  margin-top: 0.2rem;
+  font-size: 0.82rem;
+  opacity: 0.82;
+  text-align: center;
+  letter-spacing: 0.03em;
+}
+
+/* Give the custom ll content a bit more breathing room inside the card */
+.ticker-runtime-card-style-large-logo .ticker-runtime-ll {
+  padding-top: 0.15rem;
+  padding-bottom: 0.1rem;
 }
 
 .ticker-runtime-team-mark {
@@ -359,24 +933,29 @@
 .ticker-runtime-racing-head {
   display: flex;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: 0.6rem;
   align-items: flex-start;
-  flex-wrap: wrap;
+  flex-wrap: nowrap; /* prevent wrapping that causes overflow */
 }
 
 .ticker-runtime-racing-head-main {
   min-width: 0;
   display: grid;
-  gap: 0.18rem;
-  flex: 1 1 12rem;
+  gap: 0.08rem;
+  flex: 1 1 auto;
+  max-width: 58%;
+  overflow: hidden;
 }
 
 .ticker-runtime-racing-head-side {
-  flex: 1 1 12rem;
-  max-width: 50%;
+  flex: 0 0 auto;
+  max-width: 40%;
+  min-width: 0;
   display: grid;
-  gap: 0.16rem;
+  gap: 0.08rem;
   justify-items: end;
+  text-align: right;
+  overflow: hidden;
 }
 
 .ticker-runtime-racing-head-line {
@@ -417,11 +996,14 @@
 }
 
 .ticker-runtime-racing-title {
-  font-size: clamp(1rem, 1.8vw, 1.45rem);
-  line-height: 1.05;
+  font-size: clamp(0.95rem, 1.65vw, 1.32rem);
+  line-height: 1.15;
   color: #f5f7fb;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  display: block;
 }
 
 .ticker-runtime-racing-leaders {
@@ -443,9 +1025,10 @@
 }
 
 .ticker-runtime-racing-leaders-finished {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  column-gap: 0.34rem;
-  row-gap: 0.12rem;
+  /* 2 columns for NASCAR and similar so we can show more drivers in rows */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 0.5rem;
+  row-gap: 0.18rem;
 }
 
 .ticker-runtime-racing-driver-row {
@@ -632,37 +1215,140 @@
 }
 
 .ticker-runtime-lower {
-  min-height: 3rem;
+  min-height: 3.2rem;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 0.8rem;
-  padding: 0.3rem 0.5rem;
-  border-top: 2px solid color-mix(in srgb, var(--panel-border) 75%, var(--accent));
-  background: linear-gradient(180deg, color-mix(in srgb, var(--lower-bg) 70%, #000), color-mix(in srgb, #000 90%, var(--lower-bg)));
+  padding: 0.2rem 0.9rem;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--lower-bg) 78%, #000000) 0%,
+    #05070e 100%
+  );
+  border-top: 2px solid color-mix(in srgb, var(--accent) 55%, var(--panel-border));
+  border-bottom: 1px solid color-mix(in srgb, #000 78%, transparent);
   color: var(--lower-text);
-  font-size: clamp(0.9rem, 1.8vw, 1.2rem);
-  letter-spacing: 0.02em;
+  font-size: clamp(0.85rem, 1.6vw, 1.05rem);
+  letter-spacing: 0.008em;
+  position: relative;
+  box-shadow: 
+    inset 0 1px 0 rgba(255,255,255,0.05),
+    0 -3px 14px rgba(0,0,0,0.4);
+}
+
+/* Strong broadcast lower-third look */
+.ticker-runtime-lower::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(
+    to right,
+    transparent 2%,
+    color-mix(in srgb, var(--accent) 75%, transparent) 15%,
+    color-mix(in srgb, var(--accent) 75%, transparent) 85%,
+    transparent 98%
+  );
+}
+
+.ticker-runtime-lower::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent 8%,
+    color-mix(in srgb, var(--accent) 30%, transparent) 22%,
+    color-mix(in srgb, var(--accent) 30%, transparent) 78%,
+    transparent 92%
+  );
 }
 
 .ticker-runtime-lower-item {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex-shrink: 0;
 }
 
-.ticker-runtime-league-brand {
+/* Scrolling lower third area — much more prominent */
+.ticker-runtime-lower-scroll {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+  padding: 0.08rem 0;
+  /* Strong broadcast ticker fades */
+  mask-image: linear-gradient(
+    to right, 
+    transparent, 
+    black 1%, 
+    black 99%, 
+    transparent
+  );
+}
+
+.ticker-runtime-lower-scroll .ticker-runtime-lower-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3.2rem;
+  white-space: nowrap;
+  font-weight: 700;
+  letter-spacing: 0.008em;
+  animation: lower-scroll 34s linear infinite;
+  padding-right: 3.2rem;
+  opacity: 0.97;
+  font-size: 1.02em;
+}
+
+@keyframes lower-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.ticker-runtime-lower-brand {
   display: inline-flex;
   align-items: center;
   min-width: 0;
+  flex-shrink: 0;
+  padding-right: 0.6rem;
+  margin-right: 0.25rem;
+  border-right: 1px solid color-mix(in srgb, var(--accent) 20%, var(--panel-border));
 }
 
-.ticker-runtime-league-brand img {
+.ticker-runtime-lower-brand img {
   display: block;
-  height: 2.2rem;
+  height: 2.8rem;
   width: auto;
-  max-width: 12rem;
+  max-width: 100%;
   object-fit: contain;
+  opacity: 0.95;
+}
+
+/* Card style selector in league explorer - clean and compact */
+.card-style-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  background: color-mix(in srgb, var(--panel-bg) 60%, transparent);
+  border: 1px solid color-mix(in srgb, var(--panel-border) 70%, transparent);
+  border-radius: 0.35rem;
+  padding: 0.15rem 0.45rem;
+}
+
+.card-style-selector select {
+  font-size: 0.75rem;
+  padding: 0.1rem 0.3rem;
+  border-radius: 0.25rem;
+  border: 1px solid color-mix(in srgb, var(--panel-border) 80%, transparent);
+  background: var(--input-bg, #11151f);
+  color: var(--text-main);
 }
 
 .ticker-runtime-card-live:not(.ticker-runtime-card-racing) {
@@ -878,7 +1564,7 @@
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  align-items: end;
+  align-items: center;
   margin-bottom: 0.75rem;
 }
 
@@ -886,6 +1572,17 @@
   display: flex;
   gap: 0.6rem;
   flex-wrap: wrap;
+}
+
+.topbar-logo {
+  height: 120px;
+  width: auto;
+  display: block;
+}
+
+.topbar-brand {
+  display: flex;
+  align-items: center;
 }
 
 .workspace {
@@ -938,6 +1635,21 @@
   margin-top: 0.8rem;
   color: var(--text-muted);
   font-size: 0.84rem;
+}
+
+.system-info {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--panel-border);
+  font-size: 0.72rem;
+  color: #6b7280;
+  line-height: 1.35;
+}
+
+.system-info .api-status {
+  margin-top: 2px;
+  color: #4ade80;
+  font-size: 0.7rem;
 }
 
 .content-pane {
@@ -1006,33 +1718,51 @@
   cursor: pointer;
 }
 
-.status-row {
+.status-bar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
-  margin: 0.25rem 0 0.9rem;
-}
-
-.status-chip {
-  display: inline-flex;
   align-items: center;
-  border-radius: 999px;
-  padding: 0.36rem 0.65rem;
-  font-size: 0.84rem;
-  background: color-mix(in srgb, var(--panel-bg) 88%, transparent);
-  border: 1px solid var(--panel-border);
+  gap: 0.5rem;
+  margin: 0.35rem 0 0.75rem;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  flex-wrap: wrap;
 }
 
-.status-chip-success {
-  border-color: rgba(64, 153, 96, 0.35);
+.status-item {
+  color: var(--text-muted);
 }
 
-.status-chip-error {
-  border-color: rgba(196, 86, 74, 0.35);
+.status-item.is-good {
+  color: #4ade80;
+  font-weight: 500;
 }
 
-.status-chip-warning {
-  border-color: rgba(205, 158, 68, 0.45);
+.status-item.is-incomplete {
+  color: #f59e0b;
+  font-weight: 500;
+}
+
+.status-item.is-dirty {
+  color: #fbbf24;
+  font-weight: 500;
+}
+
+.status-item.is-clean {
+  color: #4ade80;
+}
+
+.status-item.is-notice {
+  color: #60a5fa;
+}
+
+.status-item.is-error {
+  color: #f87171;
+  font-weight: 500;
+}
+
+.status-sep {
+  color: #4b5563;
+  user-select: none;
 }
 
 .section-kicker,
@@ -1316,6 +2046,11 @@
   margin-top: 1rem;
 }
 
+/* Tighten the gap between Sync and Clear buttons */
+.team-explorer-heading > button + button {
+  margin-left: 4px !important;
+}
+
 .team-explorer-heading h3 {
   margin: 0;
 }
@@ -1371,7 +2106,7 @@
 
 .league-settings-layout {
   display: grid;
-   gap: 0.75rem;
+  gap: 0.75rem;
   align-items: start;
 }
 
@@ -1726,6 +2461,11 @@
   .topbar {
     flex-direction: column;
     align-items: start;
+    gap: 0.75rem;
+  }
+
+  .topbar-brand {
+    width: 100%;
   }
 
   .section-heading,

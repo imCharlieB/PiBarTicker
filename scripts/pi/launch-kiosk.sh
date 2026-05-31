@@ -94,6 +94,11 @@ while true; do
     --disable-features=TranslateUI \
     --overscroll-history-navigation=0 \
     --check-for-update-interval=31536000 \
+    --force-device-scale-factor=1 \
+    --enable-gpu-rasterization \
+    --enable-zero-copy \
+    --ignore-gpu-blocklist \
+    --disable-smooth-scrolling \
     "${CHROMIUM_FLAGS[@]}" \
     "${URL}"
 

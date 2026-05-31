@@ -11,4 +11,13 @@ config.json
 runtime-cache/
 team-meta/
 logos/
+docs/
+
+# AI / agent context files (for Grok, Claude, Cursor, Copilot, etc.)
+# These are intentionally local-only and not committed.
+AGENTS.md
+CLAUDE.md
+.cursorrules
+.cursor/
+.github/copilot-instructions.md
 

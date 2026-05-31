@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .api.config import router as config_router
 from .api.espn import router as espn_router
+from .api.logos.router import router as logos_router
 from .core.config import config_store
 from .core.paths import bootstrap_runtime_dirs, get_runtime_paths
 
@@ -19,6 +20,7 @@ app = FastAPI(
 
 app.include_router(config_router)
 app.include_router(espn_router)
+app.include_router(logos_router)
 
 # Ensure module scripts are served with a JS MIME type on Windows hosts.
 mimetypes.add_type("application/javascript", ".js")
@@ -36,6 +38,13 @@ app.mount(
     name="frontend-assets",
 )
 
+# Serve locally cached logos
+_logos_dir = get_runtime_paths().logos
+app.mount(
+    "/logos",
+    StaticFiles(directory=str(_logos_dir), check_dir=False),
+    name="team-logos",
+)
 
 def _serve_frontend_index() -> FileResponse:
     if not _frontend_index.exists():
@@ -63,6 +72,19 @@ def root() -> FileResponse:
 @app.get("/setup/{full_path:path}", include_in_schema=False)
 def setup_shell(full_path: str = "") -> FileResponse:
     _ = full_path
+    return _serve_frontend_index()
+
+
+# SPA fallback + serve root-level static assets (favicon.svg, pibarticker-logo.svg, etc.)
+# This must come after all API routes.
+@app.get("/{full_path:path}", include_in_schema=False)
+async def serve_spa(full_path: str):
+    # If the exact file exists in dist (e.g. favicon.svg, logo, etc.), serve it
+    candidate = _frontend_dist / full_path
+    if candidate.is_file():
+        return FileResponse(candidate)
+
+    # Otherwise serve the SPA shell
     return _serve_frontend_index()
 
 

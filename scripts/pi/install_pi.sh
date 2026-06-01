@@ -213,16 +213,22 @@ chmod +x "${APP_DIR}/scripts/pi/launch-kiosk.sh"
 # The .config/autostart/pibarticker-kiosk.desktop will then run the launcher in the session.
 echo "Configuring autologin for the desktop session (labwc on Wayland or LXDE-pi on X11)..."
 sudo mkdir -p /etc/lightdm/lightdm.conf.d
-# Default to labwc for modern Pi OS Wayland desktop; override if LXDE-pi is preferred.
+# Default to rpd-labwc for modern Pi OS Wayland desktop (as seen in user sessions); override if needed.
 # User can change in raspi-config if needed.
 cat <<EOF | sudo tee /etc/lightdm/lightdm.conf.d/50-pibarticker-autologin.conf >/dev/null
 [Seat:*]
 autologin-user=${APP_USER}
-autologin-session=labwc
+autologin-session=rpd-labwc
 EOF
-# Also support pi-greeter if present
+# Also support pi-greeter if present (common on Pi OS for Wayland greeter)
 if [ -f /etc/lightdm/pi-greeter.conf ]; then
   sudo sed -i 's/^autologin-user=.*/autologin-user='${APP_USER}'/' /etc/lightdm/pi-greeter.conf 2>/dev/null || true
+  # Set session for greeter too (rpd-labwc for Wayland Pi desktop)
+  if ! grep -q '^autologin-session=' /etc/lightdm/pi-greeter.conf 2>/dev/null; then
+    echo "autologin-session=rpd-labwc" | sudo tee -a /etc/lightdm/pi-greeter.conf >/dev/null
+  else
+    sudo sed -i 's/^autologin-session=.*/autologin-session=rpd-labwc/' /etc/lightdm/pi-greeter.conf 2>/dev/null || true
+  fi
 fi
 
 # --- Disable the "Login keyring did not get unlocked" prompt ---

@@ -22,6 +22,13 @@ if ! DISPLAY=${DISPLAY:-:0} xrandr >/dev/null 2>&1; then
   echo "Warning: X server not responding yet, proceeding anyway..."
 fi
 
+# Detect Wayland
+IS_WAYLAND=0
+if [ -n "${WAYLAND_DISPLAY:-}" ]; then
+  IS_WAYLAND=1
+  echo "Detected Wayland session ($WAYLAND_DISPLAY)"
+fi
+
 if [[ ! -f "${CONFIG_FILE}" ]]; then
   echo "Missing ${CONFIG_FILE}; kiosk launcher cannot read setup settings."
   exit 1
@@ -44,8 +51,20 @@ height = int(monitor.get("height", 380) or 380)
 flags = kiosk.get("chromiumFlags", [])
 if not isinstance(flags, list):
     flags = []
-if not flags:
-    flags = ["--kiosk", "--noerrdialogs", "--disable-infobars"]
+BAD_FLAGS = ["--no-decommit-pooled-pages"]
+RECOMMENDED = [
+    "--kiosk", "--noerrdialogs", "--disable-infobars",
+    "--force-device-scale-factor=1", "--enable-gpu-rasterization",
+    "--ignore-gpu-blocklist", "--disable-smooth-scrolling",
+    "--overscroll-history-navigation=0", "--disable-translate",
+    "--disable-features=TranslateUI",
+]
+cleaned = [f for f in flags if f not in BAD_FLAGS]
+existing = set(cleaned)
+to_add = [f for f in RECOMMENDED if f not in existing]
+if to_add:
+    cleaned.extend(to_add)
+flags = cleaned
 
 print(auto_start)
 print(f"{width}x{height}")
@@ -101,27 +120,35 @@ if command -v xset >/dev/null 2>&1; then
   xset s noblank >/dev/null 2>&1 || true
 fi
 
-if command -v xrandr >/dev/null 2>&1; then
-  # Get current active resolution
+if [ "$IS_WAYLAND" = "1" ]; then
+  if command -v wlr-randr >/dev/null 2>&1; then
+    # Wayland (labwc/sway etc.) custom resolution for bar displays
+    OUTPUT=$(wlr-randr | grep -E '^[A-Z]' | head -1 | awk '{print $1}')
+    if [ -n "$OUTPUT" ]; then
+      CURRENT=$(wlr-randr | grep -A1 "^$OUTPUT" | grep -o '[0-9]\+x[0-9]\+' | head -1 || echo "")
+      if [ "$CURRENT" != "${DISPLAY_MODE}" ]; then
+        echo "Setting Wayland custom mode ${DISPLAY_MODE} on $OUTPUT"
+        wlr-randr --output "$OUTPUT" --custom-mode "${WIDTH}x${HEIGHT}" || true
+        sleep 2
+      else
+        echo "Wayland output already at desired mode"
+      fi
+    fi
+  else
+    echo "wlr-randr not found; cannot set custom resolution on Wayland"
+  fi
+elif command -v xrandr >/dev/null 2>&1; then
+  # X11 path: check current, create if needed
   CURRENT_MODE=$(xrandr | grep -E ' connected (primary )?[0-9]+x[0-9]+' | head -1 | grep -o '[0-9]\+x[0-9]\+' | head -1)
 
   if [ "$CURRENT_MODE" != "${DISPLAY_MODE}" ]; then
     echo "Current mode $CURRENT_MODE does not match desired ${DISPLAY_MODE}, setting up..."
-    # Robust custom resolution support for bar displays (e.g. 1920x380, 3840x380).
-    # Many users need non-standard modes that aren't pre-registered.
-    # This uses cvt to generate and registers the mode on the first connected output if needed.
-    WIDTH=$(echo "${DISPLAY_MODE}" | cut -d'x' -f1)
-    HEIGHT=$(echo "${DISPLAY_MODE}" | cut -d'x' -f2)
-
     if ! xrandr | grep -q "${DISPLAY_MODE}"; then
       echo "Custom mode ${DISPLAY_MODE} not found, attempting to create it..."
-      # Generate modeline (60Hz is usually fine for ticker)
       MODELINE=$(cvt "${WIDTH}" "${HEIGHT}" 60 2>/dev/null | grep Modeline | cut -d' ' -f2-)
       if [ -n "${MODELINE}" ]; then
         MODENAME=$(echo "${MODELINE}" | awk '{print $1}' | tr -d '"')
-        # Add the mode
         xrandr --newmode ${MODELINE} 2>/dev/null || true
-        # Find primary output
         OUTPUT=$(xrandr | grep " connected" | head -n1 | cut -d' ' -f1)
         if [ -n "${OUTPUT}" ] && [ -n "${MODENAME}" ]; then
           xrandr --addmode "${OUTPUT}" "${MODENAME}" 2>/dev/null || true
@@ -131,8 +158,6 @@ if command -v xrandr >/dev/null 2>&1; then
         echo "cvt failed to generate modeline for ${DISPLAY_MODE}"
       fi
     fi
-
-    # Now try to set the mode
     xrandr -s "${DISPLAY_MODE}" 2>/dev/null || xrandr -s "${DISPLAY_MODE}" >/dev/null 2>&1 || true
     sleep 2
   else
@@ -178,6 +203,7 @@ while true; do
     --window-size=${WIDTH},${HEIGHT} \
     --window-position=0,0 \
     --kiosk \
+    --ozone-platform=wayland --enable-features=UseOzonePlatform \
     "${CHROMIUM_FLAGS[@]}" \
     "${URL}"
 

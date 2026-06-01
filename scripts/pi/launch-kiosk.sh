@@ -48,6 +48,10 @@ AUTO_START="${CONFIG_LINES[0]:-autostart}"
 DISPLAY_MODE="${CONFIG_LINES[1]:-1920x380}"
 CHROMIUM_FLAGS=("${CONFIG_LINES[@]:2}")
 
+# Parse width/height for explicit window sizing (helps Chromium match the xrandr mode exactly on bar displays)
+WIDTH=$(echo "$DISPLAY_MODE" | cut -d'x' -f1)
+HEIGHT=$(echo "$DISPLAY_MODE" | cut -d'x' -f2)
+
 if [[ "${AUTO_START}" != "autostart" ]]; then
   echo "Kiosk startup is disabled in Setup > Display; skipping Chromium launch."
   exit 0
@@ -76,34 +80,53 @@ if command -v xset >/dev/null 2>&1; then
 fi
 
 if command -v xrandr >/dev/null 2>&1; then
-  # Robust custom resolution support for bar displays (e.g. 1920x380, 3840x380).
-  # Many users need non-standard modes that aren't pre-registered.
-  # This uses cvt to generate and registers the mode on the first connected output if needed.
-  WIDTH=$(echo "${DISPLAY_MODE}" | cut -d'x' -f1)
-  HEIGHT=$(echo "${DISPLAY_MODE}" | cut -d'x' -f2)
+  # Get current active resolution
+  CURRENT_MODE=$(xrandr | grep -E ' connected (primary )?[0-9]+x[0-9]+' | head -1 | grep -o '[0-9]\+x[0-9]\+' | head -1)
 
-  if ! xrandr | grep -q "${DISPLAY_MODE}"; then
-    echo "Custom mode ${DISPLAY_MODE} not found, attempting to create it..."
-    # Generate modeline (60Hz is usually fine for ticker)
-    MODELINE=$(cvt "${WIDTH}" "${HEIGHT}" 60 2>/dev/null | grep Modeline | cut -d' ' -f2-)
-    if [ -n "${MODELINE}" ]; then
-      MODENAME=$(echo "${MODELINE}" | awk '{print $1}' | tr -d '"')
-      # Add the mode
-      xrandr --newmode ${MODELINE} 2>/dev/null || true
-      # Find primary output
-      OUTPUT=$(xrandr | grep " connected" | head -n1 | cut -d' ' -f1)
-      if [ -n "${OUTPUT}" ] && [ -n "${MODENAME}" ]; then
-        xrandr --addmode "${OUTPUT}" "${MODENAME}" 2>/dev/null || true
-        echo "Registered mode ${MODENAME} on ${OUTPUT}"
+  if [ "$CURRENT_MODE" != "${DISPLAY_MODE}" ]; then
+    echo "Current mode $CURRENT_MODE does not match desired ${DISPLAY_MODE}, setting up..."
+    # Robust custom resolution support for bar displays (e.g. 1920x380, 3840x380).
+    # Many users need non-standard modes that aren't pre-registered.
+    # This uses cvt to generate and registers the mode on the first connected output if needed.
+    WIDTH=$(echo "${DISPLAY_MODE}" | cut -d'x' -f1)
+    HEIGHT=$(echo "${DISPLAY_MODE}" | cut -d'x' -f2)
+
+    if ! xrandr | grep -q "${DISPLAY_MODE}"; then
+      echo "Custom mode ${DISPLAY_MODE} not found, attempting to create it..."
+      # Generate modeline (60Hz is usually fine for ticker)
+      MODELINE=$(cvt "${WIDTH}" "${HEIGHT}" 60 2>/dev/null | grep Modeline | cut -d' ' -f2-)
+      if [ -n "${MODELINE}" ]; then
+        MODENAME=$(echo "${MODELINE}" | awk '{print $1}' | tr -d '"')
+        # Add the mode
+        xrandr --newmode ${MODELINE} 2>/dev/null || true
+        # Find primary output
+        OUTPUT=$(xrandr | grep " connected" | head -n1 | cut -d' ' -f1)
+        if [ -n "${OUTPUT}" ] && [ -n "${MODENAME}" ]; then
+          xrandr --addmode "${OUTPUT}" "${MODENAME}" 2>/dev/null || true
+          echo "Registered mode ${MODENAME} on ${OUTPUT}"
+        fi
+      else
+        echo "cvt failed to generate modeline for ${DISPLAY_MODE}"
       fi
-    else
-      echo "cvt failed to generate modeline for ${DISPLAY_MODE}"
     fi
-  fi
 
-  # Now try to set the mode
-  xrandr -s "${DISPLAY_MODE}" 2>/dev/null || xrandr -s "${DISPLAY_MODE}" >/dev/null 2>&1 || true
-  sleep 0.5
+    # Now try to set the mode
+    xrandr -s "${DISPLAY_MODE}" 2>/dev/null || xrandr -s "${DISPLAY_MODE}" >/dev/null 2>&1 || true
+    sleep 2
+  else
+    echo "Display already at desired mode ${DISPLAY_MODE}"
+  fi
+fi
+
+# After possible resolution change, briefly restart desktop components so you see the desktop launch (like it used to),
+# then the kiosk Chromium will cover it. This prevents going straight to black.
+sleep 1
+if command -v lxpanel >/dev/null 2>&1; then
+  killall lxpanel pcmanfm 2>/dev/null || true
+  sleep 1
+  lxpanel --profile LXDE-pi &
+  pcmanfm --desktop --profile LXDE-pi &
+  sleep 2
 fi
 
 # Wait for backend before starting Chromium.
@@ -130,6 +153,9 @@ while true; do
     --incognito \
     --no-first-run \
     --no-default-browser-check \
+    --window-size=${WIDTH},${HEIGHT} \
+    --window-position=0,0 \
+    --kiosk \
     "${CHROMIUM_FLAGS[@]}" \
     "${URL}"
 

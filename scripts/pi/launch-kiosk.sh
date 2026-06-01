@@ -205,7 +205,7 @@ while true; do
     --kiosk \
     --ozone-platform=wayland --enable-features=UseOzonePlatform \
     "${CHROMIUM_FLAGS[@]}" \
-    "${URL}"
+    "${URL}" >> /tmp/pibarticker-kiosk.log 2>&1
 
   # Chromium may exit during updates/crashes; restart automatically.
   sleep 2

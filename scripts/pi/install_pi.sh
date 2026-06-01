@@ -190,6 +190,18 @@ Terminal=false
 X-GNOME-Autostart-enabled=true
 EOF
 
+# Also set up for labwc (Wayland) autostart to ensure launcher runs
+mkdir -p "${APP_HOME}/.config/labwc"
+if [[ ! -f "${APP_HOME}/.config/labwc/autostart" ]]; then
+  cat > "${APP_HOME}/.config/labwc/autostart" <<EOF
+${APP_DIR}/scripts/pi/launch-kiosk.sh &
+EOF
+else
+  if ! grep -Fq "${APP_DIR}/scripts/pi/launch-kiosk.sh" "${APP_HOME}/.config/labwc/autostart"; then
+    echo "${APP_DIR}/scripts/pi/launch-kiosk.sh &" >> "${APP_HOME}/.config/labwc/autostart"
+  fi
+fi
+
 mkdir -p "${APP_HOME}/.config/lxsession/LXDE-pi"
 if [[ ! -f "${APP_HOME}/.config/lxsession/LXDE-pi/autostart" ]]; then
   cat > "${APP_HOME}/.config/lxsession/LXDE-pi/autostart" <<'EOF'

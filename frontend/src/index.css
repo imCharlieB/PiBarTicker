@@ -28,30 +28,35 @@ html, body, #root {
 }
 
 /* === Kiosk / Ticker Runtime only === 
-   The live ticker view should never show scrollbars.
-   Setup pages should scroll normally.
+   The live ticker view must NEVER show scrollbars (causes jitter + ugly on bar displays).
+   Setup pages must continue to scroll normally.
 */
 .ticker-runtime-shell {
-  overflow: hidden;
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
+/* Extremely aggressive scrollbar hiding — only applies inside the kiosk ticker view */
+.ticker-runtime-shell,
+.ticker-runtime-shell *,
+.ticker-runtime-shell html,
+.ticker-runtime-shell body,
+.ticker-runtime-shell #root {
   scrollbar-width: none !important;
 }
 
-.ticker-runtime-shell::-webkit-scrollbar {
+.ticker-runtime-shell::-webkit-scrollbar,
+.ticker-runtime-shell *::-webkit-scrollbar,
+.ticker-runtime-shell html::-webkit-scrollbar,
+.ticker-runtime-shell body::-webkit-scrollbar,
+.ticker-runtime-shell #root::-webkit-scrollbar {
   display: none !important;
   width: 0 !important;
   height: 0 !important;
 }
 
-/* Also suppress on direct children that might generate scrollbars */
+/* Extra containment on the actual marquee elements */
 .ticker-runtime-board,
 .ticker-runtime-marquee-window {
-  overflow: hidden;
-  scrollbar-width: none !important;
-}
-
-.ticker-runtime-board::-webkit-scrollbar,
-.ticker-runtime-marquee-window::-webkit-scrollbar {
-  display: none !important;
-  width: 0 !important;
-  height: 0 !important;
+  overflow: hidden !important;
 }

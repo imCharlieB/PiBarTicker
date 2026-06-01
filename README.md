@@ -95,35 +95,35 @@ To view the setup page locally, run the backend first on port `8000`, then run t
 
 Pi deployment scripts now live under `scripts/pi/`.
 
-Required OS flavor: Raspberry Pi OS Desktop (`Lite` is not supported for this kiosk workflow).
-
-One-command install/update from GitHub:
+**Super-simple one-command install** (fresh Raspberry Pi OS Desktop — no clone or "download the code first" step):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/imCharlieB/PiBarTicker/main/scripts/pi/bootstrap.sh | sudo bash -s -- \
-	--repo https://github.com/imCharlieB/PiBarTicker.git \
-	--branch main
+curl -fsSL https://raw.githubusercontent.com/imCharlieB/PiBarTicker/main/scripts/pi/bootstrap.sh | sudo bash
 ```
 
-This bootstrap flow downloads source from GitHub and installs it; it does not rely on a local git checkout on the Pi.
+This is literally the only command you need to paste on a fresh Raspberry Pi OS Desktop.  
+It downloads the code, installs everything, sets up the service + kiosk autostart, **and configures the custom PiBarTicker boot splash** (Pi 4 / Pi 5 detection + logo conversion + original backup + initramfs rebuild).
 
-Use the same command later to pull updates and redeploy.
+Run the exact same one-liner again later to update/redeploy.
 
-From the repository root on your Raspberry Pi:
+Advanced options (forks, specific branch, etc.) can still be passed after `--`:
+```bash
+curl .../bootstrap.sh | sudo bash -s -- --repo https://github.com/you/fork.git --branch mybranch
+```
+
+Required: Raspberry Pi OS Desktop (Bookworm preferred). Lite images are not supported (no desktop session for the kiosk).
+
+Alternative (when the repo is already cloned on the Pi):
 
 ```bash
 sudo bash scripts/pi/install_pi.sh
 ```
 
-After install, reboot the Pi to start Chromium kiosk automatically.
+After install: `sudo reboot`. The PiBarTicker logo will appear as the boot splash screen.
 
-Setup-page kiosk fields are applied at startup from `config.json`:
-- `monitor.width`
-- `monitor.height`
-- `kiosk.autoStart`
-- `kiosk.chromiumFlags`
+Kiosk fields from `config.json` (monitor size, autoStart, chromiumFlags) are applied by the launcher.
 
-See `docs/RASPBERRY_PI_SETUP.md` for full install, service management, and troubleshooting.
+See `docs/RASPBERRY_PI_SETUP.md` for service management, logs, and troubleshooting.
 
 ## VS Code Tasks
 

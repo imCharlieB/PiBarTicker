@@ -175,6 +175,143 @@ if [[ "${LAUNCH_NOW}" == "1" ]]; then
 fi
 
 echo
+
+# =============================================================================
+# Raspberry Pi boot splash customization (Pi 4 / Pi 5 support)
+# - Auto-detects model via /proc/device-tree/model (Raspberry Pi 4 vs 5)
+# - On-demand installs rsvg-convert (librsvg2-bin) + ImageMagick for SVG->PNG
+# - Uses frontend/public/pibarticker-logo.svg (and its referenced PNG) as source
+# - Creates 1920x1080 black canvas with centered logo (safe for Pi HDMI + bar displays)
+# - Backs up original /usr/share/plymouth/themes/pix/splash.png (idempotent)
+# - Replaces the default Plymouth pix splash
+# - Runs plymouth-set-default-theme -R + update-initramfs so it takes effect on boot
+# This is completely non-fatal; install continues even if splash setup has issues.
+# =============================================================================
+setup_custom_splash() {
+  local pi_model=""
+  if [[ -r /proc/device-tree/model ]]; then
+    # Use sed to strip NUL terminator(s) from device-tree strings (robust, no tr \0 quoting quirks)
+    pi_model="$(sed 's/\x00//g' /proc/device-tree/model 2>/dev/null || true)"
+  fi
+
+  echo "Detected hardware model: ${pi_model:-unknown}"
+
+  local is_pi4=0
+  local is_pi5=0
+  local splash_w=1920
+  local splash_h=1080
+
+  if [[ "${pi_model}" == *"Raspberry Pi 5"* ]]; then
+    is_pi5=1
+    echo "Raspberry Pi 5 detected. Targeting 1920x1080 splash (compatible default)."
+  elif [[ "${pi_model}" == *"Raspberry Pi 4"* ]]; then
+    is_pi4=1
+    echo "Raspberry Pi 4 detected. Targeting 1920x1080 splash."
+  else
+    echo "Not recognized as Raspberry Pi 4 or 5 (or /proc/device-tree/model unreadable). Skipping custom splash."
+    return 0
+  fi
+
+  # Install only the tools we need for this step (keeps the main package list unchanged)
+  echo "Installing conversion tools (librsvg2-bin, imagemagick) for splash generation..."
+  if ! apt-get install -y --no-install-recommends librsvg2-bin imagemagick >/dev/null 2>&1; then
+    echo "WARNING: Could not install image tools. Skipping custom boot splash."
+    return 0
+  fi
+
+  local logo_svg="${APP_DIR}/frontend/public/pibarticker-logo.svg"
+  if [[ ! -f "${logo_svg}" ]]; then
+    echo "WARNING: ${logo_svg} not present after file sync. Skipping splash."
+    return 0
+  fi
+
+  echo "Creating custom PiBarTicker boot splash from SVG..."
+
+  local tmp_dir
+  tmp_dir="$(mktemp -d)"
+  # Copy SVG + the PNG it references (href is relative) so rasterizer resolves assets reliably
+  cp "${logo_svg}" "${tmp_dir}/pibarticker-logo.svg" 2>/dev/null || true
+  local src_dir
+  src_dir="$(dirname "${logo_svg}")"
+  if [[ -f "${src_dir}/pibarticker-logo-transparent.png" ]]; then
+    cp "${src_dir}/pibarticker-logo-transparent.png" "${tmp_dir}/" 2>/dev/null || true
+  fi
+
+  local raster_png="${tmp_dir}/logo-raster.png"
+  local splash_png="${tmp_dir}/pibarticker-splash.png"
+
+  # Pick logo render size (example of using Pi4/Pi5 detection for future tuning)
+  local logo_w=880
+  if [[ ${is_pi5} -eq 1 ]]; then
+    logo_w=960
+  fi
+
+  # Prefer rsvg-convert (light, accurate for our SVG)
+  local raster_ok=0
+  if ( cd "${tmp_dir}" && rsvg-convert --width=${logo_w} --keep-aspect-ratio pibarticker-logo.svg -o logo-raster.png >/dev/null 2>&1 ); then
+    raster_ok=1
+  else
+    echo "rsvg-convert did not succeed; trying ImageMagick convert fallback..."
+    if convert "${tmp_dir}/pibarticker-logo.svg" -resize ${logo_w}x -background none "${raster_png}" >/dev/null 2>&1; then
+      raster_ok=1
+    fi
+  fi
+
+  if [[ ${raster_ok} -eq 0 ]]; then
+    echo "WARNING: SVG to PNG conversion failed for splash. Skipping."
+    rm -rf "${tmp_dir}" 2>/dev/null || true
+    return 0
+  fi
+
+  # Black canvas + centered logo (no text, clean branding)
+  if ! convert -size ${splash_w}x${splash_h} xc:#000000 \
+       "${raster_png}" -gravity center -composite \
+       "${splash_png}" >/dev/null 2>&1; then
+    echo "WARNING: Failed to create final splash composite."
+    rm -rf "${tmp_dir}" 2>/dev/null || true
+    return 0
+  fi
+
+  # Apply to the active Plymouth theme used by Raspberry Pi OS Desktop
+  local ply_dir="/usr/share/plymouth/themes/pix"
+  if [[ ! -d "${ply_dir}" ]]; then
+    echo "WARNING: Plymouth pix theme dir not found at ${ply_dir}. Skipping splash (non-standard OS?)."
+    rm -rf "${tmp_dir}" 2>/dev/null || true
+    return 0
+  fi
+
+  local orig="${ply_dir}/splash.png"
+  local bak="${ply_dir}/splash.png.pibarticker-backup"
+  if [[ -f "${orig}" && ! -f "${bak}" ]]; then
+    cp "${orig}" "${bak}" 2>/dev/null && echo "Original splash backed up to ${bak}"
+  fi
+
+  cp "${splash_png}" "${orig}"
+  echo "Replaced Plymouth splash with PiBarTicker logo."
+
+  # Rebuild required for the splash to be embedded in initramfs and shown at boot
+  echo "Rebuilding Plymouth theme cache and initramfs (this step can take 30-120 seconds)..."
+  if command -v plymouth-set-default-theme >/dev/null 2>&1; then
+    plymouth-set-default-theme -R pix 2>/dev/null || echo "Note: plymouth-set-default-theme -R pix returned non-zero (continuing)."
+  fi
+
+  # Explicit update-initramfs as specified in requirements (the -R above usually does this, but we ensure)
+  if command -v update-initramfs >/dev/null 2>&1; then
+    if ! update-initramfs -u -k "$(uname -r)" 2>/dev/null; then
+      if ! update-initramfs -u -k all 2>/dev/null; then
+        echo "WARNING: update-initramfs did not run cleanly. Splash will still apply after a reboot in most cases."
+      fi
+    fi
+  fi
+
+  rm -rf "${tmp_dir}" 2>/dev/null || true
+  echo "Custom boot splash setup finished. You will see the PiBarTicker logo on next boot."
+}
+
+# Invoke splash setup in a way that cannot abort the rest of the install
+setup_custom_splash || echo "Splash setup encountered non-fatal issues (installation continues normally)."
+
+echo
 echo "Install complete."
 echo "Backend status: systemctl status ${SERVICE_NAME}.service"
 echo "Logs: journalctl -u ${SERVICE_NAME}.service -f"

@@ -7,13 +7,20 @@ BRANCH="main"
 REPO_URL=""
 LAUNCH_NOW="1"
 
+# Default to the official repo so the most common case is a trivial one-liner
+# (users with forks can still override with --repo).
+DEFAULT_REPO_URL="https://github.com/imCharlieB/PiBarTicker.git"
+
 usage() {
   cat <<'EOF'
 Usage:
-  sudo bash bootstrap.sh --repo https://github.com/<owner>/<repo>.git [options]
+  sudo bash bootstrap.sh [options]
+
+  The simplest form (recommended):
+    curl .../bootstrap.sh | sudo bash
 
 Options:
-  --repo <url>         Required GitHub repository URL.
+  --repo <url>         GitHub repository URL (default: official PiBarTicker).
   --branch <name>      Branch to install/update from (default: main).
   --app-dir <path>     Install location (default: /opt/pibarticker).
   --user <name>        Linux user owning runtime (default: pi).
@@ -56,14 +63,16 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ "${EUID}" -ne 0 ]]; then
-  echo "Run as root. Example: curl ... | sudo bash"
+  echo "Run as root. Example: curl -fsSL .../bootstrap.sh | sudo bash"
   exit 1
 fi
 
+# Default to the official repo if the user didn't pass --repo.
+# This makes the common "just paste the one-liner" case work with no extra args.
 if [[ -z "${REPO_URL}" ]]; then
-  echo "Missing --repo"
-  usage
-  exit 1
+  REPO_URL="${DEFAULT_REPO_URL}"
+  echo "No --repo given — defaulting to official PiBarTicker repo:"
+  echo "  ${REPO_URL}"
 fi
 
 echo "Installing bootstrap dependencies..."

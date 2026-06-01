@@ -28,30 +28,27 @@ html, body, #root {
 }
 
 /* === Kiosk / Ticker Runtime only === 
-   The live ticker view must NEVER show scrollbars.
-   This version is more conservative to avoid breaking layout on the Pi.
-   Setup pages continue to scroll normally.
+   Hide scrollbars ONLY in kiosk mode (when html has .kiosk-mode).
+   This is the most reliable way across Chromium on Pi without breaking
+   the ticker layout or the setup page.
 */
-.ticker-runtime-shell {
-  overflow: hidden;
+html.kiosk-mode,
+html.kiosk-mode body {
+  overflow: hidden !important;
 }
 
-/* Targeted scrollbar hiding for the ticker runtime only */
+html.kiosk-mode ::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+html.kiosk-mode {
+  scrollbar-width: none !important;
+}
+
+/* Keep the runtime shell and marquee containers clean too */
 .ticker-runtime-shell,
-.ticker-runtime-shell .ticker-runtime-board,
-.ticker-runtime-shell .ticker-runtime-marquee-window {
-  scrollbar-width: none;
-}
-
-.ticker-runtime-shell::-webkit-scrollbar,
-.ticker-runtime-shell .ticker-runtime-board::-webkit-scrollbar,
-.ticker-runtime-shell .ticker-runtime-marquee-window::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
-}
-
-/* Ensure the actual marquee containers don't introduce scroll */
 .ticker-runtime-board,
 .ticker-runtime-marquee-window {
   overflow: hidden;

@@ -1392,6 +1392,20 @@ function App() {
     || searchParams.get('kiosk') === '1'
   const isTickerRuntime = isTickerRoute && !isSetupRoute
 
+  // Add a class to <html> when in kiosk/ticker runtime so we can reliably
+  // hide scrollbars only in that mode (without affecting the setup UI).
+  useEffect(() => {
+    const root = document.documentElement
+    if (isTickerRuntime) {
+      root.classList.add('kiosk-mode')
+    } else {
+      root.classList.remove('kiosk-mode')
+    }
+    return () => {
+      root.classList.remove('kiosk-mode')
+    }
+  }, [isTickerRuntime])
+
   const [config, setConfig] = useState(null)
   const [savedConfig, setSavedConfig] = useState(null)
   const [error, setError] = useState('')
@@ -3781,24 +3795,6 @@ function App() {
                 <small className="field-help">No saved team styles found. Sync logos for this league first.</small>
               ) : null}
             </label>
-
-            {/* Ticker Watermark Section */}
-            <div className="field" style={{ gridColumn: '1 / -1', marginTop: '0.75rem', borderTop: '1px solid var(--panel-border)', paddingTop: '0.75rem' }}>
-              <label className="field-checkbox" style={{ marginBottom: '0.25rem' }}>
-                <span style={{ fontWeight: 600 }}>Ticker watermark</span>
-                <input 
-                  type="checkbox" 
-                  checked={!!config.theme.tickerWatermarkEnabled} 
-                  onChange={(event) => updateConfigSection('theme', 'tickerWatermarkEnabled', event.target.checked)} 
-                />
-              </label>
-              <small className="field-help">
-                Show a faint logo behind the games in the live ticker.
-                {config.theme.teamTheme?.league && config.theme.teamTheme?.team 
-                  ? ' Will use the selected team logo when available.' 
-                  : ' Uses the app logo by default.'}
-              </small>
-            </div>
 
             <div className="field field-full">
               <span>Background override (optional)</span>

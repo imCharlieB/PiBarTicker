@@ -91,6 +91,15 @@ apt-get install -y --no-install-recommends \
   xdotool \
   unclutter
 
+# Stop any currently running services so we can safely update files.
+# They will be restarted at the end of the install.
+echo "Stopping running services for clean update..."
+systemctl stop pibarticker-backend.service 2>/dev/null || true
+pkill -f "launch-kiosk.sh" 2>/dev/null || true
+pkill -f "chromium" 2>/dev/null || true
+pkill -f "chromium-browser" 2>/dev/null || true
+sleep 1
+
 echo "Preparing app directory at ${APP_DIR}..."
 mkdir -p "${APP_DIR}"
 SOURCE_REAL="$(realpath "${SOURCE_DIR}")"

@@ -231,16 +231,16 @@ cat <<EOF | sudo tee /etc/lightdm/lightdm.conf.d/50-pibarticker-autologin.conf >
 [Seat:*]
 autologin-user=${APP_USER}
 autologin-session=rpd-labwc
+autologin-guest=false
+autologin-user-timeout=0
 EOF
 # Also support pi-greeter if present (common on Pi OS for Wayland greeter)
 if [ -f /etc/lightdm/pi-greeter.conf ]; then
-  sudo sed -i 's/^autologin-user=.*/autologin-user='${APP_USER}'/' /etc/lightdm/pi-greeter.conf 2>/dev/null || true
-  # Set session for greeter too (rpd-labwc for Wayland Pi desktop)
-  if ! grep -q '^autologin-session=' /etc/lightdm/pi-greeter.conf 2>/dev/null; then
-    echo "autologin-session=rpd-labwc" | sudo tee -a /etc/lightdm/pi-greeter.conf >/dev/null
-  else
-    sudo sed -i 's/^autologin-session=.*/autologin-session=rpd-labwc/' /etc/lightdm/pi-greeter.conf 2>/dev/null || true
-  fi
+  cat <<EOF | sudo tee /etc/lightdm/pi-greeter.conf >/dev/null
+[greeter]
+autologin-user=${APP_USER}
+autologin-session=rpd-labwc
+EOF
 fi
 
 # --- Disable the "Login keyring did not get unlocked" prompt ---

@@ -10,7 +10,7 @@ frontend/dist/
 config.json
 runtime-cache/
 team-meta/
-logos/
+/logos/
 docs/
 
 # AI / agent context files (for Grok, Claude, Cursor, Copilot, etc.)

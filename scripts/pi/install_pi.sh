@@ -105,7 +105,7 @@ if [[ "${SOURCE_REAL}" != "${APP_REAL}" ]]; then
     --exclude "config.json" \
     --exclude "runtime-cache" \
     --exclude "team-meta" \
-    --exclude "logos" \
+    --exclude "/logos" \
     "${SOURCE_DIR}/" "${APP_DIR}/"
 else
   echo "Source and app directory are the same; skipping sync."

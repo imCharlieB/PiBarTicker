@@ -29,6 +29,19 @@ if [ -n "${WAYLAND_DISPLAY:-}" ]; then
   echo "Detected Wayland session ($WAYLAND_DISPLAY)"
 fi
 
+# Wait for Wayland compositor to be ready if applicable
+if [ "$IS_WAYLAND" = "1" ]; then
+  for _ in $(seq 1 30); do
+    if [ -n "${WAYLAND_DISPLAY:-}" ] && command -v wlr-randr >/dev/null 2>&1 && wlr-randr >/dev/null 2>&1; then
+      break
+    fi
+    sleep 1
+  done
+  if ! wlr-randr >/dev/null 2>&1; then
+    echo "Warning: Wayland compositor not responding yet, proceeding anyway..."
+  fi
+fi
+
 if [[ ! -f "${CONFIG_FILE}" ]]; then
   echo "Missing ${CONFIG_FILE}; kiosk launcher cannot read setup settings."
   exit 1
@@ -88,15 +101,18 @@ if [[ "${AUTO_START}" != "autostart" ]]; then
   exit 0
 fi
 
-# Ensure desktop components are running early so you see the desktop launch (lxpanel, desktop icons) like it used to.
+# Ensure desktop components are running early so you see the desktop launch like it used to.
 # The kiosk Chromium will cover it after.
-if ! pgrep -x lxpanel >/dev/null 2>&1; then
-  lxpanel --profile LXDE-pi &
+# Only for X11; on Wayland the compositor handles the desktop/panels.
+if [ "$IS_WAYLAND" = "0" ]; then
+  if ! pgrep -x lxpanel >/dev/null 2>&1; then
+    lxpanel --profile LXDE-pi &
+  fi
+  if ! pgrep -x pcmanfm >/dev/null 2>&1; then
+    pcmanfm --desktop --profile LXDE-pi &
+  fi
+  sleep 2
 fi
-if ! pgrep -x pcmanfm >/dev/null 2>&1; then
-  pcmanfm --desktop --profile LXDE-pi &
-fi
-sleep 2
 
 CHROMIUM_BIN=""
 if command -v chromium-browser >/dev/null 2>&1; then
@@ -167,13 +183,16 @@ fi
 
 # After possible resolution change, briefly restart desktop components so you see the desktop launch (like it used to),
 # then the kiosk Chromium will cover it. This prevents going straight to black.
-sleep 1
-if command -v lxpanel >/dev/null 2>&1; then
-  killall lxpanel pcmanfm 2>/dev/null || true
+# Only for X11.
+if [ "$IS_WAYLAND" = "0" ]; then
   sleep 1
-  lxpanel --profile LXDE-pi &
-  pcmanfm --desktop --profile LXDE-pi &
-  sleep 2
+  if command -v lxpanel >/dev/null 2>&1; then
+    killall lxpanel pcmanfm 2>/dev/null || true
+    sleep 1
+    lxpanel --profile LXDE-pi &
+    pcmanfm --desktop --profile LXDE-pi &
+    sleep 2
+  fi
 fi
 
 # Wait for backend before starting Chromium.

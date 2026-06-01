@@ -89,7 +89,8 @@ apt-get install -y --no-install-recommends \
   "${CHROMIUM_PACKAGE}" \
   x11-xserver-utils \
   xdotool \
-  unclutter
+  unclutter \
+  wlr-randr
 
 # Stop any currently running services so we can safely update files.
 # They will be restarted at the end of the install.
@@ -121,6 +122,42 @@ else
 fi
 
 chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}"
+
+# Clean up chromiumFlags in config: remove known bad flags that cause "unrecognized flag" errors,
+# and ensure recommended Pi flags are present. This fixes launch issues from old configs.
+echo "Cleaning chromiumFlags in config to remove bad flags and ensure good Pi defaults..."
+python3 - <<'PY' "${APP_DIR}/config.json" || true
+import json, sys, pathlib
+path = pathlib.Path(sys.argv[1])
+if not path.exists():
+    sys.exit(0)
+cfg = json.loads(path.read_text())
+kiosk = cfg.setdefault("kiosk", {})
+flags = kiosk.get("chromiumFlags", [])
+if not isinstance(flags, list):
+    flags = []
+BAD_FLAGS = ["--no-decommit-pooled-pages"]
+RECOMMENDED = [
+    "--kiosk",
+    "--noerrdialogs",
+    "--disable-infobars",
+    "--force-device-scale-factor=1",
+    "--enable-gpu-rasterization",
+    "--ignore-gpu-blocklist",
+    "--disable-smooth-scrolling",
+    "--overscroll-history-navigation=0",
+    "--disable-translate",
+    "--disable-features=TranslateUI",
+]
+cleaned = [f for f in flags if f not in BAD_FLAGS]
+existing = set(cleaned)
+to_add = [f for f in RECOMMENDED if f not in existing]
+if to_add:
+    cleaned.extend(to_add)
+kiosk["chromiumFlags"] = cleaned
+path.write_text(json.dumps(cfg, indent=2))
+print("Cleaned chromiumFlags")
+PY
 
 echo "Setting up Python virtual environment..."
 sudo -u "${APP_USER}" python3 -m venv "${APP_DIR}/.venv"
@@ -169,6 +206,19 @@ fi
 
 chown -R "${APP_USER}:${APP_USER}" "${APP_HOME}/.config"
 chmod +x "${APP_DIR}/scripts/pi/launch-kiosk.sh"
+
+# Force autologin to use the LXDE-pi X11 session so that the lxsession autostart
+# (with desktop panels + kiosk launcher) actually runs. This ensures the desktop
+# launches visibly (like it used to) before the kiosk takes over.
+# Without this, on some Pi OS installs the default session might be Wayland or
+# different, leading to no panels, black screen, and xrandr failing.
+echo "Configuring autologin session to LXDE-pi (X11) for proper desktop + kiosk startup..."
+sudo mkdir -p /etc/lightdm/lightdm.conf.d
+cat <<EOF | sudo tee /etc/lightdm/lightdm.conf.d/50-pibarticker-autologin.conf >/dev/null
+[Seat:*]
+autologin-user=${APP_USER}
+autologin-session=LXDE-pi
+EOF
 
 # --- Disable the "Login keyring did not get unlocked" prompt ---
 # Very common on Raspberry Pi OS Desktop with autologin (used by almost

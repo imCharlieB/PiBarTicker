@@ -207,18 +207,23 @@ fi
 chown -R "${APP_USER}:${APP_USER}" "${APP_HOME}/.config"
 chmod +x "${APP_DIR}/scripts/pi/launch-kiosk.sh"
 
-# Force autologin to use the LXDE-pi X11 session so that the lxsession autostart
-# (with desktop panels + kiosk launcher) actually runs. This ensures the desktop
-# launches visibly (like it used to) before the kiosk takes over.
-# Without this, on some Pi OS installs the default session might be Wayland or
-# different, leading to no panels, black screen, and xrandr failing.
-echo "Configuring autologin session to LXDE-pi (X11) for proper desktop + kiosk startup..."
+# Configure autologin for the current desktop session (supports modern Wayland labwc/rpd-labwc
+# as well as legacy X11 LXDE-pi). This ensures autologin works and the desktop panels launch
+# visibly (like it used to) before the kiosk Chromium covers the screen.
+# The .config/autostart/pibarticker-kiosk.desktop will then run the launcher in the session.
+echo "Configuring autologin for the desktop session (labwc on Wayland or LXDE-pi on X11)..."
 sudo mkdir -p /etc/lightdm/lightdm.conf.d
+# Default to labwc for modern Pi OS Wayland desktop; override if LXDE-pi is preferred.
+# User can change in raspi-config if needed.
 cat <<EOF | sudo tee /etc/lightdm/lightdm.conf.d/50-pibarticker-autologin.conf >/dev/null
 [Seat:*]
 autologin-user=${APP_USER}
-autologin-session=LXDE-pi
+autologin-session=labwc
 EOF
+# Also support pi-greeter if present
+if [ -f /etc/lightdm/pi-greeter.conf ]; then
+  sudo sed -i 's/^autologin-user=.*/autologin-user='${APP_USER}'/' /etc/lightdm/pi-greeter.conf 2>/dev/null || true
+fi
 
 # --- Disable the "Login keyring did not get unlocked" prompt ---
 # Very common on Raspberry Pi OS Desktop with autologin (used by almost

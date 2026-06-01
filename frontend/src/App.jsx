@@ -1394,15 +1394,23 @@ function App() {
 
   // Add a class to <html> when in kiosk/ticker runtime so we can reliably
   // hide scrollbars only in that mode (without affecting the setup UI).
+  // Also force overflow hidden directly for maximum compatibility on Pi Chromium.
   useEffect(() => {
     const root = document.documentElement
+    const body = document.body
     if (isTickerRuntime) {
       root.classList.add('kiosk-mode')
+      root.style.overflow = 'hidden'
+      if (body) body.style.overflow = 'hidden'
     } else {
       root.classList.remove('kiosk-mode')
+      root.style.overflow = ''
+      if (body) body.style.overflow = ''
     }
     return () => {
       root.classList.remove('kiosk-mode')
+      root.style.overflow = ''
+      if (body) body.style.overflow = ''
     }
   }, [isTickerRuntime])
 

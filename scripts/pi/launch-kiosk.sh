@@ -57,6 +57,16 @@ if [[ "${AUTO_START}" != "autostart" ]]; then
   exit 0
 fi
 
+# Ensure desktop components are running early so you see the desktop launch (lxpanel, desktop icons) like it used to.
+# The kiosk Chromium will cover it after.
+if ! pgrep -x lxpanel >/dev/null 2>&1; then
+  lxpanel --profile LXDE-pi &
+fi
+if ! pgrep -x pcmanfm >/dev/null 2>&1; then
+  pcmanfm --desktop --profile LXDE-pi &
+fi
+sleep 2
+
 CHROMIUM_BIN=""
 if command -v chromium-browser >/dev/null 2>&1; then
   CHROMIUM_BIN="chromium-browser"

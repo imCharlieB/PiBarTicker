@@ -76,7 +76,8 @@
 
 @keyframes runtime-marquee-pass {
   0% {
-    transform: translateX(var(--runtime-window-width, 100vw)) translateZ(0);
+    /* Start with content already visible on screen (no initial empty/black period) */
+    transform: translateX(0) translateZ(0);
   }
   100% {
     transform: translateX(calc(-1 * var(--runtime-track-width, 100%))) translateZ(0);

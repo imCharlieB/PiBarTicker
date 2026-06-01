@@ -176,19 +176,16 @@ chmod +x "${APP_DIR}/scripts/pi/launch-kiosk.sh"
 # but autologin never enters the password, so you get an annoying unlock
 # dialog on every boot.
 #
-# We remove the keyring file for the target user and (for dedicated
-# kiosks) purge gnome-keyring entirely so the prompt can never appear.
+# We ONLY remove the keyring file for the target user.
+# DO NOT purge the gnome-keyring package — it can mark the entire desktop
+# (lxpanel, pcmanfm, openbox, etc.) as "no longer required" and break
+# the desktop session that the kiosk relies on for autostart.
 echo "Disabling login keyring prompt (common on Pi autologin)..."
 
 KEYRING_DIR="${APP_HOME}/.local/share/keyrings"
 sudo -u "${APP_USER}" mkdir -p "${KEYRING_DIR}"
 sudo -u "${APP_USER}" rm -f "${KEYRING_DIR}/login.keyring" 2>/dev/null || true
-
-# Purge gnome-keyring for a clean kiosk experience.
-# This is safe and recommended for dedicated signage/ticker Pis.
-if apt-get purge -y gnome-keyring >/dev/null 2>&1; then
-  echo "Purged gnome-keyring to prevent future unlock prompts."
-fi
+echo "Removed user's login.keyring (safe; package left installed to keep desktop intact)."
 
 if [[ "${LAUNCH_NOW}" == "1" ]]; then
   echo "Attempting immediate kiosk launch (if desktop session is active)..."

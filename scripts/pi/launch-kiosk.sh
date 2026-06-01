@@ -10,6 +10,18 @@ if [[ -z "${DISPLAY:-}" && -S "/tmp/.X11-unix/X0" ]]; then
   export DISPLAY=:0
 fi
 
+# Wait for the X server to be fully ready before doing anything with display or launching Chromium.
+# This prevents "can't open display" and black screens if launched too early.
+for _ in $(seq 1 30); do
+  if [ -S "/tmp/.X11-unix/X0" ] && DISPLAY=${DISPLAY:-:0} xrandr >/dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
+if ! DISPLAY=${DISPLAY:-:0} xrandr >/dev/null 2>&1; then
+  echo "Warning: X server not responding yet, proceeding anyway..."
+fi
+
 if [[ ! -f "${CONFIG_FILE}" ]]; then
   echo "Missing ${CONFIG_FILE}; kiosk launcher cannot read setup settings."
   exit 1

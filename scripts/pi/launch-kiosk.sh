@@ -76,7 +76,34 @@ if command -v xset >/dev/null 2>&1; then
 fi
 
 if command -v xrandr >/dev/null 2>&1; then
-  xrandr -s "${DISPLAY_MODE}" >/dev/null 2>&1 || true
+  # Robust custom resolution support for bar displays (e.g. 1920x380, 3840x380).
+  # Many users need non-standard modes that aren't pre-registered.
+  # This uses cvt to generate and registers the mode on the first connected output if needed.
+  WIDTH=$(echo "${DISPLAY_MODE}" | cut -d'x' -f1)
+  HEIGHT=$(echo "${DISPLAY_MODE}" | cut -d'x' -f2)
+
+  if ! xrandr | grep -q "${DISPLAY_MODE}"; then
+    echo "Custom mode ${DISPLAY_MODE} not found, attempting to create it..."
+    # Generate modeline (60Hz is usually fine for ticker)
+    MODELINE=$(cvt "${WIDTH}" "${HEIGHT}" 60 2>/dev/null | grep Modeline | cut -d' ' -f2-)
+    if [ -n "${MODELINE}" ]; then
+      MODENAME=$(echo "${MODELINE}" | awk '{print $1}' | tr -d '"')
+      # Add the mode
+      xrandr --newmode ${MODELINE} 2>/dev/null || true
+      # Find primary output
+      OUTPUT=$(xrandr | grep " connected" | head -n1 | cut -d' ' -f1)
+      if [ -n "${OUTPUT}" ] && [ -n "${MODENAME}" ]; then
+        xrandr --addmode "${OUTPUT}" "${MODENAME}" 2>/dev/null || true
+        echo "Registered mode ${MODENAME} on ${OUTPUT}"
+      fi
+    else
+      echo "cvt failed to generate modeline for ${DISPLAY_MODE}"
+    fi
+  fi
+
+  # Now try to set the mode
+  xrandr -s "${DISPLAY_MODE}" 2>/dev/null || xrandr -s "${DISPLAY_MODE}" >/dev/null 2>&1 || true
+  sleep 0.5
 fi
 
 # Wait for backend before starting Chromium.
@@ -99,6 +126,10 @@ while true; do
     --enable-zero-copy \
     --ignore-gpu-blocklist \
     --disable-smooth-scrolling \
+    --user-data-dir=/tmp/pibarticker-kiosk \
+    --incognito \
+    --no-first-run \
+    --no-default-browser-check \
     "${CHROMIUM_FLAGS[@]}" \
     "${URL}"
 

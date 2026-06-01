@@ -2903,9 +2903,9 @@ function App() {
           <section
             className="ticker-runtime-board"
             style={{
-              width: '100vw',
+              width: '100%',
               maxWidth: `${runtimeBoardWidth}px`,
-              height: `min(100vh, ${runtimeBoardHeight}px)`,
+              height: '100%',
               '--ticker-watermark-images': watermarkImages,
               '--ticker-watermark-positions': watermarkPositions,
             }}

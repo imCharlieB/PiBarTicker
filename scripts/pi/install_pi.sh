@@ -87,18 +87,19 @@ apt-get install -y --no-install-recommends \
   curl \
   rsync \
   "${CHROMIUM_PACKAGE}" \
-  x11-xserver-utils \
-  xdotool \
-  unclutter \
   wlr-randr
+# X11-only packages (x11-xserver-utils, xdotool, unclutter) removed — not required
+# for Labwc/Wayland on current Pi OS. wlr-randr and chromium (or chromium-browser)
+# are kept. The launcher skips X11-only tools via `command -v` guards if absent.
 
 # Stop any currently running services so we can safely update files.
 # They will be restarted at the end of the install.
 echo "Stopping running services for clean update..."
 systemctl stop pibarticker-backend.service 2>/dev/null || true
-pkill -f "launch-kiosk.sh" 2>/dev/null || true
-pkill -f "chromium" 2>/dev/null || true
-pkill -f "chromium-browser" 2>/dev/null || true
+# Selective and safe kill: only target this app's own launcher and its chromium instances
+# (using full path and unique user-data-dir to avoid killing unrelated processes or user's other chromium).
+pkill -f "${APP_DIR}/scripts/pi/launch-kiosk.sh" 2>/dev/null || true
+pkill -f "pibarticker-kiosk" 2>/dev/null || true
 sleep 1
 
 echo "Preparing app directory at ${APP_DIR}..."
@@ -178,32 +179,57 @@ systemctl daemon-reload
 systemctl enable "${SERVICE_NAME}.service"
 systemctl restart "${SERVICE_NAME}.service"
 
-echo "Configuring kiosk autostart for user ${APP_USER}..."
-mkdir -p "${APP_HOME}/.config/autostart"
-cat > "${APP_HOME}/.config/autostart/pibarticker-kiosk.desktop" <<EOF
-[Desktop Entry]
-Type=Application
-Name=PiBarTicker Kiosk
-Comment=Launch PiBarTicker kiosk on desktop login
-Exec=${APP_DIR}/scripts/pi/launch-kiosk.sh
-Terminal=false
-X-GNOME-Autostart-enabled=true
-EOF
+echo "Configuring kiosk autostart for user ${APP_USER} (Labwc/Wayland)..."
+# For current official Raspberry Pi OS (Labwc on Wayland), the proper place for
+# session autostart is ~/.config/labwc/autostart — this is a plain executable
+# shell script that labwc sources/executes when the compositor starts the desktop
+# session after autologin.
+# We deliberately do NOT use ~/.config/autostart/*.desktop (XDG autostart) as it
+# is not reliably honored under bare labwc.
+#
+# We also remove any stale .desktop from previous installs to prevent double-launch
+# (which was observed to cause the launcher to be killed/restarted rapidly,
+# resulting in the "Loading setup configuration..." UI flashing repeatedly
+# as new Chromium instances start and load the frontend).
+rm -f "${APP_HOME}/.config/autostart/pibarticker-kiosk.desktop" 2>/dev/null || true
+
+mkdir -p "${APP_HOME}/.config/labwc"
+LABWC_AUTOSTART="${APP_HOME}/.config/labwc/autostart"
+cat > "${LABWC_AUTOSTART}" <<LABWC_EOF
+#!/bin/sh
+# PiBarTicker kiosk autostart for labwc (Wayland).
+# This script is executed by labwc on desktop session start.
+# We exec the launcher in background so the compositor can finish initializing.
+${APP_DIR}/scripts/pi/launch-kiosk.sh &
+LABWC_EOF
+chmod +x "${LABWC_AUTOSTART}"
 
 chown -R "${APP_USER}:${APP_USER}" "${APP_HOME}/.config"
 chmod +x "${APP_DIR}/scripts/pi/launch-kiosk.sh"
 
-# Configure autologin using the official raspi-config tool. It enables
-# autologin for whatever desktop session is actually active on this Pi
-# (avoids the old hardcoded rpd-labwc values that caused breakage).
-echo "Configuring desktop autologin..."
-sudo raspi-config nonint do_boot_behaviour B2 || true
+# Configure autologin using the official raspi-config tool.
+# B4 = Desktop Autologin (the modern equivalent that works with the current
+# Labwc/Wayland "Desktop" session). B2 was the old one.
+# We never touch /etc/lightdm/lightdm.conf.d/ or force any session name here
+# (that was the source of previous breakage with rpd-labwc).
+echo "Configuring desktop autologin (B4 for Labwc/Wayland)..."
+sudo raspi-config nonint do_boot_behaviour B4 || true
 
-# We rely only on raspi-config B2 (it sets autologin for the actual current
-# desktop session the user has chosen on this Pi) + the standard
-# .config/autostart/pibarticker-kiosk.desktop . No 50-pibarticker-autologin.conf
-# is created, no direct edits to lightdm.conf, no session names forced.
-# This avoids the old rpd-labwc breakage and respects manual cleans.
+# We rely only on raspi-config B4 + the labwc/autostart script above.
+# No 50-pibarticker-autologin.conf is created, no edits to lightdm.conf.d/.
+# We do perform one targeted edit to the *main* /etc/lightdm/lightdm.conf below
+# (to disable display-setup-script, which was causing repeated "Loading setup
+# configuration" flashes under Labwc on some setups). This is the only direct
+# lightdm.conf edit.
+
+# === Fix for "Loading setup configuration" flashing on Labwc ===
+# Some LightDM/Labwc setups run a display-setup-script (often dispsetup.sh)
+# on session start. This can cause the desktop to briefly show a "Loading
+# setup configuration" screen (or trigger re-renders) before the kiosk
+# Chromium takes over, leading to flashing. We comment it out here.
+# This edit is to the main lightdm.conf only (never lightdm.conf.d/).
+echo "Disabling display-setup-script to stop LightDM/Labwc flashing..."
+sudo sed -i 's|^display-setup-script=.*|#display-setup-script=/usr/share/dispsetup.sh|' /etc/lightdm/lightdm.conf || true
 
 # --- Disable the "Login keyring did not get unlocked" prompt ---
 # Very common on Raspberry Pi OS Desktop with autologin (used by almost
@@ -225,8 +251,12 @@ if [[ "${LAUNCH_NOW}" == "1" ]]; then
   echo "Attempting immediate kiosk launch (if desktop session is active)..."
   if pgrep -f "${APP_DIR}/scripts/pi/launch-kiosk.sh" >/dev/null 2>&1; then
     echo "Kiosk launcher is already running."
-  elif [[ -S "/tmp/.X11-unix/X0" && -f "${APP_HOME}/.Xauthority" ]]; then
-    sudo -u "${APP_USER}" env DISPLAY=:0 XAUTHORITY="${APP_HOME}/.Xauthority" \
+  elif [ -n "${WAYLAND_DISPLAY:-}" ] || [[ -S "/tmp/.X11-unix/X0" && -f "${APP_HOME}/.Xauthority" ]]; then
+    # Support both Wayland (labwc) and X11 for the immediate launch attempt during install.
+    # Pass through Wayland env vars so the launcher detects the session correctly.
+    sudo -u "${APP_USER}" \
+      env ${WAYLAND_DISPLAY:+WAYLAND_DISPLAY="$WAYLAND_DISPLAY"} \
+          ${XDG_RUNTIME_DIR:+XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR"} \
       nohup "${APP_DIR}/scripts/pi/launch-kiosk.sh" >/tmp/pibarticker-kiosk.log 2>&1 &
     echo "Kiosk launcher started for current desktop session."
   else

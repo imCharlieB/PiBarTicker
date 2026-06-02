@@ -223,7 +223,10 @@ chmod +x "${APP_DIR}/scripts/pi/launch-kiosk.sh"
 # as well as legacy X11 LXDE-pi). This ensures autologin works and the desktop panels launch
 # visibly (like it used to) before the kiosk Chromium covers the screen.
 # The .config/autostart/pibarticker-kiosk.desktop will then run the launcher in the session.
-echo "Configuring autologin for the desktop session (labwc on Wayland or LXDE-pi on X11)..."
+echo "Configuring autologin for the desktop session (rpd-labwc on Wayland)..."
+# Use raspi-config to set desktop autologin (it will set the correct session for the current desktop)
+sudo raspi-config nonint do_boot_behaviour B2 || true
+# Then force our settings on top to ensure rpd-labwc and the kiosk launcher.
 sudo mkdir -p /etc/lightdm/lightdm.conf.d
 # Default to rpd-labwc for modern Pi OS Wayland desktop (as seen in user sessions); override if needed.
 # User can change in raspi-config if needed.
@@ -233,6 +236,7 @@ autologin-user=${APP_USER}
 autologin-session=rpd-labwc
 autologin-guest=false
 autologin-user-timeout=0
+autologin-in-background=false
 EOF
 # Also support pi-greeter if present (common on Pi OS for Wayland greeter)
 if [ -f /etc/lightdm/pi-greeter.conf ]; then
@@ -242,6 +246,24 @@ autologin-user=${APP_USER}
 autologin-session=rpd-labwc
 EOF
 fi
+
+# Force settings in main lightdm.conf as well for robustness (in case conf.d or greeter overrides)
+sudo sed -i 's/^#autologin-user=.*/autologin-user='${APP_USER}'/' /etc/lightdm/lightdm.conf 2>/dev/null || true
+sudo sed -i 's/^autologin-user=.*/autologin-user='${APP_USER}'/' /etc/lightdm/lightdm.conf 2>/dev/null || true
+sudo sed -i 's/^#autologin-session=.*/autologin-session=rpd-labwc/' /etc/lightdm/lightdm.conf 2>/dev/null || true
+sudo sed -i 's/^autologin-session=.*/autologin-session=rpd-labwc/' /etc/lightdm/lightdm.conf 2>/dev/null || true
+sudo sed -i 's/^#autologin-guest=.*/autologin-guest=false/' /etc/lightdm/lightdm.conf 2>/dev/null || true
+sudo sed -i 's/^autologin-guest=.*/autologin-guest=false/' /etc/lightdm/lightdm.conf 2>/dev/null || true
+sudo sed -i 's/^#autologin-user-timeout=.*/autologin-user-timeout=0/' /etc/lightdm/lightdm.conf 2>/dev/null || true
+sudo sed -i 's/^autologin-user-timeout=.*/autologin-user-timeout=0/' /etc/lightdm/lightdm.conf 2>/dev/null || true
+sudo sed -i 's/^#autologin-in-background=.*/autologin-in-background=false/' /etc/lightdm/lightdm.conf 2>/dev/null || true
+sudo sed -i 's/^autologin-in-background=.*/autologin-in-background=false/' /etc/lightdm/lightdm.conf 2>/dev/null || true
+# Ensure user-session is set
+sudo sed -i 's/^#user-session=.*/user-session=rpd-labwc/' /etc/lightdm/lightdm.conf 2>/dev/null || true
+sudo sed -i 's/^user-session=.*/user-session=rpd-labwc/' /etc/lightdm/lightdm.conf 2>/dev/null || true
+# Ensure greeter is the labwc one
+sudo sed -i 's/^#greeter-session=.*/greeter-session=pi-greeter-labwc/' /etc/lightdm/lightdm.conf 2>/dev/null || true
+sudo sed -i 's/^greeter-session=.*/greeter-session=pi-greeter-labwc/' /etc/lightdm/lightdm.conf 2>/dev/null || true
 
 # --- Disable the "Login keyring did not get unlocked" prompt ---
 # Very common on Raspberry Pi OS Desktop with autologin (used by almost

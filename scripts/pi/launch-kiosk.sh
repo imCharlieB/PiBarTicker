@@ -105,6 +105,12 @@ RECOMMENDED = [
     "--ignore-gpu-blocklist", "--disable-smooth-scrolling",
     "--overscroll-history-navigation=0", "--disable-translate",
     "--disable-features=TranslateUI",
+    # Wayland/Labwc specific for current Pi OS (fixes Dawn/Vulkan init errors,
+    # on_device_model backend, and improves compatibility)
+    "--ozone-platform=wayland",
+    "--use-gl=egl",
+    "--enable-features=OverlayScrollbar,VaapiVideoDecoder,WaylandWindowDecorations",
+    "--disable-webgpu",
 ]
 cleaned = [f for f in flags if f not in BAD_FLAGS]
 existing = set(cleaned)
@@ -235,7 +241,9 @@ while true; do
     --window-position=0,0 \
     --kiosk \
     --ozone-platform=wayland \
+    --use-gl=egl \
     --enable-features=OverlayScrollbar,VaapiVideoDecoder,WaylandWindowDecorations \
+    --disable-webgpu \
     "${CHROMIUM_FLAGS[@]}" \
     "${URL}" >> /tmp/pibarticker-kiosk.log 2>&1
 

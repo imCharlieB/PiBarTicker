@@ -259,6 +259,14 @@ if [[ "${LAUNCH_NOW}" == "1" ]]; then
     # active on the Pi). The launcher will wait internally for the compositor if needed.
     # Defaults assume the common "pi" user (uid 1000).
     USER_UID=$(id -u "${APP_USER}" 2>/dev/null || echo 1000)
+    # Pre-create and chown the log file to the target user. This prevents
+    # "Permission denied" on the redirection when the file was previously
+    # created by the pi user (or in a previous run) with restrictive perms.
+    # The nohup redirection is done by root, but we ensure the file is
+    # owned by the user so the launched process (as pi) can also write if needed.
+    touch /tmp/pibarticker-kiosk.log || true
+    chown "${APP_USER}:${APP_USER}" /tmp/pibarticker-kiosk.log || true
+    chmod 666 /tmp/pibarticker-kiosk.log || true
     sudo -u "${APP_USER}" \
       env DISPLAY="${DISPLAY:-:0}" \
           XAUTHORITY="${XAUTHORITY:-${APP_HOME}/.Xauthority}" \

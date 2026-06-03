@@ -15,6 +15,19 @@ CONFIG_FILE="${APP_DIR}/config.json"
 BACKEND_URL="http://127.0.0.1:8000"
 URL="http://127.0.0.1:8000/?kiosk=1"
 
+# Set default graphical session environment if not provided (helps when the
+# installer starts us via nohup from ssh or non-graphical context).
+# For typical Pi OS Labwc (Wayland) with user 'pi' (uid 1000).
+if [ -z "${WAYLAND_DISPLAY:-}" ] && [ -z "${DISPLAY:-}" ]; then
+  # Prefer Wayland defaults for current official Pi OS
+  export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}"
+  export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/1000}"
+  echo "Set default Wayland/Labwc env vars (WAYLAND_DISPLAY=$WAYLAND_DISPLAY, XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR)"
+fi
+if [ -z "${DISPLAY:-}" ] && [ -S "/tmp/.X11-unix/X0" ]; then
+  export DISPLAY=:0
+fi
+
 # Detect Wayland / Labwc (the current official Raspberry Pi OS desktop on Wayland).
 # We prioritize Wayland paths (wlr-randr for resolution, dedicated Chromium flags)
 # and only fall back to X11 logic if no Wayland compositor is detected.

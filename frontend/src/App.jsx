@@ -2019,6 +2019,7 @@ function App() {
   const runtimeMarqueeGames = runtimeDisplayGames.length
     ? runtimeDisplayGames
     : (activeRuntimePayload ? [] : runtimeLastStableMarqueeGames)
+  const seamlessMarqueeGames = runtimeMarqueeGames.length > 0 ? [...runtimeMarqueeGames, ...runtimeMarqueeGames] : runtimeMarqueeGames
   const runtimeRenderLeague = runtimeVisibleLeague || (runtimeDisplayGames.length ? runtimeDisplayLeague : null)
   const runtimeHasAnyGamesAcrossEnabledLeagues = runtimeLeagues.some((league) => {
     const payload = runtimePayloadByLeagueId[league.id]
@@ -2960,8 +2961,7 @@ function App() {
                   '--runtime-window-width': `${Math.max(1, runtimeWindowWidth)}px`,
                 } : undefined}
               >
-                {Array.from({ length: 2 }).flatMap(() =>
-                  runtimeMarqueeGames.map((game, index) => {
+                {seamlessMarqueeGames.map((game, index) => {
                   const isSoloSlate = runtimeMarqueeGames.length === 1
                   const isDuoSlate = runtimeMarqueeGames.length === 2
                   const isFinishedRace = game?.isRacing && String(game?.state || '').toLowerCase() === 'post'
@@ -3304,7 +3304,6 @@ function App() {
                     </article>
                   )
                 })}
-                )}
               </div>
             </div>
 

@@ -440,14 +440,19 @@ function buildTickerScoreboardQuery(league, {
   // The backend + ESPN calendar logic (when use_week_filter is true) handles
   // current week narrowing for football leagues. This keeps things simple and reliable.
 
-  const includedTeams = Array.isArray(league?.includedTeams) ? league.includedTeams : []
-  if (includedTeams.length) {
-    query.set('included_teams', includedTeams.join(','))
-  }
+  // In ticker (where we force gameFilterOverride='all' to show available games for the first league etc.),
+  // skip the league's includedTeams/includedGroups so we get the full set of games the league has,
+  // not a filtered subset that may currently be empty.
+  if (gameFilterOverride !== 'all') {
+    const includedTeams = Array.isArray(league?.includedTeams) ? league.includedTeams : []
+    if (includedTeams.length) {
+      query.set('included_teams', includedTeams.join(','))
+    }
 
-  const includedGroups = Array.isArray(league?.includedGroups) ? league.includedGroups : []
-  if (includedGroups.length) {
-    query.set('included_groups', includedGroups.join(','))
+    const includedGroups = Array.isArray(league?.includedGroups) ? league.includedGroups : []
+    if (includedGroups.length) {
+      query.set('included_groups', includedGroups.join(','))
+    }
   }
 
   return query.toString()
@@ -1520,6 +1525,10 @@ function App() {
   const marqueeTrackWidthRef = useRef(0)
   const marqueeWindowWidthRef = useRef(0)
   const marqueeSpeedRef = useRef(110) // px per second - matches previous visual speed
+  // Used only to ensure the late re-measure (for stable initial layout) runs exactly once
+  // for the very first league slot at ticker startup (the one that was getting bad early
+  // widths, causing no visible games).
+  const didInitialLateMeasureRef = useRef(false)
   const lastMeasuredLeagueIdRef = useRef(null)
 
   // Stop any running marquee rAF loop. Called on unmount, league switch, !ready, etc.
@@ -2104,12 +2113,12 @@ function App() {
   const runtimeMarqueeGames = runtimeDisplayGames.length
     ? runtimeDisplayGames
     : runtimeLastStableMarqueeGames.length ? runtimeLastStableMarqueeGames : [];
-  // For k=1 (single race like F1), duplicate more copies (5) so we can travel a longer distance (full screen worth) before wrap, reducing the frequency of visible "restarts".
-  // With more copies, the single item appears repeated in the track (may look like duplicates, but makes the scroll continuous over longer distance without gap or jump).
-  // For normal, 2 copies as before.
+  // Always use exactly 2 copies for seamless (original design).
+  // For k=1 (F1 single race), we will use 2x the unit as animPeriod (see measure) to travel twice as far per cycle,
+  // reducing "restarts again and again" frequency, while keeping only 2 copies so you see at most ~2 (not 3+ duplicates).
   const originalK = runtimeMarqueeGames.length;
   const k = originalK;
-  const numCopies = (k === 1) ? 5 : 2;
+  const numCopies = 2;
   let seamlessMarqueeGames = runtimeMarqueeGames;
   if (k > 0) {
     seamlessMarqueeGames = [];
@@ -2156,6 +2165,9 @@ function App() {
 
     setRuntimeLeagueIndex(0)
     setRuntimeVisibleLeagueId('')
+
+    // Reset so the late re-measure for initial slot runs once.
+    didInitialLateMeasureRef.current = false
 
     // Load cached logo meta for all enabled runtime leagues so we can use
     // modern cached colors/logos (legacy teamStyles in config.json is gone)
@@ -2229,12 +2241,12 @@ function App() {
         oneCopyWidth = Math.max(1, kids[mid].offsetLeft)
       }
 
-      // For k=1, use longer animPeriod (multiple of oneCopy to cover ~full screen travel) so the single item scrolls farther before wrap, reducing "restarts again and again".
+      // For k=1 (F1 single), use animPeriod = 2 * oneCopy so we travel twice the unit distance per cycle.
+      // This makes the single race scroll farther across the screen before the seamless wrap, reducing frequency of visible restarts,
+      // while numCopies=2 means at most ~2 copies visible (no "3 duplicates").
       let animPeriod = oneCopyWidth;
       if (originalK === 1) {
-        const travel = Math.max(windowWidth, oneCopyWidth);
-        const multiples = Math.ceil(travel / oneCopyWidth);
-        animPeriod = multiples * oneCopyWidth;
+        animPeriod = 2 * oneCopyWidth;
       }
 
       // If the league id is the same as last measurement but the number of items (length) changed,
@@ -2302,6 +2314,27 @@ function App() {
           liveTrack.style.setProperty('--marquee-offset', `${off}px`)
         }
       })
+
+      // Targeted fix for the sole reported issue: the *first* league at ticker startup
+      // (whichever it is; if you swap order, the new first has the problem) shows only
+      // the watermark logo, no games scrolling, even though the payload has games 100%.
+      // Cause: the *initial* measurement (in early useLayoutEffect) happens before card
+      // images/logos are loaded/sized, so oneCopy/animPeriod/offset are based on wrong
+      // (too small/zero) widths -> rAF transform positions the content offscreen or
+      // not visible. Later leagues get measured after layout is stable -> they show fine.
+      // We do one late re-measure ~300ms after the *initial* slot starts (once per ticker
+      // start), then restart the scroller from the correct enter-from-right with now-accurate W.
+      // Acceptable at the very beginning of the first slot; no mid-animation changes.
+      // Only for the initial slot (flag reset on ticker entry).
+      if (!didInitialLateMeasureRef.current) {
+        didInitialLateMeasureRef.current = true
+        setTimeout(() => {
+          if (runtimeMarqueeTrackRef.current && runtimeScrollReadyRef.current) {
+            // Re-measure with stable sizes and restart anim cleanly from start pos.
+            measureAndStartMarquee()
+          }
+        }, 300)
+      }
     }
 
     if (typeof ResizeObserver === 'undefined') {

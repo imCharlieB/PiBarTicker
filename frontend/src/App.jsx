@@ -1372,12 +1372,14 @@ function findNextLeagueIndexInOrder(currentIndex, leagues, payloadByLeagueId, lo
     }
   }
 
-  if (firstUnknown >= 0) {
-    return firstUnknown
-  }
-
+  // Prefer known leagues with games (to show content in ticker) over unknown (probing).
+  // Only probe unknowns if no known good ahead in the order.
   if (firstWithGames >= 0) {
     return firstWithGames
+  }
+
+  if (firstUnknown >= 0) {
+    return firstUnknown
   }
 
   return safeCurrent
@@ -2101,7 +2103,7 @@ function App() {
   })
   const runtimeMarqueeGames = runtimeDisplayGames.length
     ? runtimeDisplayGames
-    : (activeRuntimePayload ? [] : runtimeLastStableMarqueeGames)
+    : runtimeLastStableMarqueeGames.length ? runtimeLastStableMarqueeGames : [];
   const seamlessMarqueeGames = runtimeMarqueeGames.length > 0 ? [...runtimeMarqueeGames, ...runtimeMarqueeGames] : runtimeMarqueeGames
   const runtimeRenderLeague = runtimeVisibleLeague || (runtimeDisplayGames.length ? runtimeDisplayLeague : null)
   const runtimeHasAnyGamesAcrossEnabledLeagues = runtimeLeagues.some((league) => {
@@ -2148,16 +2150,6 @@ function App() {
     runtimeLeagues.forEach((league) => {
       if (!leagueLogoMetaById[league.id]) {
         loadLeagueLogoMeta(league.id)
-      }
-    })
-
-    // Kick off payload loads for *all* enabled leagues in parallel immediately on ticker start.
-    // This pre-populates data so that when rotation lands on a league, its content is
-    // already available (no loading flash or delay), and lastStable can be set from good
-    // leagues even if the initial display league is empty.
-    runtimeLeagues.forEach((league) => {
-      if (!runtimePayloadByLeagueId[league.id]) {
-        refreshRuntimeLeaguePayload(league).catch(() => {})
       }
     })
   }, [isTickerRuntime, runtimeLeagueIdsKey])
@@ -2343,9 +2335,8 @@ function App() {
     const rotateSeconds = Math.max(5, Number(sportsBoard.rotateSeconds) || 45)
     const intervalId = window.setInterval(() => {
       // Clear any "visible league pin" so the rotation index drives the next active league.
-      // Without this, once visibleLeagueId was set (on first successful load), runtimeDisplayLeague
-      // would always prefer the pinned visible over activeRuntimeLeague from the cycling index.
-      // Result: rotation would appear to do nothing, only one league would ever show/repeat.
+      // Simple +1 to cycle through all selected in order (as required). Empty leagues will
+      // show last good content via fallback below, or empty if none yet.
       setRuntimeVisibleLeagueId('')
       setRuntimeLeagueIndex((current) => (current + 1) % runtimeLeagues.length)
     }, rotateSeconds * 1000)
@@ -2419,38 +2410,9 @@ function App() {
         setRuntimeVisibleLeagueId(league.id)
       }
 
-      // Only auto-advance to the next league when we truly have nothing (and fallback didn't save us).
-      if (gameCount === 0 && runtimeLeagues.length > 1) {
-        const currentIndex = runtimeLeagues.findIndex((item) => item.id === league.id)
-        const nextIndex = findNextLeagueIndexInOrder(
-          currentIndex,
-          runtimeLeagues,
-          {
-            ...runtimePayloadRef.current,
-            [league.id]: finalPayload,
-          },
-          {
-            ...runtimeLoadStateRef.current,
-            [league.id]: { loading: false, error: '' },
-          },
-        )
-        const nextLeague = runtimeLeagues[nextIndex]
-        if (nextLeague?.id && nextLeague.id !== league.id) {
-          void refreshRuntimeLeaguePayload(nextLeague, {
-            cacheTtlSeconds,
-            fallbackCacheTtlSeconds,
-          })
-          window.setTimeout(() => {
-            setRuntimeLeagueIndex(nextIndex)
-            setRuntimeVisibleLeagueId(nextLeague.id)
-          }, 0)
-        }
-        if (!runtimeVisibleLeagueId) {
-          return finalPayload
-        }
-      }
-
       // Store the (possibly relaxed) payload for runtime + preview
+      // (no auto-skip here anymore; we visit all selected leagues in order via rotation.
+      // Empty ones will fallback to last good content if available, to avoid blank screen.)
       setRuntimePayloadByLeagueId((current) => ({
         ...current,
         [league.id]: finalPayload,

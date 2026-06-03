@@ -260,6 +260,8 @@ if [[ "${LAUNCH_NOW}" == "1" ]]; then
   # Ensure the log is owned by the target user and writable by them.
   # This prevents "Permission denied" when the redirection happens (whether
   # by root or inside user context) if a previous run left restrictive perms.
+  # Clean stale /tmp log from old runs.
+  rm -f /tmp/pibarticker-kiosk.log || true
   sudo -u "${APP_USER}" touch "${LOG_FILE}" || true
   sudo -u "${APP_USER}" chmod 666 "${LOG_FILE}" || true
   if pgrep -f "${APP_DIR}/scripts/pi/launch-kiosk.sh" >/dev/null 2>&1; then

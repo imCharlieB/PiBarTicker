@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from 'react'
 import './App.css'
 import { DARK_PRESET, deriveThemeTokens, LIGHT_PRESET } from './themeTokens'
 
@@ -1448,6 +1448,10 @@ function App() {
   const [runtimeScrollSeconds, setRuntimeScrollSeconds] = useState(45)
   const [runtimeTrackWidth, setRuntimeTrackWidth] = useState(0)
   const [runtimeWindowWidth, setRuntimeWindowWidth] = useState(0)
+  // Used to only apply the CSS animation class *after* we have measured the
+  // real DOM widths in useLayoutEffect. Prevents the animation from starting
+  // with wrong/zero values which used to cause initial pop or jerk.
+  const [runtimeScrollReady, setRuntimeScrollReady] = useState(false)
   const [runtimeLastStableLeagueId, setRuntimeLastStableLeagueId] = useState('')
   const [runtimeLastStableMarqueeGames, setRuntimeLastStableMarqueeGames] = useState([])
 
@@ -2069,7 +2073,12 @@ function App() {
     }
   }, [runtimeLeagues, runtimeVisibleLeagueId, runtimePayloadByLeagueId])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    // Always reset ready at the start of measurement for this league/render.
+    // This ensures the animated class + vars are only applied after we have
+    // fresh accurate measurements for the *current* content.
+    setRuntimeScrollReady(false)
+
     if (!isTickerRuntime || !runtimeDisplayLeague || !runtimeMarqueeGames.length) {
       setRuntimeScrollSeconds(45)
       return
@@ -2093,7 +2102,20 @@ function App() {
       const travelDistance = trackWidth + Math.max(0, windowWidth)
       const pxPerSecond = 110
       const nextSeconds = Math.max(12, travelDistance / pxPerSecond)
-      setRuntimeScrollSeconds(Number(nextSeconds.toFixed(1)))
+      const secs = Number(nextSeconds.toFixed(1))
+      setRuntimeScrollSeconds(secs)
+
+      // Direct DOM mutation of the CSS vars *before paint* (useLayoutEffect)
+      // so the animation starts with the *correct* duration and distances.
+      // This prevents the previous problem where state updates mid-animation
+      // (or late) would cause the browser to jerk/reset the marquee.
+      if (track) {
+        track.style.setProperty('--runtime-scroll-seconds', `${secs}s`)
+        track.style.setProperty('--runtime-track-width', `${trackWidth}px`)
+        track.style.setProperty('--runtime-window-width', `${windowWidth}px`)
+      }
+
+      setRuntimeScrollReady(true)
     }
 
     updateScrollSeconds()
@@ -2913,14 +2935,20 @@ function App() {
             <div className="ticker-runtime-marquee-window" ref={runtimeMarqueeWindowRef}>
               <div
                 key={`marquee-${runtimeRenderLeague?.id || 'none'}-${runtimeMarqueeGames.length}`}
-                className="ticker-runtime-track ticker-runtime-track-animated"
+                className={`ticker-runtime-track ${runtimeScrollReady ? 'ticker-runtime-track-animated' : ''}`}
                 ref={runtimeMarqueeTrackRef}
                 role="list"
                 aria-label="Ticker games"
-                style={{
+                style={runtimeScrollReady ? {
                   '--runtime-scroll-seconds': `${runtimeScrollSeconds}s`,
                   '--runtime-track-width': `${Math.max(1, runtimeTrackWidth)}px`,
                   '--runtime-window-width': `${Math.max(1, runtimeWindowWidth)}px`,
+                } : {
+                  // Position the track at the "enter from right" offset using the
+                  // previously known window width (usually stable on fixed bar display).
+                  // This makes the very first paint of a new league already "off right"
+                  // so when the animated class kicks in there's no visible jump.
+                  transform: `translateX( calc( ${runtimeWindowWidth || 0}px ) ) translateZ(0)`
                 }}
                 onAnimationEnd={() => {
                   if (runtimeLeagues.length > 1) {

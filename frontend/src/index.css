@@ -47,6 +47,16 @@ html.kiosk-mode {
   scrollbar-width: none !important;
 }
 
+/* Hide the mouse cursor entirely in kiosk/ticker mode on Labwc/Wayland (and X11).
+   This replaces the old `unclutter` X11 tool which we removed for modern Wayland-only installs.
+   Applied at html level so it covers the whole kiosk Chromium window. */
+html.kiosk-mode,
+html.kiosk-mode body,
+html.kiosk-mode .ticker-runtime-marquee-window,
+html.kiosk-mode .ticker-runtime-board {
+  cursor: none !important;
+}
+
 /* Keep the runtime shell and marquee containers clean too */
 .ticker-runtime-shell,
 .ticker-runtime-board,

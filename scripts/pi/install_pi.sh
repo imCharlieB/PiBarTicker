@@ -255,6 +255,13 @@ echo "Removed user's login.keyring (safe; package left installed to keep desktop
 
 if [[ "${LAUNCH_NOW}" == "1" ]]; then
   echo "Attempting immediate kiosk launch..."
+  LOG_FILE="${APP_HOME}/pibarticker-kiosk.log"
+  USER_UID=$(id -u "${APP_USER}" 2>/dev/null || echo 1000)
+  # Ensure the log is owned by the target user and writable by them.
+  # This prevents "Permission denied" when the redirection happens (whether
+  # by root or inside user context) if a previous run left restrictive perms.
+  sudo -u "${APP_USER}" touch "${LOG_FILE}" || true
+  sudo -u "${APP_USER}" chmod 666 "${LOG_FILE}" || true
   if pgrep -f "${APP_DIR}/scripts/pi/launch-kiosk.sh" >/dev/null 2>&1; then
     echo "Kiosk launcher is already running."
   else
@@ -264,21 +271,12 @@ if [[ "${LAUNCH_NOW}" == "1" ]]; then
     # or X11), so it works even if you ran the curl over ssh (the desktop session is still
     # active on the Pi). The launcher will wait internally for the compositor if needed.
     # Defaults assume the common "pi" user (uid 1000).
-    USER_UID=$(id -u "${APP_USER}" 2>/dev/null || echo 1000)
-    # Pre-create and chown the log file to the target user. This prevents
-    # "Permission denied" on the redirection when the file was previously
-    # created by the pi user (or in a previous run) with restrictive perms.
-    # The nohup redirection is done by root, but we ensure the file is
-    # owned by the user so the launched process (as pi) can also write if needed.
-    touch /tmp/pibarticker-kiosk.log || true
-    chown "${APP_USER}:${APP_USER}" /tmp/pibarticker-kiosk.log || true
-    chmod 666 /tmp/pibarticker-kiosk.log || true
     sudo -u "${APP_USER}" \
       env DISPLAY="${DISPLAY:-:0}" \
           XAUTHORITY="${XAUTHORITY:-${APP_HOME}/.Xauthority}" \
           WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}" \
           XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/${USER_UID}}" \
-      nohup "${APP_DIR}/scripts/pi/launch-kiosk.sh" >/tmp/pibarticker-kiosk.log 2>&1 &
+      sh -c 'nohup "'"${APP_DIR}/scripts/pi/launch-kiosk.sh"'" >> "'"${LOG_FILE}"'" 2>&1 &' 
     echo "Kiosk launcher started (or will activate when desktop session is ready)."
   fi
   # Give the launcher time to start (backend health wait up to 60s + compositor + chromium init).
@@ -291,7 +289,7 @@ if [[ "${LAUNCH_NOW}" == "1" ]]; then
     fi
     if [ $i -eq 5 ]; then
       echo "Chromium not detected after ~15s (may still be waiting for backend health or compositor)."
-      echo "Check the kiosk log for details: tail -f /tmp/pibarticker-kiosk.log"
+      echo "Check the kiosk log for details: tail -f ${LOG_FILE}"
     fi
   done
 fi
@@ -437,4 +435,4 @@ echo
 echo "Install complete."
 echo "Backend status: systemctl status ${SERVICE_NAME}.service"
 echo "Logs: journalctl -u ${SERVICE_NAME}.service -f"
-echo "Kiosk launcher log: tail -f /tmp/pibarticker-kiosk.log"
+echo "Kiosk launcher log: tail -f ${APP_HOME}/pibarticker-kiosk.log  (default location; may be /tmp in some older runs)"

@@ -213,6 +213,11 @@ chmod +x "${LABWC_AUTOSTART}"
 chown -R "${APP_USER}:${APP_USER}" "${APP_HOME}/.config"
 chmod +x "${APP_DIR}/scripts/pi/launch-kiosk.sh"
 
+# If labwc is the active compositor for the user, try a reconfigure. This can help pick up
+# the new autostart in some cases (though full session restart is still best for first-time
+# autostart scripts). Harmless if not running.
+sudo -u "${APP_USER}" labwc --reconfigure 2>/dev/null || true
+
 # Configure autologin using the official raspi-config tool.
 # B4 = Desktop Autologin (the modern equivalent that works with the current
 # Labwc/Wayland "Desktop" session). B2 was the old one.
@@ -254,7 +259,7 @@ sudo -u "${APP_USER}" rm -f "${KEYRING_DIR}/login.keyring" 2>/dev/null || true
 echo "Removed user's login.keyring (safe; package left installed to keep desktop intact)."
 
 if [[ "${LAUNCH_NOW}" == "1" ]]; then
-  echo "Attempting immediate kiosk launch..."
+  echo "Attempting immediate kiosk launch (no reboot needed for first run)..."
   LOG_FILE="${APP_HOME}/pibarticker-kiosk.log"
   USER_UID=$(id -u "${APP_USER}" 2>/dev/null || echo 1000)
   # Ensure the log is owned by the target user and writable by them.
@@ -264,34 +269,42 @@ if [[ "${LAUNCH_NOW}" == "1" ]]; then
   rm -f /tmp/pibarticker-kiosk.log || true
   sudo -u "${APP_USER}" touch "${LOG_FILE}" || true
   sudo -u "${APP_USER}" chmod 666 "${LOG_FILE}" || true
-  if pgrep -f "${APP_DIR}/scripts/pi/launch-kiosk.sh" >/dev/null 2>&1; then
-    echo "Kiosk launcher is already running."
-  else
-    # Launch the ticker now at the end of install (no reboot needed).
-    # This runs the launcher in the background so you see the ticker immediately.
-    # We always provide sensible defaults for the graphical session env (Wayland for labwc
-    # or X11), so it works even if you ran the curl over ssh (the desktop session is still
-    # active on the Pi). The launcher will wait internally for the compositor if needed.
-    # Defaults assume the common "pi" user (uid 1000).
-    sudo -u "${APP_USER}" \
-      env DISPLAY="${DISPLAY:-:0}" \
-          XAUTHORITY="${XAUTHORITY:-${APP_HOME}/.Xauthority}" \
-          WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}" \
-          XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/${USER_UID}}" \
-      sh -c 'nohup "'"${APP_DIR}/scripts/pi/launch-kiosk.sh"'" >> "'"${LOG_FILE}"'" 2>&1 &' 
-    echo "Kiosk launcher started (or will activate when desktop session is ready)."
-  fi
+
+  # Give the just-restarted backend a moment to be healthy before the launcher starts its own wait.
+  sleep 2
+
+  # Always do a clean (re)launch of our own launcher at the very end. This is the key to seeing the
+  # ticker right after `curl ... | sudo bash` without a reboot. The autostart is for subsequent boots.
+  pkill -f "${APP_DIR}/scripts/pi/launch-kiosk.sh" 2>/dev/null || true
+  pkill -f "pibarticker-kiosk" 2>/dev/null || true
+  sleep 1
+
+  # Launch the ticker now at the end of install (no reboot needed).
+  # This runs the launcher in the background so you see the ticker immediately.
+  # We always provide sensible defaults for the graphical session env (Wayland for labwc
+  # or X11), so it works even if you ran the curl over ssh (the desktop session is still
+  # active on the Pi). The launcher will wait internally for the compositor if needed.
+  # Defaults assume the common "pi" user (uid 1000).
+  sudo -u "${APP_USER}" \
+    env DISPLAY="${DISPLAY:-:0}" \
+        XAUTHORITY="${XAUTHORITY:-${APP_HOME}/.Xauthority}" \
+        WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}" \
+        XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/${USER_UID}}" \
+    sh -c 'nohup "'"${APP_DIR}/scripts/pi/launch-kiosk.sh"'" >> "'"${LOG_FILE}"'" 2>&1 &' 
+  echo "Kiosk launcher (re)started. The ticker should appear on the Pi screen shortly."
+
   # Give the launcher time to start (backend health wait up to 60s + compositor + chromium init).
-  # Check a few times so the command output gives useful feedback even if it takes a while.
-  for i in 1 2 3 4 5; do
+  # Longer/more patient check than before so the install output is useful even on slower first boots.
+  for i in 1 2 3 4 5 6 7 8 9 10; do
     sleep 3
     if pgrep -f "chromium" >/dev/null 2>&1 || pgrep -f "chromium-browser" >/dev/null 2>&1; then
       echo "Chromium kiosk process detected - the ticker should now be visible on the Pi desktop screen."
       break
     fi
-    if [ $i -eq 5 ]; then
-      echo "Chromium not detected after ~15s (may still be waiting for backend health or compositor)."
+    if [ $i -eq 10 ]; then
+      echo "Chromium not detected after ~30s (may still be waiting for backend health or compositor in the launcher)."
       echo "Check the kiosk log for details: tail -f ${LOG_FILE}"
+      echo "You can also manually force it: sudo -u ${APP_USER} ${APP_DIR}/scripts/pi/launch-kiosk.sh >> ${LOG_FILE} 2>&1 &"
     fi
   done
 fi

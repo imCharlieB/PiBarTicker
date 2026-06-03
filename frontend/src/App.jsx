@@ -2101,7 +2101,7 @@ function App() {
   })
   const runtimeMarqueeGames = runtimeDisplayGames.length
     ? runtimeDisplayGames
-    : (activeRuntimePayload ? [] : runtimeLastStableMarqueeGames)
+    : (runtimeLastStableMarqueeGames.length ? runtimeLastStableMarqueeGames : (activeRuntimePayload ? [] : []))
   const seamlessMarqueeGames = runtimeMarqueeGames.length > 0 ? [...runtimeMarqueeGames, ...runtimeMarqueeGames] : runtimeMarqueeGames
   const runtimeRenderLeague = runtimeVisibleLeague || (runtimeDisplayGames.length ? runtimeDisplayLeague : null)
   const runtimeHasAnyGamesAcrossEnabledLeagues = runtimeLeagues.some((league) => {
@@ -2148,6 +2148,17 @@ function App() {
     runtimeLeagues.forEach((league) => {
       if (!leagueLogoMetaById[league.id]) {
         loadLeagueLogoMeta(league.id)
+      }
+    })
+
+    // Kick off payload loads for *all* enabled leagues in parallel immediately on ticker start.
+    // Previously only the "current display" was loaded on demand. This ensures that when
+    // the first configured league has 0 games (or arrives empty), the auto-advance effect
+    // can immediately find a league that does have games (instead of showing empty while
+    // waiting for rotation or sequential loads). Also populates lastStable faster.
+    runtimeLeagues.forEach((league) => {
+      if (!runtimePayloadByLeagueId[league.id]) {
+        refreshRuntimeLeaguePayload(league).catch(() => {})
       }
     })
   }, [isTickerRuntime, runtimeLeagueIdsKey])

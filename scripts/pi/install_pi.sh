@@ -248,19 +248,19 @@ sudo -u "${APP_USER}" rm -f "${KEYRING_DIR}/login.keyring" 2>/dev/null || true
 echo "Removed user's login.keyring (safe; package left installed to keep desktop intact)."
 
 if [[ "${LAUNCH_NOW}" == "1" ]]; then
-  echo "Attempting immediate kiosk launch (if desktop session is active)..."
+  echo "Attempting immediate kiosk launch..."
   if pgrep -f "${APP_DIR}/scripts/pi/launch-kiosk.sh" >/dev/null 2>&1; then
     echo "Kiosk launcher is already running."
-  elif [ -n "${WAYLAND_DISPLAY:-}" ] || [[ -S "/tmp/.X11-unix/X0" && -f "${APP_HOME}/.Xauthority" ]]; then
-    # Support both Wayland (labwc) and X11 for the immediate launch attempt during install.
-    # Pass through Wayland env vars so the launcher detects the session correctly.
+  else
+    # Launch the ticker now at the end of install (no reboot needed for testing).
+    # The launcher internally waits for Wayland/X compositor if not yet ready in this env.
+    # We pass through any available session env vars (works whether install run from GUI terminal or ssh).
     sudo -u "${APP_USER}" \
       env ${WAYLAND_DISPLAY:+WAYLAND_DISPLAY="$WAYLAND_DISPLAY"} \
           ${XDG_RUNTIME_DIR:+XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR"} \
+          ${DISPLAY:+DISPLAY="$DISPLAY"} \
       nohup "${APP_DIR}/scripts/pi/launch-kiosk.sh" >/tmp/pibarticker-kiosk.log 2>&1 &
-    echo "Kiosk launcher started for current desktop session."
-  else
-    echo "No active desktop session detected; kiosk starts on next login/reboot."
+    echo "Kiosk launcher started (or will activate when desktop session is ready)."
   fi
 fi
 

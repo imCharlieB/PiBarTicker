@@ -1452,6 +1452,7 @@ function App() {
   // real DOM widths in useLayoutEffect. Prevents the animation from starting
   // with wrong/zero values which used to cause initial pop or jerk.
   const [runtimeScrollReady, setRuntimeScrollReady] = useState(false)
+  const runtimeScrollReadyRef = useRef(false)
   const [runtimeLastStableLeagueId, setRuntimeLastStableLeagueId] = useState('')
   const [runtimeLastStableMarqueeGames, setRuntimeLastStableMarqueeGames] = useState([])
 
@@ -2118,14 +2119,15 @@ function App() {
       setRuntimeScrollReady(true)
     }
 
-    updateScrollSeconds()
-
     if (typeof ResizeObserver === 'undefined') {
+      updateScrollSeconds()
       return undefined
     }
 
     const observer = new ResizeObserver(() => {
-      window.requestAnimationFrame(updateScrollSeconds)
+      if (!runtimeScrollReadyRef.current) {
+        window.requestAnimationFrame(updateScrollSeconds)
+      }
     })
 
     if (runtimeMarqueeTrackRef.current) {
@@ -2134,6 +2136,13 @@ function App() {
     if (runtimeMarqueeWindowRef.current) {
       observer.observe(runtimeMarqueeWindowRef.current)
     }
+
+    updateScrollSeconds()
+
+    // Disconnect immediately after initial measurement so that resizes during the
+    // long animation (live score updates, etc.) do not change the CSS vars and
+    // cause jerk/skip in the running marquee. Next league will get a fresh observer.
+    observer.disconnect()
 
     return () => observer.disconnect()
   }, [isTickerRuntime, runtimeDisplayLeague?.id, runtimeMarqueeGames.length])
@@ -2951,6 +2960,7 @@ function App() {
                   transform: `translateX( calc( ${runtimeWindowWidth || 0}px ) ) translateZ(0)`
                 }}
                 onAnimationEnd={() => {
+                  setRuntimeScrollReady(false)  // prepare for next league's measurement
                   if (runtimeLeagues.length > 1) {
                     const currentDisplayIndex = runtimeLeagues.findIndex(
                       (league) => league.id === runtimeRenderLeague?.id,

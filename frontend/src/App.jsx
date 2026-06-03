@@ -2118,6 +2118,22 @@ function App() {
     setRuntimeLastStableMarqueeGames(runtimeDisplayGames)
   }, [runtimeDisplayLeague?.id, runtimeDisplayGames.length]) // use length to avoid re-running on every render (runtimeDisplayGames is a fresh array every time)
 
+  // Also snapshot last good content from *any* league payload that arrives with games,
+  // even if we are not currently displaying it. This helps the initial ticker (and
+  // switches to unloaded leagues) immediately have something to show instead of empty,
+  // once the first good data arrives via the parallel initial loads.
+  useEffect(() => {
+    for (const [lid, p] of Object.entries(runtimePayloadByLeagueId)) {
+      if (p && Array.isArray(p.normalizedGames) && p.normalizedGames.length > 0) {
+        if (!runtimeLastStableMarqueeGames.length || lid === runtimeDisplayLeague?.id) {
+          setRuntimeLastStableLeagueId(lid)
+          setRuntimeLastStableMarqueeGames(p.normalizedGames)
+          break
+        }
+      }
+    }
+  }, [runtimePayloadByLeagueId])
+
   async function loadLeagueScoreboardWithSettings(league, {
     cacheTtlSeconds = 30,
     gameFilterOverride = null,

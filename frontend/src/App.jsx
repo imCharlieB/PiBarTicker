@@ -1518,6 +1518,7 @@ function App() {
   const marqueeTrackWidthRef = useRef(0)
   const marqueeWindowWidthRef = useRef(0)
   const marqueeSpeedRef = useRef(110) // px per second - matches previous visual speed
+  const lastMeasuredLeagueIdRef = useRef(null)
 
   // Stop any running marquee rAF loop. Called on unmount, league switch, !ready, etc.
   function stopMarqueeAnimation() {
@@ -1536,19 +1537,17 @@ function App() {
     if (!W) {
       return
     }
-    const Vw = marqueeWindowWidthRef.current || 0
-    // Start offset positive: first item(s) are to the RIGHT of viewport.
-    // Content will scroll leftward and enter naturally from the right edge.
-    marqueeOffsetRef.current = Vw
+    // The offset in the ref was already set in measureAndStartMarquee (to Vw for new league,
+    // or preserved progress for same league with length change). Do not override here.
     marqueeLastTimeRef.current = 0
 
     // Always grab the *current* element from the ref. This prevents stale element
     // issues when the keyed track div remounts on league change.
     const track = runtimeMarqueeTrackRef.current
     if (track) {
-      // Prime using CSS var so that React re-renders (which touch style prop for other --vars)
-      // do not clobber the current scroll position (was causing jumpy restarts on score updates etc).
-      track.style.setProperty('--marquee-offset', `${Vw}px`)
+      // Prime using the (possibly preserved) offset already in the ref.
+      const initial = marqueeOffsetRef.current || 0
+      track.style.setProperty('--marquee-offset', `${initial}px`)
       track.style.willChange = 'transform'
     }
 
@@ -2164,6 +2163,32 @@ function App() {
     }
   }, [runtimeLeagues, runtimeVisibleLeagueId, runtimePayloadByLeagueId])
 
+  // Auto-advance past any league whose payload has arrived with 0 games.
+  // This prevents "first league empty" (or any in the cycle) when the configured order
+  // has a league with no current matches. Once we know a league has 0, skip to next that has >0.
+  // Uses the same findNext logic as the load-time skip.
+  useEffect(() => {
+    if (!isTickerRuntime || !runtimeDisplayLeague || runtimeLeagues.length <= 1) {
+      return
+    }
+    const p = runtimePayloadByLeagueId[runtimeDisplayLeague.id]
+    if (!p) return // not loaded yet
+    const cnt = Array.isArray(p.normalizedGames) ? p.normalizedGames.length : 0
+    if (cnt === 0) {
+      const currentIdx = runtimeLeagues.findIndex((l) => l.id === runtimeDisplayLeague.id)
+      const nextIdx = findNextLeagueIndexInOrder(
+        currentIdx,
+        runtimeLeagues,
+        runtimePayloadByLeagueId,
+        runtimeLoadStateByLeagueId
+      )
+      if (nextIdx !== currentIdx) {
+        setRuntimeVisibleLeagueId('')
+        setRuntimeLeagueIndex(nextIdx)
+      }
+    }
+  }, [isTickerRuntime, runtimeDisplayLeague?.id, runtimePayloadByLeagueId])
+
   useLayoutEffect(() => {
     // Always reset ready at the start of measurement for this league/render.
     // This ensures the JS rAF scroller + gpu styles are only applied after we have
@@ -2207,6 +2232,26 @@ function App() {
       if (kids.length > 1 && kids[mid] && kids[mid].offsetLeft > 0) {
         oneCopyWidth = Math.max(1, kids[mid].offsetLeft)
       }
+
+      // If the league id is the same as last measurement but the number of items (length) changed,
+      // preserve the scroll progress instead of jumping back to the "start from right" position.
+      // This prevents visible "restarts over and over" when the list of games for the current league
+      // changes (e.g. a game starts/ends, or live updates add/remove for racing leagues).
+      const currentLeagueId = runtimeDisplayLeague?.id
+      const lastId = lastMeasuredLeagueIdRef.current
+      const oldW = marqueeTrackWidthRef.current
+      const currentOffset = marqueeOffsetRef.current
+      if (currentLeagueId && currentLeagueId === lastId && oldW > 0 && typeof currentOffset === 'number') {
+        const startX = windowWidth
+        const scrolled = startX - currentOffset
+        const fraction = oldW > 0 ? scrolled / oldW : 0
+        const newOffset = startX - fraction * oneCopyWidth
+        marqueeOffsetRef.current = newOffset
+      } else {
+        // new league (or first), start from the enter-from-right position
+        marqueeOffsetRef.current = windowWidth
+      }
+      lastMeasuredLeagueIdRef.current = currentLeagueId
 
       setRuntimeTrackWidth(oneCopyWidth)
       setRuntimeWindowWidth(windowWidth)
@@ -3108,6 +3153,9 @@ function App() {
                   '--runtime-scroll-seconds': `${runtimeScrollSeconds}s`,
                   '--runtime-track-width': `${Math.max(1, runtimeTrackWidth)}px`,
                   '--runtime-window-width': `${Math.max(1, runtimeWindowWidth)}px`,
+                  // Include current to ensure the var is present after React style updates on re-renders;
+                  // rAF continues to drive the live value without jumps.
+                  '--marquee-offset': `${marqueeOffsetRef.current || 0}px`,
                 } : undefined}
               >
                 {seamlessMarqueeGames.map((game, index) => {

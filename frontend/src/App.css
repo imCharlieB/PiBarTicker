@@ -65,7 +65,7 @@
 }
 
 .ticker-runtime-track-animated {
-  animation: runtime-marquee-pass var(--runtime-scroll-seconds, 45s) linear 1 forwards;
+  animation: runtime-marquee-pass var(--runtime-scroll-seconds, 45s) linear infinite;
   will-change: transform;
   /* Strong hardware acceleration + containment for smoother + stable animation on Raspberry Pi */
   transform: translateZ(0);
@@ -76,17 +76,12 @@
 
 @keyframes runtime-marquee-pass {
   0% {
-    /* Start the track shifted right by the window width so that the *first game*
-       of a (new) league scrolls *into* the screen from the right instead of
-       popping up already visible at the left. This matches the "scroll into"
-       behavior that was working before. */
-    transform: translateX( calc( var(--runtime-window-width, 0px) ) ) translateZ(0);
+    transform: translateX(0) translateZ(0);
   }
   100% {
-    /* End exactly when the last game has scrolled off the left edge.
-       Distance = track + window matches the duration calculation below for
-       consistent speed and no early/late finish. */
-    transform: translateX( calc( -1 * (var(--runtime-track-width, 100%) + var(--runtime-window-width, 0px)) ) ) translateZ(0);
+    /* Scroll exactly one copy of the content. Because we duplicate the list in the DOM,
+       this creates a seamless infinite loop with no visible reset/jerk. */
+    transform: translateX( calc( -1 * var(--runtime-track-width, 100%) ) ) translateZ(0);
   }
 }
 

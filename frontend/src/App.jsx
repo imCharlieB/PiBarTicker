@@ -24,6 +24,11 @@ const RECOMMENDED_PI_FLAGS = [
   "--overscroll-history-navigation=0",
   "--disable-translate",
   "--disable-features=TranslateUI",
+  // Labwc/Wayland specific for current Pi OS (added by install, shown here too)
+  "--ozone-platform=wayland",
+  "--use-gl=egl",
+  "--enable-features=OverlayScrollbar,VaapiVideoDecoder,WaylandWindowDecorations",
+  "--disable-webgpu",
 ];
 
 function addRecommendedPiFlags(currentFlags) {
@@ -2100,9 +2105,10 @@ function App() {
 
       setRuntimeTrackWidth(trackWidth)
       setRuntimeWindowWidth(windowWidth)
-      const travelDistance = trackWidth + Math.max(0, windowWidth)
+      // For seamless infinite duplicate scroll, the duration is for one full copy of the list.
+      // Use same pxPerSecond to keep visual speed similar to before.
       const pxPerSecond = 110
-      const nextSeconds = Math.max(12, travelDistance / pxPerSecond)
+      const nextSeconds = Math.max(12, trackWidth / pxPerSecond)
       const secs = Number(nextSeconds.toFixed(1))
       setRuntimeScrollSeconds(secs)
 
@@ -2148,7 +2154,7 @@ function App() {
   }, [isTickerRuntime, runtimeDisplayLeague?.id, runtimeMarqueeGames.length])
 
   useEffect(() => {
-    if (!isTickerRuntime || runtimeLeagues.length <= 1 || !sportsBoard || runtimeDisplayGames.length > 0) {
+    if (!isTickerRuntime || runtimeLeagues.length <= 1 || !sportsBoard) {
       return
     }
 
@@ -2158,7 +2164,7 @@ function App() {
     }, rotateSeconds * 1000)
 
     return () => window.clearInterval(intervalId)
-  }, [isTickerRuntime, runtimeLeagueIdsKey, runtimeLeagues.length, sportsBoard, runtimeDisplayGames.length])
+  }, [isTickerRuntime, runtimeLeagueIdsKey, runtimeLeagues.length, sportsBoard])
 
   async function refreshRuntimeLeaguePayload(
     league,
@@ -2943,7 +2949,7 @@ function App() {
           >
             <div className="ticker-runtime-marquee-window" ref={runtimeMarqueeWindowRef}>
               <div
-                key={`marquee-${runtimeRenderLeague?.id || 'none'}-${runtimeMarqueeGames.length}`}
+                key={`marquee-${runtimeRenderLeague?.id || 'none'}`}
                 className={`ticker-runtime-track ${runtimeScrollReady ? 'ticker-runtime-track-animated' : ''}`}
                 ref={runtimeMarqueeTrackRef}
                 role="list"
@@ -2952,37 +2958,10 @@ function App() {
                   '--runtime-scroll-seconds': `${runtimeScrollSeconds}s`,
                   '--runtime-track-width': `${Math.max(1, runtimeTrackWidth)}px`,
                   '--runtime-window-width': `${Math.max(1, runtimeWindowWidth)}px`,
-                } : {
-                  // Position the track at the "enter from right" offset using the
-                  // previously known window width (usually stable on fixed bar display).
-                  // This makes the very first paint of a new league already "off right"
-                  // so when the animated class kicks in there's no visible jump.
-                  transform: `translateX( calc( ${runtimeWindowWidth || 0}px ) ) translateZ(0)`
-                }}
-                onAnimationEnd={() => {
-                  setRuntimeScrollReady(false)  // prepare for next league's measurement
-                  if (runtimeLeagues.length > 1) {
-                    const currentDisplayIndex = runtimeLeagues.findIndex(
-                      (league) => league.id === runtimeRenderLeague?.id,
-                    )
-                    const seedIndex = currentDisplayIndex >= 0 ? currentDisplayIndex : runtimeLeagueIndex
-                    const nextIndex = findNextLeagueIndexInOrder(
-                      seedIndex,
-                      runtimeLeagues,
-                      runtimePayloadRef.current,
-                      runtimeLoadStateRef.current,
-                    )
-                    const nextLeague = runtimeLeagues[nextIndex]
-                    if (nextLeague?.id) {
-                      refreshRuntimeLeaguePayload(nextLeague).finally(() => {
-                        setRuntimeLeagueIndex(nextIndex)
-                        setRuntimeVisibleLeagueId(nextLeague.id)
-                      })
-                    }
-                  }
-                }}
+                } : undefined}
               >
-                {runtimeMarqueeGames.map((game, index) => {
+                {Array.from({ length: 2 }).flatMap(() =>
+                  runtimeMarqueeGames.map((game, index) => {
                   const isSoloSlate = runtimeMarqueeGames.length === 1
                   const isDuoSlate = runtimeMarqueeGames.length === 2
                   const isFinishedRace = game?.isRacing && String(game?.state || '').toLowerCase() === 'post'
@@ -3325,6 +3304,7 @@ function App() {
                     </article>
                   )
                 })}
+                )}
               </div>
             </div>
 

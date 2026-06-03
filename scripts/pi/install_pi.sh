@@ -252,13 +252,18 @@ if [[ "${LAUNCH_NOW}" == "1" ]]; then
   if pgrep -f "${APP_DIR}/scripts/pi/launch-kiosk.sh" >/dev/null 2>&1; then
     echo "Kiosk launcher is already running."
   else
-    # Launch the ticker now at the end of install (no reboot needed for testing).
-    # The launcher internally waits for Wayland/X compositor if not yet ready in this env.
-    # We pass through any available session env vars (works whether install run from GUI terminal or ssh).
+    # Launch the ticker now at the end of install (no reboot needed).
+    # This runs the launcher in the background so you see the ticker immediately.
+    # We always provide sensible defaults for the graphical session env (Wayland for labwc
+    # or X11), so it works even if you ran the curl over ssh (the desktop session is still
+    # active on the Pi). The launcher will wait internally for the compositor if needed.
+    # Defaults assume the common "pi" user (uid 1000).
+    USER_UID=$(id -u "${APP_USER}" 2>/dev/null || echo 1000)
     sudo -u "${APP_USER}" \
-      env ${WAYLAND_DISPLAY:+WAYLAND_DISPLAY="$WAYLAND_DISPLAY"} \
-          ${XDG_RUNTIME_DIR:+XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR"} \
-          ${DISPLAY:+DISPLAY="$DISPLAY"} \
+      env DISPLAY="${DISPLAY:-:0}" \
+          XAUTHORITY="${XAUTHORITY:-${APP_HOME}/.Xauthority}" \
+          WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}" \
+          XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/${USER_UID}}" \
       nohup "${APP_DIR}/scripts/pi/launch-kiosk.sh" >/tmp/pibarticker-kiosk.log 2>&1 &
     echo "Kiosk launcher started (or will activate when desktop session is ready)."
   fi

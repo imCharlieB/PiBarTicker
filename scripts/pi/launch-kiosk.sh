@@ -1,12 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# launch-kiosk.sh
+# Wayland/Labwc-focused kiosk launcher for PiBarTicker on current Raspberry Pi OS.
+# - Started from ~/.config/labwc/autostart (see install_pi.sh)
+# - Handles display mode via wlr-randr (Wayland) or xrandr (X11 fallback)
+# - Launches Chromium with the required Wayland ozone + feature flags
+# - Waits for backend health before first launch, then restarts on exit (crash recovery)
+# - X11-specific code (panel management, etc.) has been removed for Labwc purity;
+#   only resolution fallback remains and is command-guarded.
+
 APP_DIR="/opt/pibarticker"
 CONFIG_FILE="${APP_DIR}/config.json"
 BACKEND_URL="http://127.0.0.1:8000"
 URL="http://127.0.0.1:8000/?kiosk=1"
 
-# Detect Wayland first (modern Pi OS default is Wayland + labwc; bulletproof for current Pi, not old X11).
+# Detect Wayland / Labwc (the current official Raspberry Pi OS desktop on Wayland).
+# We prioritize Wayland paths (wlr-randr for resolution, dedicated Chromium flags)
+# and only fall back to X11 logic if no Wayland compositor is detected.
+# This script is intended to be started from ~/.config/labwc/autostart.
 IS_WAYLAND=0
 if [ -n "${WAYLAND_DISPLAY:-}" ]; then
   IS_WAYLAND=1
@@ -128,7 +140,7 @@ fi
 
 if [ "$IS_WAYLAND" = "1" ]; then
   if command -v wlr-randr >/dev/null 2>&1; then
-    # Wayland (labwc/sway etc.) custom resolution for bar displays
+    # Wayland / Labwc custom resolution for bar displays (e.g. 1920x380 or 3840x380)
     OUTPUT=$(wlr-randr | grep -E '^[A-Z]' | head -1 | awk '{print $1}')
     if [ -n "$OUTPUT" ]; then
       CURRENT=$(wlr-randr | grep -A1 "^$OUTPUT" | grep -o '[0-9]\+x[0-9]\+' | head -1 || echo "")
@@ -144,7 +156,8 @@ if [ "$IS_WAYLAND" = "1" ]; then
     echo "wlr-randr not found; cannot set custom resolution on Wayland"
   fi
 elif command -v xrandr >/dev/null 2>&1; then
-  # X11 fallback for custom resolution (if not on Wayland)
+  # X11 fallback for custom resolution (only used if somehow running under X11 instead of Labwc/Wayland).
+  # Note: x11-xserver-utils etc. are optional in the installer for pure Wayland setups.
   CURRENT_MODE=$(xrandr | grep -E ' connected (primary )?[0-9]+x[0-9]+' | head -1 | grep -o '[0-9]\+x[0-9]\+' | head -1)
 
   if [ "$CURRENT_MODE" != "${DISPLAY_MODE}" ]; then
@@ -180,6 +193,10 @@ for _ in $(seq 1 60); do
 done
 
 while true; do
+  # Launch Chromium with Wayland-specific flags required for clean operation
+  # under the current official Raspberry Pi OS Labwc compositor.
+  # These flags enable proper Wayland integration, hardware video, scrollbars,
+  # and window decorations without falling back to XWayland in unwanted ways.
   "${CHROMIUM_BIN}" \
     --disable-session-crashed-bubble \
     --disable-translate \
@@ -198,10 +215,13 @@ while true; do
     --window-size=${WIDTH},${HEIGHT} \
     --window-position=0,0 \
     --kiosk \
-    $( [ "$IS_WAYLAND" = "1" ] && echo "--ozone-platform=wayland --enable-features=UseOzonePlatform" ) \
+    --ozone-platform=wayland \
+    --enable-features=OverlayScrollbar,VaapiVideoDecoder,WaylandWindowDecorations \
     "${CHROMIUM_FLAGS[@]}" \
     "${URL}" >> /tmp/pibarticker-kiosk.log 2>&1
 
   # Chromium may exit during updates/crashes; restart automatically.
-  sleep 2
+  # Slightly longer sleep reduces rapid restart flashing of the loading UI
+  # if a transient issue occurs.
+  sleep 5
 done

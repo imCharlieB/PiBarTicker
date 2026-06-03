@@ -1453,11 +1453,18 @@ function App() {
   const [runtimeScrollSeconds, setRuntimeScrollSeconds] = useState(45)
   const [runtimeTrackWidth, setRuntimeTrackWidth] = useState(0)
   const [runtimeWindowWidth, setRuntimeWindowWidth] = useState(0)
-  // Used to only apply the CSS animation class *after* we have measured the
-  // real DOM widths in useLayoutEffect. Prevents the animation from starting
-  // with wrong/zero values which used to cause initial pop or jerk.
+  // Used to only apply the 'ticker-runtime-track-animated' class (GPU hints) *after*
+  // we have measured the real DOM widths in useLayoutEffect. Also gates starting
+  // the rAF scroller. Prevents starting the scroller with wrong/zero values which
+  // used to cause initial pop/jerk or bad start position.
   const [runtimeScrollReady, setRuntimeScrollReady] = useState(false)
   const runtimeScrollReadyRef = useRef(false)
+
+  // Keep the ref in sync for any non-React callbacks (ResizeObserver etc.) that must
+  // read "ready" synchronously without causing extra renders or stale closures.
+  useEffect(() => {
+    runtimeScrollReadyRef.current = runtimeScrollReady
+  }, [runtimeScrollReady])
   const [runtimeLastStableLeagueId, setRuntimeLastStableLeagueId] = useState('')
   const [runtimeLastStableMarqueeGames, setRuntimeLastStableMarqueeGames] = useState([])
 
@@ -1497,6 +1504,73 @@ function App() {
   const configRef = useRef(null)
   const runtimeMarqueeTrackRef = useRef(null)
   const runtimeMarqueeWindowRef = useRef(null)
+
+  // === Marquee animation refs (rAF-driven for buttery smooth consistent speed on Pi) ===
+  // Using JS rAF + time-delta transform instead of CSS keyframes to:
+  // - Eliminate jitter/stutter from CSS anim timing/compositor resets on low-power hardware.
+  // - Allow precise initial offset so first content enters from right instead of starting at left.
+  // - Use exact modulo wrap for perfect seamless loop (no micro back-forth on cycle).
+  // - Avoid any layout reads or style recalcs during the animation loop (no thrashing).
+  // - Keep full control: start/stop cleanly on league change, no mid-cycle restarts from width updates.
+  const marqueeAnimationFrameRef = useRef(null)
+  const marqueeOffsetRef = useRef(0)
+  const marqueeLastTimeRef = useRef(0)
+  const marqueeTrackWidthRef = useRef(0)
+  const marqueeWindowWidthRef = useRef(0)
+  const marqueeSpeedRef = useRef(110) // px per second - matches previous visual speed
+
+  // Stop any running marquee rAF loop. Called on unmount, league switch, !ready, etc.
+  function stopMarqueeAnimation() {
+    if (marqueeAnimationFrameRef.current) {
+      window.cancelAnimationFrame(marqueeAnimationFrameRef.current)
+      marqueeAnimationFrameRef.current = null
+    }
+    marqueeLastTimeRef.current = 0
+  }
+
+  // Start (or restart) the rAF-driven marquee.
+  // Must have widths in the *Refs already (from measurement).
+  function startMarqueeAnimation() {
+    stopMarqueeAnimation()
+    const track = runtimeMarqueeTrackRef.current
+    const W = marqueeTrackWidthRef.current
+    if (!track || !W) {
+      return
+    }
+    const Vw = marqueeWindowWidthRef.current || 0
+    // Start offset positive: first item(s) are to the RIGHT of viewport.
+    // Content will scroll leftward and enter naturally from the right edge.
+    marqueeOffsetRef.current = Vw
+    marqueeLastTimeRef.current = 0
+    // Prime the initial position immediately (before first rAF tick) so no flash at tx=0.
+    track.style.transform = `translateX(${Vw}px) translateZ(0)`
+    track.style.willChange = 'transform'
+
+    const tick = (ts) => {
+      if (!marqueeLastTimeRef.current) {
+        marqueeLastTimeRef.current = ts
+      }
+      // dt in seconds, clamp to avoid huge jumps after tab sleep etc.
+      const dt = Math.min((ts - marqueeLastTimeRef.current) / 1000, 0.1)
+      marqueeLastTimeRef.current = ts
+
+      let offset = marqueeOffsetRef.current - marqueeSpeedRef.current * dt
+      const startX = marqueeWindowWidthRef.current || 0
+      const minX = startX - W
+      if (offset <= minX) {
+        // Seamless wrap: because we render 2x the items (seamlessMarqueeGames),
+        // shifting by exactly one copy width lands the duplicate in the identical visual spot.
+        offset += W
+      }
+      marqueeOffsetRef.current = offset
+      if (track) {
+        track.style.transform = `translateX(${offset}px) translateZ(0)`
+      }
+      marqueeAnimationFrameRef.current = window.requestAnimationFrame(tick)
+    }
+
+    marqueeAnimationFrameRef.current = window.requestAnimationFrame(tick)
+  }
 
   // === Logo cache helpers ===
   async function loadLeagueLogoMeta(leagueId) {
@@ -2019,6 +2093,10 @@ function App() {
   const runtimeMarqueeGames = runtimeDisplayGames.length
     ? runtimeDisplayGames
     : (activeRuntimePayload ? [] : runtimeLastStableMarqueeGames)
+  // We always render two copies back-to-back when there is content. The rAF scroller (and the old CSS)
+  // uses exactly one copy's width as the period for translate/modulo. This produces a seamless
+  // loop with no visible join or reset. (The previous code passed the full 2x width to the animation
+  // target, which is why seamless didn't actually work and contributed to jitter/skips.)
   const seamlessMarqueeGames = runtimeMarqueeGames.length > 0 ? [...runtimeMarqueeGames, ...runtimeMarqueeGames] : runtimeMarqueeGames
   const runtimeRenderLeague = runtimeVisibleLeague || (runtimeDisplayGames.length ? runtimeDisplayLeague : null)
   const runtimeHasAnyGamesAcrossEnabledLeagues = runtimeLeagues.some((league) => {
@@ -2082,58 +2160,84 @@ function App() {
 
   useLayoutEffect(() => {
     // Always reset ready at the start of measurement for this league/render.
-    // This ensures the animated class + vars are only applied after we have
-    // fresh accurate measurements for the *current* content.
+    // This ensures the JS rAF scroller + gpu styles are only applied after we have
+    // fresh accurate measurements for the *current* content. Prevents starting with 0/wrong widths.
     setRuntimeScrollReady(false)
+    stopMarqueeAnimation()
 
     if (!isTickerRuntime || !runtimeDisplayLeague || !runtimeMarqueeGames.length) {
       setRuntimeScrollSeconds(45)
+      // Ensure clean state: no lingering transform when blank or no league.
+      if (runtimeMarqueeTrackRef.current) {
+        runtimeMarqueeTrackRef.current.style.transform = ''
+        runtimeMarqueeTrackRef.current.style.willChange = ''
+      }
       return
     }
 
-    const updateScrollSeconds = () => {
+    const measureAndStartMarquee = () => {
       const track = runtimeMarqueeTrackRef.current
       if (!track) {
         return
       }
 
       const windowEl = runtimeMarqueeWindowRef.current
-      const trackWidth = track.scrollWidth || track.getBoundingClientRect().width || 0
+      const fullTrackWidth = track.scrollWidth || track.getBoundingClientRect().width || 0
       const windowWidth = windowEl?.clientWidth || windowEl?.getBoundingClientRect().width || 0
-      if (!trackWidth) {
+      if (!fullTrackWidth) {
         return
       }
 
-      setRuntimeTrackWidth(trackWidth)
+      // CRITICAL: oneCopy is width of a *single* set of the games (not the duplicated DOM).
+      // We duplicate in seamlessMarqueeGames for the seamless loop, so scrollWidth ~ 2x.
+      // Using the full width for translate target / duration was causing:
+      //   - Animation to travel 2x the intended distance per cycle.
+      //   - Latter half of each cycle would scroll "blank" space (after second copy) instead of content.
+      //   - Imperfect wrap (not landing on dup boundary) -> visible stutter or "back-and-forth" on reset.
+      // Now we travel exactly one copy per cycle with exact modulo in the rAF tick.
+      const oneCopyWidth = Math.max(1, fullTrackWidth / 2)
+
+      setRuntimeTrackWidth(oneCopyWidth)
       setRuntimeWindowWidth(windowWidth)
-      // For seamless infinite duplicate scroll, the duration is for one full copy of the list.
-      // Use same pxPerSecond to keep visual speed similar to before.
+      // secs kept for any debug/UI, but speed comes from pxPerSecond now.
       const pxPerSecond = 110
-      const nextSeconds = Math.max(12, trackWidth / pxPerSecond)
+      const nextSeconds = Math.max(12, oneCopyWidth / pxPerSecond)
       const secs = Number(nextSeconds.toFixed(1))
       setRuntimeScrollSeconds(secs)
 
-      // Direct DOM mutation of the CSS vars *before paint* (useLayoutEffect)
-      // so the animation starts with the *correct* duration and distances.
-      // This prevents the previous problem where state updates mid-animation
-      // (or late) would cause the browser to jerk/reset the marquee.
+      // Store in refs for the rAF loop (no closure staleness, no re-renders needed for anim).
+      marqueeTrackWidthRef.current = oneCopyWidth
+      marqueeWindowWidthRef.current = windowWidth
+      marqueeSpeedRef.current = pxPerSecond
+
+      // Direct DOM mutation *before paint* (useLayoutEffect) for correct initial state.
+      // We still set the -- vars (harmless, may be used by future CSS or debug).
       if (track) {
         track.style.setProperty('--runtime-scroll-seconds', `${secs}s`)
-        track.style.setProperty('--runtime-track-width', `${trackWidth}px`)
+        track.style.setProperty('--runtime-track-width', `${oneCopyWidth}px`)
         track.style.setProperty('--runtime-window-width', `${windowWidth}px`)
       }
 
+      // Set initial transform to the "content entering from right" position immediately.
+      // This + the rAF starting from same value eliminates the "starts already scrolled to end/left" bug.
+      const initialOffset = windowWidth
+      track.style.transform = `translateX(${initialOffset}px) translateZ(0)`
+      track.style.willChange = 'transform'
+
       setRuntimeScrollReady(true)
+
+      // Kick off the rAF JS animation. This replaces the old CSS keyframes entirely for the scroll motion.
+      startMarqueeAnimation()
     }
 
     if (typeof ResizeObserver === 'undefined') {
-      updateScrollSeconds()
+      measureAndStartMarquee()
       return undefined
     }
 
     const observer = new ResizeObserver(() => {
       if (!runtimeScrollReadyRef.current) {
-        window.requestAnimationFrame(updateScrollSeconds)
+        window.requestAnimationFrame(measureAndStartMarquee)
       }
     })
 
@@ -2144,15 +2248,28 @@ function App() {
       observer.observe(runtimeMarqueeWindowRef.current)
     }
 
-    updateScrollSeconds()
+    measureAndStartMarquee()
 
     // Disconnect immediately after initial measurement so that resizes during the
-    // long animation (live score updates, etc.) do not change the CSS vars and
-    // cause jerk/skip in the running marquee. Next league will get a fresh observer.
+    // long animation (live score updates inside cards, etc.) do not retrigger measurement
+    // or restart the scroller. Next league (or length change) gets a fresh pass.
+    // This was already the intent; now even more important because we own the anim loop.
     observer.disconnect()
 
     return () => observer.disconnect()
-  }, [isTickerRuntime, runtimeDisplayLeague?.id, runtimeMarqueeGames.length])
+  }, [isTickerRuntime, runtimeDisplayLeague?.id, runtimeMarqueeGames.length]) // eslint-disable-line react-hooks/exhaustive-deps -- narrow deps by design (id+length only) to prevent re-measuring/restarting marquee on every render or object identity churn. startMarqueeAnimation is an inner function decl.
+
+  // Lifecycle for the JS marquee scroller: ensure we stop rAF when leaving ticker mode,
+  // when scroll not ready (e.g. during re-measure on league switch), or on unmount.
+  // The start is triggered from the measurement code above once widths are known.
+  useEffect(() => {
+    if (!isTickerRuntime || !runtimeScrollReady) {
+      stopMarqueeAnimation()
+    }
+    return () => {
+      stopMarqueeAnimation()
+    }
+  }, [isTickerRuntime, runtimeScrollReady, runtimeDisplayLeague?.id])
 
   useEffect(() => {
     if (!isTickerRuntime || runtimeLeagues.length <= 1 || !sportsBoard) {
@@ -2161,6 +2278,11 @@ function App() {
 
     const rotateSeconds = Math.max(5, Number(sportsBoard.rotateSeconds) || 45)
     const intervalId = window.setInterval(() => {
+      // Clear any "visible league pin" so the rotation index drives the next active league.
+      // Without this, once visibleLeagueId was set (on first successful load), runtimeDisplayLeague
+      // would always prefer the pinned visible over activeRuntimeLeague from the cycling index.
+      // Result: rotation would appear to do nothing, only one league would ever show/repeat.
+      setRuntimeVisibleLeagueId('')
       setRuntimeLeagueIndex((current) => (current + 1) % runtimeLeagues.length)
     }, rotateSeconds * 1000)
 

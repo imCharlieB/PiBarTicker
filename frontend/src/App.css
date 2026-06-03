@@ -65,7 +65,16 @@
 }
 
 .ticker-runtime-track-animated {
-  animation: runtime-marquee-pass var(--runtime-scroll-seconds, 45s) linear infinite;
+  /* NOTE: The actual scrolling motion is now driven by a requestAnimationFrame loop in App.jsx
+     (see startMarqueeAnimation + measureAndStartMarquee). We no longer use CSS keyframes for the
+     translate. This class only provides the GPU acceleration / composite hints that help smoothness
+     on Raspberry Pi (will-change + translateZ + backface + contain). The old animation: line and
+     @keyframes were removed because:
+       - CSS linear infinite had frame hitches / jitter on Pi kiosk.
+       - The previous calc used full scrollWidth (2x) instead of one copy width, breaking seamless.
+       - Hard to get reliable "start with content off right, enter from right" without flash.
+     rAF + delta time + exact modulo gives buttery consistent speed, perfect wrap, controllable start pos.
+  */
   will-change: transform;
   /* Strong hardware acceleration + containment for smoother + stable animation on Raspberry Pi */
   transform: translateZ(0);
@@ -74,16 +83,11 @@
   contain: layout style paint;
 }
 
-@keyframes runtime-marquee-pass {
-  0% {
-    transform: translateX(0) translateZ(0);
-  }
-  100% {
-    /* Scroll exactly one copy of the content. Because we duplicate the list in the DOM,
-       this creates a seamless infinite loop with no visible reset/jerk. */
-    transform: translateX( calc( -1 * var(--runtime-track-width, 100%) ) ) translateZ(0);
-  }
-}
+/* @keyframes runtime-marquee-pass deleted (see note in .ticker-runtime-track-animated above).
+   The old implementation had a fatal bug (full duplicated width instead of one-copy) + start-at-0
+   which directly caused the jitter, non-seamless cycling, and "starts at end/left" symptoms.
+   Removed entirely; rAF implementation in App.jsx now owns the scrolling. */
+
 
 .ticker-runtime-card {
   --card-accent: var(--accent);

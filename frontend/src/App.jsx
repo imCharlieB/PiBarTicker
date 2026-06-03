@@ -1925,7 +1925,29 @@ function App() {
     ? runtimeLeagues[runtimeLeagueIndex % runtimeLeagues.length]
     : null
   const runtimeVisibleLeague = runtimeLeagues.find((league) => league.id === runtimeVisibleLeagueId) || null
-  const runtimeDisplayLeague = runtimeVisibleLeague || activeRuntimeLeague
+
+  // Avoid showing a completely blank marquee for the "current" league if it has 0 games
+  // (e.g. strict filter, no matches right now, or first league is empty). Prefer a league
+  // we already know has content. This reduces the "first league blank, logo flickers,
+  // then later one starts" experience.
+  let displayLeague = runtimeVisibleLeague || activeRuntimeLeague
+  if (displayLeague && runtimeLeagues.length > 1) {
+    const p = runtimePayloadByLeagueId[displayLeague.id]
+    const cnt = p && Array.isArray(p.normalizedGames) ? p.normalizedGames.length : 0
+    if (cnt === 0) {
+      const startIdx = runtimeLeagues.findIndex((l) => l.id === displayLeague.id)
+      const betterIdx = findNextLeagueIndexInOrder(startIdx, runtimeLeagues, runtimePayloadByLeagueId, runtimeLoadStateByLeagueId)
+      const better = runtimeLeagues[betterIdx]
+      if (better && better.id !== displayLeague.id) {
+        const bp = runtimePayloadByLeagueId[better.id]
+        const bcnt = bp && Array.isArray(bp.normalizedGames) ? bp.normalizedGames.length : 0
+        if (bcnt > 0) {
+          displayLeague = better
+        }
+      }
+    }
+  }
+  const runtimeDisplayLeague = displayLeague
   const activeRuntimePayload = runtimeDisplayLeague
     ? runtimePayloadByLeagueId[runtimeDisplayLeague.id] || null
     : null
@@ -2103,11 +2125,21 @@ function App() {
   const runtimeMarqueeGames = runtimeDisplayGames.length
     ? runtimeDisplayGames
     : (activeRuntimePayload ? [] : runtimeLastStableMarqueeGames)
-  // We always render two copies back-to-back when there is content. The rAF scroller (and the old CSS)
-  // uses exactly one copy's width as the period for translate/modulo. This produces a seamless
-  // loop with no visible join or reset. (The previous code passed the full 2x width to the animation
-  // target, which is why seamless didn't actually work and contributed to jitter/skips.)
-  const seamlessMarqueeGames = runtimeMarqueeGames.length > 0 ? [...runtimeMarqueeGames, ...runtimeMarqueeGames] : runtimeMarqueeGames
+
+  // Build the track content. For normal leagues use 2 copies (seamless period = 1x group width).
+  // For 1-2 game slates (solo/duo), use 4 copies so the "period" we travel can be 2x the group width.
+  // This makes the (large) solo/duo cards travel farther across the screen before the visual loop repeats,
+  // addressing "never goes fully across the screen" and early restarts for small slates.
+  const k = runtimeMarqueeGames.length
+  let numCopies = 2
+  if (k > 0 && k <= 2) {
+    numCopies = 4
+  }
+  const seamlessBase = runtimeMarqueeGames
+  const seamlessMarqueeGames = []
+  for (let c = 0; c < numCopies; c++) {
+    seamlessMarqueeGames.push(...seamlessBase)
+  }
   const runtimeRenderLeague = runtimeVisibleLeague || (runtimeDisplayGames.length ? runtimeDisplayLeague : null)
   const runtimeHasAnyGamesAcrossEnabledLeagues = runtimeLeagues.some((league) => {
     const payload = runtimePayloadByLeagueId[league.id]
@@ -2121,7 +2153,7 @@ function App() {
 
     setRuntimeLastStableLeagueId(runtimeDisplayLeague.id)
     setRuntimeLastStableMarqueeGames(runtimeDisplayGames)
-  }, [runtimeDisplayLeague?.id, runtimeDisplayGames])
+  }, [runtimeDisplayLeague?.id, runtimeDisplayGames.length]) // use length to avoid re-running on every render (runtimeDisplayGames is a fresh array every time)
 
   async function loadLeagueScoreboardWithSettings(league, {
     cacheTtlSeconds = 30,
@@ -2203,14 +2235,17 @@ function App() {
         return
       }
 
+      // More accurate oneCopy: use the actual layout offset of the start of the second copy
+      // instead of naive /2. This accounts for gaps, padding, subpixel, and exact flex layout.
+      let oneCopyWidth = Math.max(1, fullTrackWidth / 2)
+      const kids = track.children
+      const mid = Math.floor(kids.length / 2)
+      if (kids.length > 1 && kids[mid] && kids[mid].offsetLeft > 0) {
+        oneCopyWidth = Math.max(1, kids[mid].offsetLeft)
+      }
+
       // CRITICAL: oneCopy is width of a *single* set of the games (not the duplicated DOM).
-      // We duplicate in seamlessMarqueeGames for the seamless loop, so scrollWidth ~ 2x.
-      // Using the full width for translate target / duration was causing:
-      //   - Animation to travel 2x the intended distance per cycle.
-      //   - Latter half of each cycle would scroll "blank" space (after second copy) instead of content.
-      //   - Imperfect wrap (not landing on dup boundary) -> visible stutter or "back-and-forth" on reset.
-      // Now we travel exactly one copy per cycle with exact modulo in the rAF tick.
-      const oneCopyWidth = Math.max(1, fullTrackWidth / 2)
+      // For small slates we travel 2x that distance (see numCopies above) so items cross more of the bar.
 
       setRuntimeTrackWidth(oneCopyWidth)
       setRuntimeWindowWidth(windowWidth)
@@ -2220,8 +2255,14 @@ function App() {
       const secs = Number(nextSeconds.toFixed(1))
       setRuntimeScrollSeconds(secs)
 
+      // For small slates (k<=2) we use a longer travel distance (2x) so the cards slide farther
+      // across the screen before the seamless loop visually repeats. This fixes "restarts too soon,
+      // never goes fully across".
+      const animPeriod = (k > 0 && k <= 2) ? oneCopyWidth * 2 : oneCopyWidth
+
       // Store in refs for the rAF loop (no closure staleness, no re-renders needed for anim).
-      marqueeTrackWidthRef.current = oneCopyWidth
+      // Use animPeriod (the distance we actually travel per cycle) as the W for wrap logic.
+      marqueeTrackWidthRef.current = animPeriod
       marqueeWindowWidthRef.current = windowWidth
       marqueeSpeedRef.current = pxPerSecond
 
@@ -2229,7 +2270,7 @@ function App() {
       // We still set the -- vars (harmless, may be used by future CSS or debug).
       if (track) {
         track.style.setProperty('--runtime-scroll-seconds', `${secs}s`)
-        track.style.setProperty('--runtime-track-width', `${oneCopyWidth}px`)
+        track.style.setProperty('--runtime-track-width', `${animPeriod}px`)
         track.style.setProperty('--runtime-window-width', `${windowWidth}px`)
       }
 

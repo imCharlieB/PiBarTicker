@@ -281,14 +281,19 @@ if [[ "${LAUNCH_NOW}" == "1" ]]; then
       nohup "${APP_DIR}/scripts/pi/launch-kiosk.sh" >/tmp/pibarticker-kiosk.log 2>&1 &
     echo "Kiosk launcher started (or will activate when desktop session is ready)."
   fi
-  # Give the launcher a moment to start and connect to the compositor/backend.
-  sleep 5
-  if pgrep -f "chromium" >/dev/null 2>&1 || pgrep -f "chromium-browser" >/dev/null 2>&1; then
-    echo "Chromium kiosk process detected - the ticker should now be visible on the Pi desktop screen."
-  else
-    echo "Chromium not detected yet (may still be waiting for backend health or compositor)."
-    echo "Check the kiosk log for details: tail -f /tmp/pibarticker-kiosk.log"
-  fi
+  # Give the launcher time to start (backend health wait up to 60s + compositor + chromium init).
+  # Check a few times so the command output gives useful feedback even if it takes a while.
+  for i in 1 2 3 4 5; do
+    sleep 3
+    if pgrep -f "chromium" >/dev/null 2>&1 || pgrep -f "chromium-browser" >/dev/null 2>&1; then
+      echo "Chromium kiosk process detected - the ticker should now be visible on the Pi desktop screen."
+      break
+    fi
+    if [ $i -eq 5 ]; then
+      echo "Chromium not detected after ~15s (may still be waiting for backend health or compositor)."
+      echo "Check the kiosk log for details: tail -f /tmp/pibarticker-kiosk.log"
+    fi
+  done
 fi
 
 echo

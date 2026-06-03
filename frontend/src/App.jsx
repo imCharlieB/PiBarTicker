@@ -1546,8 +1546,9 @@ function App() {
     // issues when the keyed track div remounts on league change.
     const track = runtimeMarqueeTrackRef.current
     if (track) {
-      // Prime the initial position immediately (before first rAF tick) so no flash at tx=0.
-      track.style.transform = `translateX(${Vw}px) translateZ(0)`
+      // Prime using CSS var so that React re-renders (which touch style prop for other --vars)
+      // do not clobber the current scroll position (was causing jumpy restarts on score updates etc).
+      track.style.setProperty('--marquee-offset', `${Vw}px`)
       track.style.willChange = 'transform'
     }
 
@@ -1569,12 +1570,11 @@ function App() {
       }
       marqueeOffsetRef.current = offset
 
-      // Always use the live ref here too. Old closed-over element from a previous
-      // league's track would be detached and setting style on it did nothing (or
-      // caused the new track to not animate, leading to jumpy/stuck behavior).
+      // Always use the live ref here too. Update via --var (not direct transform) so
+      // React re-renders during ticker do not reset the position to left (0).
       const liveTrack = runtimeMarqueeTrackRef.current
       if (liveTrack) {
-        liveTrack.style.transform = `translateX(${offset}px) translateZ(0)`
+        liveTrack.style.setProperty('--marquee-offset', `${offset}px`)
       }
       marqueeAnimationFrameRef.current = window.requestAnimationFrame(tick)
     }
@@ -1925,29 +1925,7 @@ function App() {
     ? runtimeLeagues[runtimeLeagueIndex % runtimeLeagues.length]
     : null
   const runtimeVisibleLeague = runtimeLeagues.find((league) => league.id === runtimeVisibleLeagueId) || null
-
-  // Avoid showing a completely blank marquee for the "current" league if it has 0 games
-  // (e.g. strict filter, no matches right now, or first league is empty). Prefer a league
-  // we already know has content. This reduces the "first league blank, logo flickers,
-  // then later one starts" experience.
-  let displayLeague = runtimeVisibleLeague || activeRuntimeLeague
-  if (displayLeague && runtimeLeagues.length > 1) {
-    const p = runtimePayloadByLeagueId[displayLeague.id]
-    const cnt = p && Array.isArray(p.normalizedGames) ? p.normalizedGames.length : 0
-    if (cnt === 0) {
-      const startIdx = runtimeLeagues.findIndex((l) => l.id === displayLeague.id)
-      const betterIdx = findNextLeagueIndexInOrder(startIdx, runtimeLeagues, runtimePayloadByLeagueId, runtimeLoadStateByLeagueId)
-      const better = runtimeLeagues[betterIdx]
-      if (better && better.id !== displayLeague.id) {
-        const bp = runtimePayloadByLeagueId[better.id]
-        const bcnt = bp && Array.isArray(bp.normalizedGames) ? bp.normalizedGames.length : 0
-        if (bcnt > 0) {
-          displayLeague = better
-        }
-      }
-    }
-  }
-  const runtimeDisplayLeague = displayLeague
+  const runtimeDisplayLeague = runtimeVisibleLeague || activeRuntimeLeague
   const activeRuntimePayload = runtimeDisplayLeague
     ? runtimePayloadByLeagueId[runtimeDisplayLeague.id] || null
     : null
@@ -2125,21 +2103,7 @@ function App() {
   const runtimeMarqueeGames = runtimeDisplayGames.length
     ? runtimeDisplayGames
     : (activeRuntimePayload ? [] : runtimeLastStableMarqueeGames)
-
-  // Build the track content. For normal leagues use 2 copies (seamless period = 1x group width).
-  // For 1-2 game slates (solo/duo), use 4 copies so the "period" we travel can be 2x the group width.
-  // This makes the (large) solo/duo cards travel farther across the screen before the visual loop repeats,
-  // addressing "never goes fully across the screen" and early restarts for small slates.
-  const k = runtimeMarqueeGames.length
-  let numCopies = 2
-  if (k > 0 && k <= 2) {
-    numCopies = 4
-  }
-  const seamlessBase = runtimeMarqueeGames
-  const seamlessMarqueeGames = []
-  for (let c = 0; c < numCopies; c++) {
-    seamlessMarqueeGames.push(...seamlessBase)
-  }
+  const seamlessMarqueeGames = runtimeMarqueeGames.length > 0 ? [...runtimeMarqueeGames, ...runtimeMarqueeGames] : runtimeMarqueeGames
   const runtimeRenderLeague = runtimeVisibleLeague || (runtimeDisplayGames.length ? runtimeDisplayLeague : null)
   const runtimeHasAnyGamesAcrossEnabledLeagues = runtimeLeagues.some((league) => {
     const payload = runtimePayloadByLeagueId[league.id]
@@ -2209,9 +2173,9 @@ function App() {
 
     if (!isTickerRuntime || !runtimeDisplayLeague || !runtimeMarqueeGames.length) {
       setRuntimeScrollSeconds(45)
-      // Ensure clean state: no lingering transform when blank or no league.
+      // Ensure clean state: no lingering offset when blank or no league.
       if (runtimeMarqueeTrackRef.current) {
-        runtimeMarqueeTrackRef.current.style.transform = ''
+        runtimeMarqueeTrackRef.current.style.setProperty('--marquee-offset', '')
         runtimeMarqueeTrackRef.current.style.willChange = ''
       }
       return
@@ -2244,9 +2208,6 @@ function App() {
         oneCopyWidth = Math.max(1, kids[mid].offsetLeft)
       }
 
-      // CRITICAL: oneCopy is width of a *single* set of the games (not the duplicated DOM).
-      // For small slates we travel 2x that distance (see numCopies above) so items cross more of the bar.
-
       setRuntimeTrackWidth(oneCopyWidth)
       setRuntimeWindowWidth(windowWidth)
       // secs kept for any debug/UI, but speed comes from pxPerSecond now.
@@ -2255,14 +2216,8 @@ function App() {
       const secs = Number(nextSeconds.toFixed(1))
       setRuntimeScrollSeconds(secs)
 
-      // For small slates (k<=2) we use a longer travel distance (2x) so the cards slide farther
-      // across the screen before the seamless loop visually repeats. This fixes "restarts too soon,
-      // never goes fully across".
-      const animPeriod = (k > 0 && k <= 2) ? oneCopyWidth * 2 : oneCopyWidth
-
       // Store in refs for the rAF loop (no closure staleness, no re-renders needed for anim).
-      // Use animPeriod (the distance we actually travel per cycle) as the W for wrap logic.
-      marqueeTrackWidthRef.current = animPeriod
+      marqueeTrackWidthRef.current = oneCopyWidth
       marqueeWindowWidthRef.current = windowWidth
       marqueeSpeedRef.current = pxPerSecond
 
@@ -2270,14 +2225,15 @@ function App() {
       // We still set the -- vars (harmless, may be used by future CSS or debug).
       if (track) {
         track.style.setProperty('--runtime-scroll-seconds', `${secs}s`)
-        track.style.setProperty('--runtime-track-width', `${animPeriod}px`)
+        track.style.setProperty('--runtime-track-width', `${oneCopyWidth}px`)
         track.style.setProperty('--runtime-window-width', `${windowWidth}px`)
       }
 
-      // Set initial transform to the "content entering from right" position immediately.
+      // Set initial offset (via var) to the "content entering from right" position immediately.
       // This + the rAF starting from same value eliminates the "starts already scrolled to end/left" bug.
+      // Using --var (not direct transform) protects against React re-render clobbers.
       const initialOffset = windowWidth
-      track.style.transform = `translateX(${initialOffset}px) translateZ(0)`
+      track.style.setProperty('--marquee-offset', `${initialOffset}px`)
       track.style.willChange = 'transform'
 
       setRuntimeScrollReady(true)
@@ -2293,7 +2249,7 @@ function App() {
         const liveTrack = runtimeMarqueeTrackRef.current
         const off = marqueeWindowWidthRef.current || 0
         if (liveTrack && off > 0) {
-          liveTrack.style.transform = `translateX(${off}px) translateZ(0)`
+          liveTrack.style.setProperty('--marquee-offset', `${off}px`)
         }
       })
     }

@@ -2101,7 +2101,7 @@ function App() {
   })
   const runtimeMarqueeGames = runtimeDisplayGames.length
     ? runtimeDisplayGames
-    : (runtimeLastStableMarqueeGames.length ? runtimeLastStableMarqueeGames : (activeRuntimePayload ? [] : []))
+    : (activeRuntimePayload ? [] : runtimeLastStableMarqueeGames)
   const seamlessMarqueeGames = runtimeMarqueeGames.length > 0 ? [...runtimeMarqueeGames, ...runtimeMarqueeGames] : runtimeMarqueeGames
   const runtimeRenderLeague = runtimeVisibleLeague || (runtimeDisplayGames.length ? runtimeDisplayLeague : null)
   const runtimeHasAnyGamesAcrossEnabledLeagues = runtimeLeagues.some((league) => {
@@ -2117,22 +2117,6 @@ function App() {
     setRuntimeLastStableLeagueId(runtimeDisplayLeague.id)
     setRuntimeLastStableMarqueeGames(runtimeDisplayGames)
   }, [runtimeDisplayLeague?.id, runtimeDisplayGames.length]) // use length to avoid re-running on every render (runtimeDisplayGames is a fresh array every time)
-
-  // Also snapshot last good content from *any* league payload that arrives with games,
-  // even if we are not currently displaying it. This helps the initial ticker (and
-  // switches to unloaded leagues) immediately have something to show instead of empty,
-  // once the first good data arrives via the parallel initial loads.
-  useEffect(() => {
-    for (const [lid, p] of Object.entries(runtimePayloadByLeagueId)) {
-      if (p && Array.isArray(p.normalizedGames) && p.normalizedGames.length > 0) {
-        if (!runtimeLastStableMarqueeGames.length || lid === runtimeDisplayLeague?.id) {
-          setRuntimeLastStableLeagueId(lid)
-          setRuntimeLastStableMarqueeGames(p.normalizedGames)
-          break
-        }
-      }
-    }
-  }, [runtimePayloadByLeagueId])
 
   async function loadLeagueScoreboardWithSettings(league, {
     cacheTtlSeconds = 30,
@@ -2168,10 +2152,9 @@ function App() {
     })
 
     // Kick off payload loads for *all* enabled leagues in parallel immediately on ticker start.
-    // Previously only the "current display" was loaded on demand. This ensures that when
-    // the first configured league has 0 games (or arrives empty), the auto-advance effect
-    // can immediately find a league that does have games (instead of showing empty while
-    // waiting for rotation or sequential loads). Also populates lastStable faster.
+    // This pre-populates data so that when rotation lands on a league, its content is
+    // already available (no loading flash or delay), and lastStable can be set from good
+    // leagues even if the initial display league is empty.
     runtimeLeagues.forEach((league) => {
       if (!runtimePayloadByLeagueId[league.id]) {
         refreshRuntimeLeaguePayload(league).catch(() => {})
@@ -2189,32 +2172,6 @@ function App() {
       setRuntimeVisibleLeagueId('')
     }
   }, [runtimeLeagues, runtimeVisibleLeagueId, runtimePayloadByLeagueId])
-
-  // Auto-advance past any league whose payload has arrived with 0 games.
-  // This prevents "first league empty" (or any in the cycle) when the configured order
-  // has a league with no current matches. Once we know a league has 0, skip to next that has >0.
-  // Uses the same findNext logic as the load-time skip.
-  useEffect(() => {
-    if (!isTickerRuntime || !runtimeDisplayLeague || runtimeLeagues.length <= 1) {
-      return
-    }
-    const p = runtimePayloadByLeagueId[runtimeDisplayLeague.id]
-    if (!p) return // not loaded yet
-    const cnt = Array.isArray(p.normalizedGames) ? p.normalizedGames.length : 0
-    if (cnt === 0) {
-      const currentIdx = runtimeLeagues.findIndex((l) => l.id === runtimeDisplayLeague.id)
-      const nextIdx = findNextLeagueIndexInOrder(
-        currentIdx,
-        runtimeLeagues,
-        runtimePayloadByLeagueId,
-        runtimeLoadStateByLeagueId
-      )
-      if (nextIdx !== currentIdx) {
-        setRuntimeVisibleLeagueId('')
-        setRuntimeLeagueIndex(nextIdx)
-      }
-    }
-  }, [isTickerRuntime, runtimeDisplayLeague?.id, runtimePayloadByLeagueId])
 
   useLayoutEffect(() => {
     // Always reset ready at the start of measurement for this league/render.

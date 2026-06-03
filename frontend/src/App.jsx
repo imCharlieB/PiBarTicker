@@ -2221,6 +2221,14 @@ function App() {
       const configuredWidth = Number(config?.monitor?.width) || 1920
       const windowWidth = windowEl?.clientWidth || windowEl?.getBoundingClientRect().width || configuredWidth
       if (!fullTrackWidth) {
+        // For complex cards (esp racing/F1/NASCAR with inner content, entries lists, etc.)
+        // the layout may not be ready at the first useLayoutEffect. Retry shortly so
+        // the scroller actually starts instead of staying "empty" or "stuck".
+        setTimeout(() => {
+          if (runtimeMarqueeTrackRef.current && !runtimeScrollReadyRef.current) {
+            measureAndStartMarquee()
+          }
+        }, 120)
         return
       }
 

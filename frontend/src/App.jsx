@@ -1532,9 +1532,8 @@ function App() {
   // Must have widths in the *Refs already (from measurement).
   function startMarqueeAnimation() {
     stopMarqueeAnimation()
-    const track = runtimeMarqueeTrackRef.current
     const W = marqueeTrackWidthRef.current
-    if (!track || !W) {
+    if (!W) {
       return
     }
     const Vw = marqueeWindowWidthRef.current || 0
@@ -1542,9 +1541,15 @@ function App() {
     // Content will scroll leftward and enter naturally from the right edge.
     marqueeOffsetRef.current = Vw
     marqueeLastTimeRef.current = 0
-    // Prime the initial position immediately (before first rAF tick) so no flash at tx=0.
-    track.style.transform = `translateX(${Vw}px) translateZ(0)`
-    track.style.willChange = 'transform'
+
+    // Always grab the *current* element from the ref. This prevents stale element
+    // issues when the keyed track div remounts on league change.
+    const track = runtimeMarqueeTrackRef.current
+    if (track) {
+      // Prime the initial position immediately (before first rAF tick) so no flash at tx=0.
+      track.style.transform = `translateX(${Vw}px) translateZ(0)`
+      track.style.willChange = 'transform'
+    }
 
     const tick = (ts) => {
       if (!marqueeLastTimeRef.current) {
@@ -1563,8 +1568,13 @@ function App() {
         offset += W
       }
       marqueeOffsetRef.current = offset
-      if (track) {
-        track.style.transform = `translateX(${offset}px) translateZ(0)`
+
+      // Always use the live ref here too. Old closed-over element from a previous
+      // league's track would be detached and setting style on it did nothing (or
+      // caused the new track to not animate, leading to jumpy/stuck behavior).
+      const liveTrack = runtimeMarqueeTrackRef.current
+      if (liveTrack) {
+        liveTrack.style.transform = `translateX(${offset}px) translateZ(0)`
       }
       marqueeAnimationFrameRef.current = window.requestAnimationFrame(tick)
     }
@@ -2183,7 +2193,12 @@ function App() {
 
       const windowEl = runtimeMarqueeWindowRef.current
       const fullTrackWidth = track.scrollWidth || track.getBoundingClientRect().width || 0
-      const windowWidth = windowEl?.clientWidth || windowEl?.getBoundingClientRect().width || 0
+      // Use actual measured container width if available. Fall back to the configured
+      // monitor width (e.g. 1920 or 3840 for bar displays). This prevents Vw=0 which
+      // would make the initial offset 0 and cause "starts on the left" instead of
+      // content entering from the right.
+      const configuredWidth = Number(config?.monitor?.width) || 1920
+      const windowWidth = windowEl?.clientWidth || windowEl?.getBoundingClientRect().width || configuredWidth
       if (!fullTrackWidth) {
         return
       }
@@ -2228,6 +2243,18 @@ function App() {
 
       // Kick off the rAF JS animation. This replaces the old CSS keyframes entirely for the scroll motion.
       startMarqueeAnimation()
+
+      // Belt + suspenders for the "starts on the left" problem:
+      // After React re-renders (which applies the style= prop with the --vars) and after
+      // any late layout from images/flex/viewport units, force the initial right-offset
+      // transform one more time on the next frame.
+      window.requestAnimationFrame(() => {
+        const liveTrack = runtimeMarqueeTrackRef.current
+        const off = marqueeWindowWidthRef.current || 0
+        if (liveTrack && off > 0) {
+          liveTrack.style.transform = `translateX(${off}px) translateZ(0)`
+        }
+      })
     }
 
     if (typeof ResizeObserver === 'undefined') {
@@ -2256,7 +2283,10 @@ function App() {
     // This was already the intent; now even more important because we own the anim loop.
     observer.disconnect()
 
-    return () => observer.disconnect()
+    return () => {
+      observer.disconnect()
+      stopMarqueeAnimation()
+    }
   }, [isTickerRuntime, runtimeDisplayLeague?.id, runtimeMarqueeGames.length]) // eslint-disable-line react-hooks/exhaustive-deps -- narrow deps by design (id+length only) to prevent re-measuring/restarting marquee on every render or object identity churn. startMarqueeAnimation is an inner function decl.
 
   // Lifecycle for the JS marquee scroller: ensure we stop rAF when leaving ticker mode,

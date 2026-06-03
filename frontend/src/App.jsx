@@ -2104,7 +2104,19 @@ function App() {
   const runtimeMarqueeGames = runtimeDisplayGames.length
     ? runtimeDisplayGames
     : runtimeLastStableMarqueeGames.length ? runtimeLastStableMarqueeGames : [];
-  const seamlessMarqueeGames = runtimeMarqueeGames.length > 0 ? [...runtimeMarqueeGames, ...runtimeMarqueeGames] : runtimeMarqueeGames
+  // For k=1 (single race like F1), duplicate more copies (5) so we can travel a longer distance (full screen worth) before wrap, reducing the frequency of visible "restarts".
+  // With more copies, the single item appears repeated in the track (may look like duplicates, but makes the scroll continuous over longer distance without gap or jump).
+  // For normal, 2 copies as before.
+  const originalK = runtimeMarqueeGames.length;
+  const k = originalK;
+  const numCopies = (k === 1) ? 5 : 2;
+  let seamlessMarqueeGames = runtimeMarqueeGames;
+  if (k > 0) {
+    seamlessMarqueeGames = [];
+    for (let c = 0; c < numCopies; c++) {
+      seamlessMarqueeGames.push(...runtimeMarqueeGames);
+    }
+  }
   const runtimeRenderLeague = runtimeVisibleLeague || (runtimeDisplayGames.length ? runtimeDisplayLeague : null)
   const runtimeHasAnyGamesAcrossEnabledLeagues = runtimeLeagues.some((league) => {
     const payload = runtimePayloadByLeagueId[league.id]
@@ -2208,13 +2220,21 @@ function App() {
         return
       }
 
-      // More accurate oneCopy: use the actual layout offset of the start of the second copy
+      // More accurate oneCopy: use the actual layout offset of the start of the second copy (using originalK even if we duplicated more for small k)
       // instead of naive /2. This accounts for gaps, padding, subpixel, and exact flex layout.
       let oneCopyWidth = Math.max(1, fullTrackWidth / 2)
       const kids = track.children
-      const mid = Math.floor(kids.length / 2)
-      if (kids.length > 1 && kids[mid] && kids[mid].offsetLeft > 0) {
+      const mid = Math.min(kids.length - 1, originalK)
+      if (kids.length > originalK && kids[mid] && kids[mid].offsetLeft > 0) {
         oneCopyWidth = Math.max(1, kids[mid].offsetLeft)
+      }
+
+      // For k=1, use longer animPeriod (multiple of oneCopy to cover ~full screen travel) so the single item scrolls farther before wrap, reducing "restarts again and again".
+      let animPeriod = oneCopyWidth;
+      if (originalK === 1) {
+        const travel = Math.max(windowWidth, oneCopyWidth);
+        const multiples = Math.ceil(travel / oneCopyWidth);
+        animPeriod = multiples * oneCopyWidth;
       }
 
       // If the league id is the same as last measurement but the number of items (length) changed,
@@ -2246,7 +2266,8 @@ function App() {
       setRuntimeScrollSeconds(secs)
 
       // Store in refs for the rAF loop (no closure staleness, no re-renders needed for anim).
-      marqueeTrackWidthRef.current = oneCopyWidth
+      // Use animPeriod (longer for k=1) as the wrap period W.
+      marqueeTrackWidthRef.current = animPeriod
       marqueeWindowWidthRef.current = windowWidth
       marqueeSpeedRef.current = pxPerSecond
 
@@ -2254,7 +2275,7 @@ function App() {
       // We still set the -- vars (harmless, may be used by future CSS or debug).
       if (track) {
         track.style.setProperty('--runtime-scroll-seconds', `${secs}s`)
-        track.style.setProperty('--runtime-track-width', `${oneCopyWidth}px`)
+        track.style.setProperty('--runtime-track-width', `${animPeriod}px`)
         track.style.setProperty('--runtime-window-width', `${windowWidth}px`)
       }
 
@@ -2433,7 +2454,9 @@ function App() {
       return
     }
 
-    refreshRuntimeLeaguePayload(runtimeDisplayLeague)
+    // Force 'all' in ticker to ensure we show available games even if the league's gameFilter is strict (e.g. "live") and currently returns 0.
+    // This addresses "shows empty but I know there are games".
+    refreshRuntimeLeaguePayload(runtimeDisplayLeague, { gameFilterOverride: 'all' })
 
     // Ensure we have cached logo/color data for the current runtime league
     if (!leagueLogoMetaById[runtimeDisplayLeague.id]) {

@@ -19,10 +19,16 @@ URL="http://127.0.0.1:8000/?kiosk=1"
 # We prioritize Wayland paths (wlr-randr for resolution, dedicated Chromium flags)
 # and only fall back to X11 logic if no Wayland compositor is detected.
 # This script is intended to be started from ~/.config/labwc/autostart.
+# We also auto-detect via wlr-randr succeeding (helps when launched via the
+# install script over ssh where the env var may not be inherited initially).
 IS_WAYLAND=0
 if [ -n "${WAYLAND_DISPLAY:-}" ]; then
   IS_WAYLAND=1
   echo "Detected Wayland session ($WAYLAND_DISPLAY)"
+fi
+if [ "$IS_WAYLAND" = "0" ] && command -v wlr-randr >/dev/null 2>&1 && wlr-randr >/dev/null 2>&1; then
+  IS_WAYLAND=1
+  echo "Detected active Wayland compositor via wlr-randr (no WAYLAND_DISPLAY in env)"
 fi
 
 if [ "$IS_WAYLAND" = "0" ]; then

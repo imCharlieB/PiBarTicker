@@ -22,7 +22,8 @@ if [ -z "${WAYLAND_DISPLAY:-}" ] && [ -z "${DISPLAY:-}" ]; then
   # Prefer Wayland defaults for current official Pi OS
   export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}"
   export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/1000}"
-  echo "Set default Wayland/Labwc env vars (WAYLAND_DISPLAY=$WAYLAND_DISPLAY, XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR)"
+  export XDG_SESSION_TYPE="${XDG_SESSION_TYPE:-wayland}"
+  echo "Set default Wayland/Labwc env vars (WAYLAND_DISPLAY=$WAYLAND_DISPLAY, XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR, XDG_SESSION_TYPE=$XDG_SESSION_TYPE)"
 fi
 if [ -z "${DISPLAY:-}" ] && [ -S "/tmp/.X11-unix/X0" ]; then
   export DISPLAY=:0
@@ -166,9 +167,9 @@ fi
 if [ "$IS_WAYLAND" = "1" ]; then
   if command -v wlr-randr >/dev/null 2>&1; then
     # Wayland / Labwc custom resolution for bar displays (e.g. 1920x380 or 3840x380)
-    OUTPUT=$(wlr-randr | grep -E '^[A-Z]' | head -1 | awk '{print $1}')
+    OUTPUT=$(wlr-randr 2>/dev/null | grep -E '^[A-Z]' | head -1 | awk '{print $1}' || echo "")
     if [ -n "$OUTPUT" ]; then
-      CURRENT=$(wlr-randr | grep -A1 "^$OUTPUT" | grep -o '[0-9]\+x[0-9]\+' | head -1 || echo "")
+      CURRENT=$(wlr-randr 2>/dev/null | grep -A1 "^$OUTPUT" | grep -o '[0-9]\+x[0-9]\+' | head -1 || echo "")
       if [ "$CURRENT" != "${DISPLAY_MODE}" ]; then
         echo "Setting Wayland custom mode ${DISPLAY_MODE} on $OUTPUT"
         wlr-randr --output "$OUTPUT" --custom-mode "${WIDTH}x${HEIGHT}" || true
@@ -210,12 +211,16 @@ elif command -v xrandr >/dev/null 2>&1; then
 fi
 
 # Wait for backend before starting Chromium.
+echo "Waiting for backend /health (up to 60s) before launching the ticker Chromium..."
 for _ in $(seq 1 60); do
   if curl -fsS "${BACKEND_URL}/health" >/dev/null 2>&1; then
+    echo "Backend healthy, proceeding to Chromium launch."
     break
   fi
   sleep 1
 done
+
+echo "Backend healthy (or wait done); launching Chromium kiosk now..."
 
 while true; do
   # Launch Chromium with Wayland-specific flags required for clean operation
@@ -245,10 +250,11 @@ while true; do
     --enable-features=OverlayScrollbar,VaapiVideoDecoder,WaylandWindowDecorations \
     --disable-webgpu \
     "${CHROMIUM_FLAGS[@]}" \
-    "${URL}" >> /tmp/pibarticker-kiosk.log 2>&1
+    "${URL}" >> /tmp/pibarticker-kiosk.log 2>&1 || true
 
-  # Chromium may exit during updates/crashes; restart automatically.
-  # Slightly longer sleep reduces rapid restart flashing of the loading UI
-  # if a transient issue occurs.
+  # Chromium may exit during updates/crashes or if it can't connect to the
+  # compositor on the first try (common from ssh/manual launch); restart
+  # automatically every 5s. This keeps the launcher process alive (no more
+  # job "Exit 1") so the install's detection and the ticker eventually appear.
   sleep 5
 done

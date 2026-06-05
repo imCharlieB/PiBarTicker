@@ -1,178 +1,104 @@
 # PiBarTicker
 
-PiBarTicker is a Pi-first sports ticker and utility dashboard designed for stretched bar displays and kiosk deployments.
+A sports ticker and utility dashboard for stretched bar displays, built for Raspberry Pi kiosk deployments.
 
-The target product combines:
-- a full-width sports ticker that rotates one league at a time
-- a persistent lower-third for Home Assistant data and future modules
-- a web-based setup UI for local configuration
-- Raspberry Pi Chromium kiosk deployment as the primary runtime
+Rotates live and upcoming scores one league at a time in a full-width scrolling marquee. Configurable from a web-based setup UI on your local network. Boots directly into fullscreen Chromium kiosk mode.
 
-## Current Status
+---
 
-Phase 0 and core Phase 1 backend foundations are in place:
-- `frontend/` contains the React + Vite setup-page MVP bound to the config API
-- `backend/` contains the FastAPI application shell, config API, runtime path bootstrap, and shared HTTP client utility
-- `docs/REBUILD_SPEC.md` is the build source of truth
-- `docs/BUILD_TODO.md` tracks phased implementation work
-- `config.json` is created automatically as the runtime configuration file
-- `runtime-cache/`, `team-meta/`, and `logos/` are bootstrapped as runtime data directories
+## What It Does
 
-Setup UI currently uses a page-based navigation flow to reduce clutter:
-- Overview
-- Display
-- Theme
-- Services
-- Ticker
+- Scrolling sports ticker — one league at a time, rotating through your enabled leagues
+- Live game state details — baseball diamond, football down/clock, hockey period, etc.
+- Team-aware card styling — cards tint to home team colors, larger logos, configurable stat display
+- Racing support — F1 constructors, NASCAR, IndyCar with race context and TV info
+- Persistent lower-third — Home Assistant sensor display
+- Web setup UI — configure leagues, display, theme, and services from any browser on your network
+- Team logo cache — logos downloaded and served locally, no external calls at runtime
+- Dark, light, and team-color themes — including a watermark branding option
+- Custom boot splash — your PiBarTicker logo replaces the default Raspberry Pi boot screen
 
-Setup UI now includes first-run readiness behavior:
-- Overview checklist for required setup sections (Display, Theme, Services)
-- section status and progress indicator
-- inline validation messages for required setup fields
-- save button disabled until required setup data is valid
-- per-page unsaved-changes indicators in setup navigation
-- status chip showing unsaved section count
-- Save and Continue action for faster page-by-page setup flow
+---
 
-Ticker setup now uses a drill-down workflow:
-- top-level ticker page shows league cards with basic info
-- clicking a league opens full settings for that league
-- league detail page includes ESPN-backed team logo explorer
-- clicking a team logo opens a team detail view with logo variants and team metadata fields from ESPN scoreboard payloads
-- league detail toggles are grouped together in a dedicated controls block
-- team refresh action is located in the Teams explorer header
-- primary team logos are now selected with league-aware matching to reduce mixed-team logo rendering
-- NFL team logo variants now prefer ESPN canonical `/i/teamlogos/` assets when available to avoid cross-team GUID variant mismatches, while other leagues keep full ESPN variant sets
-- NFL team detail now shows canonical variants first and exposes additional ESPN GUID variants in a separate unverified section
-- team detail now requests per-team logo variants from `/api/v1/espn/team-logos` to improve team-specific accuracy
-- team detail now shows additional metadata when available (group, record summary, venue, nickname, slug)
-- team detail now includes standings-derived fields (overall, division/conference records, home/away, streak, point differential when available)
-- team side panel is organized into readable sections (snapshot, standings, venue)
-- team detail now includes league-scoped team style controls so primary/alternate colors are saved per team in setup
-- runtime ticker now prefers saved league team styles over transient feed colors for consistent branding
-- league detail supports conference/division/group filtering through ESPN groups metadata (`includedGroups`)
-- ticker setup can discover leagues from ESPN core catalog and add them directly into app configuration
-- league team explorer now requests larger team pages (`limit=1000`) so large college leagues are not truncated
-- ticker page now keeps league picker and board settings in collapsible panels to reduce clutter
-- league picker now supports quick close/clear and uses a bounded scrollable results list
-- runtime game cards now tint to the home team color, use larger team logos, and show a larger game date line
-- league settings now include card stat toggles (records, clock, situation, venue, odds) for the area under game scores
-- racing cards now surface next race/final context and TV details in a top-right header panel
-- league settings now include a per-league `useTeamCardColors` toggle so cards can use team gradients or stay on theme-driven styling
-- league settings now include a per-league `showLiveState` toggle so live-only details stay hidden unless enabled for that league
-- live baseball cards now include an outs/count panel and runner diamond (1st/2nd/3rd occupancy)
-- baseball live cards now place the runner diamond inline with team scores and map batting side from half-inning/status text (`Top`, `Bottom`, `T#`, `B#`)
-- baseball live cards now suppress duplicate situation text in lower metadata when the live outs/count panel is active
-- setup/runtime league filtering is simplified to ESPN slate by default with optional live-only card mode to reduce cross-league filter confusion
+## Requirements
 
-## Project Layout
+- Raspberry Pi 4 or 5
+- Raspberry Pi OS Desktop — Bookworm preferred (Lite is not supported — kiosk needs a desktop session)
+- Network access for ESPN data and initial install
 
-```text
-backend/   FastAPI backend and future API modules
-frontend/  React/Vite kiosk display and setup UI
-docs/      Rebuild spec and supporting API notes
-src/       Legacy hello-world starter from initial workspace bootstrap
-```
+---
 
-## Backend Run
+## Install on Raspberry Pi
 
-```powershell
-cd backend
-uvicorn app.main:app --app-dir . --reload
-```
-
-## Frontend Run
-
-```powershell
-cd frontend
-npm install
-npm run dev
-```
-
-To view the setup page locally, run the backend first on port `8000`, then run the frontend and open the Vite URL in your browser. The frontend proxies `/api` requests to the backend during development.
-
-## Raspberry Pi Install
-
-Pi deployment scripts now live under `scripts/pi/`.
-
-**Super-simple one-command install** (fresh Raspberry Pi OS Desktop — no clone or "download the code first" step):
+One command on a fresh Raspberry Pi OS Desktop:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/imCharlieB/PiBarTicker/main/scripts/pi/bootstrap.sh | sudo bash
 ```
 
-This is literally the only command you need to paste on a fresh Raspberry Pi OS Desktop.  
-It downloads the code, installs everything, sets up the service + kiosk autostart, **and configures the custom PiBarTicker boot splash** (Pi 4 / Pi 5 detection + logo conversion + original backup + initramfs rebuild).
+This downloads the code, installs all dependencies, sets up the backend service, configures kiosk autostart, and installs the custom boot splash. Run the same command again at any time to update.
 
-Run the exact same one-liner again later to update/redeploy.
-
-Advanced options (forks, specific branch, etc.) can still be passed after `--`:
 ```bash
-curl .../bootstrap.sh | sudo bash -s -- --repo https://github.com/you/fork.git --branch mybranch
+sudo reboot
 ```
 
-Required: Raspberry Pi OS Desktop (Bookworm preferred). Lite images are not supported (no desktop session for the kiosk).
+After reboot the PiBarTicker logo appears as the boot splash, and the ticker opens automatically in fullscreen Chromium.
 
-Alternative (when the repo is already cloned on the Pi):
+**Advanced options** (fork, specific branch):
+```bash
+curl -fsSL .../bootstrap.sh | sudo bash -s -- --repo https://github.com/you/fork.git --branch mybranch
+```
 
+**If the repo is already on the Pi:**
 ```bash
 sudo bash scripts/pi/install_pi.sh
 ```
 
-After install: `sudo reboot`. The PiBarTicker logo will appear as the boot splash screen.
+---
 
-Kiosk fields from `config.json` (monitor size, autoStart, chromiumFlags) are applied by the launcher.
+## Local Development
 
-See `docs/RASPBERRY_PI_SETUP.md` for service management, logs, and troubleshooting.
+Run the backend and frontend separately:
 
-## VS Code Tasks
+```powershell
+# Terminal 1 — backend
+cd backend
+uvicorn app.main:app --reload
 
-- `Run PiBarTicker Backend` starts the FastAPI API with reload
-- `Build PiBarTicker Frontend` runs a production frontend build
-- `Run PiBarTicker Frontend` starts the Vite dev server on `0.0.0.0`
-- `Run PiBarTicker Legacy` keeps the original bootstrap script available during transition
-
-## Initial Backend Endpoints
-
-- `/health`
-- `/api/v1/app-shell`
-- `/api/v1/config`
-- `/api/v1/config/reset`
-- `/api/v1/espn/proxy`
-- `/api/v1/espn/team-logos`
-- `/api/v1/espn/league-groups`
-- `/api/v1/espn/discover-leagues`
-
-Example team-logo call (Arizona Cardinals):
-
-```text
-GET /api/v1/espn/team-logos?sport=football&league=nfl&team=ari
+# Terminal 2 — frontend
+cd frontend
+npm install
+npm run dev
 ```
 
-## Phase 1 Config API
+Open the Vite URL in your browser. The frontend proxies `/api` requests to the backend on port `8000`.
 
-The backend now owns the initial persistent configuration model described in the rebuild spec, including:
-- monitor settings
-- Home Assistant settings
-- HTTP settings
-- kiosk settings
-- boards configuration
-- theme configuration
+---
 
-`GET /api/v1/config` loads the current config and creates a default `config.json` when missing.
+## Setup UI
 
-`PUT /api/v1/config` replaces the full config with validated data.
+Open `http://<pi-address>:8000` (or `http://localhost:8000` locally) to reach the setup page.
 
-`POST /api/v1/config/reset` restores the default config.
+Sections:
+- **Overview** — first-run checklist and section status
+- **Display** — monitor resolution, kiosk autostart, Chromium flags
+- **Theme** — dark / light / team-color mode, watermark branding
+- **Services** — Home Assistant connection and sensors
+- **Ticker** — enable/disable leagues, set order, configure per-league options, sync team logos
 
-## Phase 1 Core Utilities
+---
 
-- `backend/app/core/paths.py` centralizes project/runtime paths and bootstraps runtime directories.
-- `backend/app/core/http_client.py` provides a reusable HTTP client with timeout, retry/backoff, and cache hooks for upcoming ESPN integration.
+## File Layout
 
-## Next Build Areas
+```
+backend/          Python/FastAPI backend — ESPN data, logo cache, config API
+frontend/         React/Vite app — kiosk display and setup UI
+scripts/pi/       Raspberry Pi install, service, and kiosk launch scripts
 
-- ESPN league registry and scoreboard ingestion
-- normalized live-state models per sport
-- ticker UI MVP backed by app endpoints instead of direct ESPN calls
-- richer setup workflows such as ordering, group filters, and module editing
+config.json       Your saved settings (created automatically on first run)
+logos/            Locally cached team and league logos (created automatically)
+team-meta/        Cached team metadata per league (created automatically)
+runtime-cache/    Short-lived scoreboard cache (created automatically)
+```
+
+The three data directories (`logos/`, `team-meta/`, `runtime-cache/`) and `config.json` are created automatically on first backend start. You do not need to create them manually.

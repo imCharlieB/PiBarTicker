@@ -1460,20 +1460,46 @@ function App() {
   const [runtimeScrollSeconds, setRuntimeScrollSeconds] = useState(45)
   const [runtimeTrackWidth, setRuntimeTrackWidth] = useState(0)
   const [runtimeWindowWidth, setRuntimeWindowWidth] = useState(0)
+  // Dynamic spacer width for k=1 (single game/race like F1, a future NASCAR, NHL 1-game, etc.).
+  // Measured from the actual first card width after paint so the solo card + spacer makes it
+  // travel nearly the full board width "once", then the next league starts. Prevents "scrolls 2 times"
+  // or duplicate passes of the single item within one league slot.
+  const [k1SpacerWidth, setK1SpacerWidth] = useState(0)
+  const firstCardForMeasureRef = useRef(null)
+  // Per-league-slot duration (ms). For normal leagues = board rotateSeconds. For k<=1 we set it
+  // to the time for one full cross (oneCopy / pxPerSec) so the single item scrolls once then the
+  // rotation advances to the next league "same as regular".
+  const [currentSlotDuration, setCurrentSlotDuration] = useState(30000)
+  // True after the initial parallel pre-fetch for *all* enabled leagues has completed (all loadStates done).
+  // Used to gate rotation, skip, and to trigger the one-time "pick first good league in user order" settle.
+  // Prevents flashing lower-left logos and crazy skipping of leagues during the load phase.
+  const [initialPreFetchesComplete, setInitialPreFetchesComplete] = useState(false)
   // Used to only apply the 'ticker-runtime-track-animated' class (GPU hints) *after*
   // we have measured the real DOM widths in useLayoutEffect. Also gates starting
   // the rAF scroller. Prevents starting the scroller with wrong/zero values which
   // used to cause initial pop/jerk or bad start position.
   const [runtimeScrollReady, setRuntimeScrollReady] = useState(false)
+  // Used to force re-evaluation of the skip effect after a handoff grace expires, to skip 0-content leagues that were protected at landing but still have 0 after the refresh completed.
+  const [handoffCheckKey, setHandoffCheckKey] = useState(0)
+  // Nonce to force the measurement effect to re-run when data arrives for the current display league (e.g. per-display refresh brings games for a league that had 0 at the handoff render).
+  const [measureNonce, setMeasureNonce] = useState(0)
   const runtimeScrollReadyRef = useRef(false)
+  const hasStartedCurrentSlotRef = useRef(false)
 
   // Keep the ref in sync for any non-React callbacks (ResizeObserver etc.) that must
   // read "ready" synchronously without causing extra renders or stale closures.
   useEffect(() => {
     runtimeScrollReadyRef.current = runtimeScrollReady
   }, [runtimeScrollReady])
+
   const [runtimeLastStableLeagueId, setRuntimeLastStableLeagueId] = useState('')
   const [runtimeLastStableMarqueeGames, setRuntimeLastStableMarqueeGames] = useState([])
+
+  // Per-league sticky "last good" games. Survives re-fetches that return 0 (between slates,
+  // future races only in calendar, etc.), cycles, and re-mounts. Used for display when the
+  // current visit's payload is empty, and to decide skips for true 0 leagues. Populated on
+  // any >0 arrival (pre-fetches at start + per-display refreshes).
+  const [stableGoodGamesByLeagueId, setStableGoodGamesByLeagueId] = useState({})
 
   // Computed size for the faint ticker watermark logo.
   // We measure the actual image so tall logos (UGA etc.) and wide ones all look good
@@ -1530,6 +1556,43 @@ function App() {
   // widths, causing no visible games).
   const didInitialLateMeasureRef = useRef(false)
   const lastMeasuredLeagueIdRef = useRef(null)
+  // Timestamp (ms) after which reactive 0-content skips are allowed. Set on fresh ticker entry
+  // to give the parallel pre-fetches (and first per-display refresh) time to populate before we
+  // decide a league is "truly 0" and should be skipped. Prevents initial flash-through of good
+  // leagues whose data hasn't arrived yet.
+  const tickerEntryGraceRef = useRef(0)
+
+  // For driving league rotation from the rAF tick (precise "full visual pass before handoff")
+  const isTickerRuntimeRef = useRef(false)
+  const leagueSlotStartTimeRef = useRef(0)
+  const currentSlotDurationRef = useRef(30000)
+  const currentSlotIsK1Ref = useRef(true)
+  const currentLeaguesLengthRef = useRef(0)
+  const currentRuntimeLeagueIndexRef = useRef(0)
+  const scrolledThisSlotRef = useRef(0)
+  // Tracks the league id for the *currently animating slot*. Used inside the rAF tick to abort
+  // any stale callbacks from a previous league's animation after handoff (prevents old ticks
+  // from stomping the new track's --offset or triggering extra advances). Critical for clean
+  // k=1 -> next league transitions (e.g. F1 to NASCAR) where measurement + start must win.
+  const currentSlotLeagueIdRef = useRef('')
+  // Short grace after each handoff/advance to prevent the skip effect from immediately +1'ing
+  // a newly landed league before its per-display refresh (triggered by the id change) has
+  // had time to set loading=true and/or populate payload/stable. This stops "only first league
+  // scrolls" / "nothing else scrolls after" when later leagues had 0 at initial pre-fetch but
+  // have (or will have) data on their turn.
+  const handoffGraceRef = useRef(0)
+  const advanceToNextLeagueRef = useRef(() => {
+    const len = currentLeaguesLengthRef.current || 1
+    const nextIdx = (currentRuntimeLeagueIndexRef.current + 1) % len
+    const nextLeague = runtimeLeagues[nextIdx]
+    if (nextLeague) {
+      // Explicitly pull data for the next league on advance (with 'all' to get available games).
+      // This ensures the per-display pull happens for the new current on handoff, so if it had 0 at pre-fetch, the fresh call brings the data (e.g. synth for upcoming race), length becomes 1, scroller starts.
+      refreshRuntimeLeaguePayload(nextLeague, { gameFilterOverride: 'all' })
+    }
+    setRuntimeVisibleLeagueId('')
+    setRuntimeLeagueIndex((c) => (c + 1) % len)
+  })
 
   // Stop any running marquee rAF loop. Called on unmount, league switch, !ready, etc.
   function stopMarqueeAnimation() {
@@ -1548,7 +1611,7 @@ function App() {
     if (!W) {
       return
     }
-    // The offset in the ref was already set in measureAndStartMarquee (to Vw for new league,
+    // The offset in the ref was already set in measurement (to Vw for new league,
     // or preserved progress for same league with length change). Do not override here.
     marqueeLastTimeRef.current = 0
 
@@ -1563,6 +1626,15 @@ function App() {
     }
 
     const tick = (ts) => {
+      // Abort any rAF callback that belongs to a previous league's slot. This can happen
+      // because rAF is queued asynchronously; after advance from F1 (or any) we stop() and
+      // the new league's measurement will start fresh, but a late old tick must not touch
+      // the new track or call advance again. The currentSlotLeagueIdRef is set right before
+      // each startMarqueeAnimation and cleared on advance / league change.
+      if (currentSlotLeagueIdRef.current && runtimeDisplayLeague?.id &&
+          currentSlotLeagueIdRef.current !== runtimeDisplayLeague.id) {
+        return
+      }
       if (!marqueeLastTimeRef.current) {
         marqueeLastTimeRef.current = ts
       }
@@ -1573,10 +1645,42 @@ function App() {
       let offset = marqueeOffsetRef.current - marqueeSpeedRef.current * dt
       const startX = marqueeWindowWidthRef.current || 0
       const minX = startX - W
-      if (offset <= minX) {
-        // Seamless wrap: because we render 2x the items (seamlessMarqueeGames),
-        // shifting by exactly one copy width lands the duplicate in the identical visual spot.
-        offset += W
+
+      // accumulate scrolled distance this slot (primary for ensuring full pass + exit)
+      if (leagueSlotStartTimeRef.current > 0 && isTickerRuntimeRef.current) {
+        scrolledThisSlotRef.current += marqueeSpeedRef.current * dt
+      }
+
+      const oneCopy = W
+      // k=1: distance-based advance — card must scroll oneCopy+150 to fully clear left edge.
+      // k>1: position-based advance — fires when offset+W<=0 (last card right edge at screen left).
+      // Track always renders exactly 1 copy, so no seamless wrap needed.
+      const triggerAdvance = () => {
+        const cleared = minX - 800
+        marqueeOffsetRef.current = cleared
+        const liveTrack = runtimeMarqueeTrackRef.current
+        if (liveTrack) {
+          liveTrack.style.setProperty('--marquee-offset', `${cleared}px`)
+          liveTrack.style.opacity = '0'
+        }
+        stopMarqueeAnimation()
+        setRuntimeScrollReady(false)
+        setTimeout(() => {
+          advanceToNextLeagueRef.current()
+          scrolledThisSlotRef.current = 0
+          leagueSlotStartTimeRef.current = 0
+          currentSlotLeagueIdRef.current = ''
+          handoffGraceRef.current = Date.now() + 800
+          setTimeout(() => setHandoffCheckKey(k => k + 1), 900)
+        }, 100)
+      }
+      if (currentSlotIsK1Ref.current && scrolledThisSlotRef.current >= oneCopy + 150) {
+        triggerAdvance()
+        return
+      }
+      if (!currentSlotIsK1Ref.current && offset + W <= 0) {
+        triggerAdvance()
+        return
       }
       marqueeOffsetRef.current = offset
 
@@ -1586,6 +1690,32 @@ function App() {
       if (liveTrack) {
         liveTrack.style.setProperty('--marquee-offset', `${offset}px`)
       }
+
+      // time backup
+      if (leagueSlotStartTimeRef.current > 0 && isTickerRuntimeRef.current) {
+        const elapsed = (ts - leagueSlotStartTimeRef.current) / 1000
+        const target = (currentSlotDurationRef.current || 30000) / 1000
+        if (elapsed >= target) {
+          const cleared = minX - 700
+          marqueeOffsetRef.current = cleared
+          const liveTrack2 = runtimeMarqueeTrackRef.current
+          if (liveTrack2) {
+            liveTrack2.style.setProperty('--marquee-offset', `${cleared}px`)
+            liveTrack2.style.opacity = '0'
+          }
+          stopMarqueeAnimation()
+          setRuntimeScrollReady(false)
+          setTimeout(() => {
+            advanceToNextLeagueRef.current()
+            scrolledThisSlotRef.current = 0
+            leagueSlotStartTimeRef.current = 0
+            currentSlotLeagueIdRef.current = ''
+            handoffGraceRef.current = Date.now() + 800
+          }, 100)
+          return
+        }
+      }
+
       marqueeAnimationFrameRef.current = window.requestAnimationFrame(tick)
     }
 
@@ -1931,16 +2061,40 @@ function App() {
   const themeTokens = config ? deriveThemeTokens(config.theme, { sportsBoard, leagueLogoMetaById }) : null
   const runtimeLeagues = sportsBoard?.leagues.filter((league) => league.enabled) ?? []
   const runtimeLeagueIdsKey = runtimeLeagues.map((league) => league.id).join('|')
+  // Hoisted early so it's available during seamlessMarqueeGames build for k=1 spacers (avoids ReferenceError at runtime in ticker for F1/NASCAR single slates).
+  const runtimeBoardWidth = Math.max(320, Number(config?.monitor?.width) || 1920)
+
+  // Keep timing refs in sync. These must be *after* the declarations of the variables they read
+  // (runtimeLeagues, isTickerRuntime) to avoid TDZ during render when evaluating the effect.
+  useEffect(() => {
+    isTickerRuntimeRef.current = isTickerRuntime
+  }, [isTickerRuntime])
+
+  useEffect(() => {
+    currentLeaguesLengthRef.current = runtimeLeagues.length
+  }, [runtimeLeagues.length])
+
+  useEffect(() => {
+    currentRuntimeLeagueIndexRef.current = runtimeLeagueIndex
+  }, [runtimeLeagueIndex])
   const activeRuntimeLeague = runtimeLeagues.length
     ? runtimeLeagues[runtimeLeagueIndex % runtimeLeagues.length]
     : null
   const runtimeVisibleLeague = runtimeLeagues.find((league) => league.id === runtimeVisibleLeagueId) || null
-  const runtimeDisplayLeague = runtimeVisibleLeague || activeRuntimeLeague
+  const logicalDisplayLeague = runtimeVisibleLeague || activeRuntimeLeague
+  // During initial pre-fetch phase (!initialPreFetchesComplete), force the display league (and thus
+  // all content, track key, marquee games, brand logo, measurement, per-display refresh target, etc.)
+  // to the user's *first* league in the exact configured order. This stops any visible flipping or
+  // "landing on 4th/5th" during load. The settle (below) forces index to 0 (first in list) once data is ready.
+  const runtimeDisplayLeague = initialPreFetchesComplete ? logicalDisplayLeague : (runtimeLeagues[0] || logicalDisplayLeague)
   const activeRuntimePayload = runtimeDisplayLeague
     ? runtimePayloadByLeagueId[runtimeDisplayLeague.id] || null
     : null
   const activeRuntimeGames = Array.isArray(activeRuntimePayload?.normalizedGames)
     ? activeRuntimePayload.normalizedGames
+    : []
+  const stableForDisplayLeague = runtimeDisplayLeague
+    ? (stableGoodGamesByLeagueId[runtimeDisplayLeague.id] || [])
     : []
   const activeRuntimeLoadState = activeRuntimeLeague
     ? runtimeLoadStateByLeagueId[activeRuntimeLeague.id] || { loading: false, error: '' }
@@ -1994,14 +2148,22 @@ function App() {
       venueText,
       hasBaseballLivePanel: Boolean(hasLiveMode && baseballLiveData),
     })
+    // For synthetic upcoming races we inject from calendar when ESPN "events" is empty (NASCAR "in a few days" etc.),
+    // the game itself *is* the next race (state=pre, no entries/competitors yet). Label it as such so the card
+    // data reflects "NEXT RACE <name> • <date>" instead of generic "RACE STATUS".
+    const isPreRaceNoEntries = isRacing && String(game?.state || '').toLowerCase() === 'pre' && (!game?.racingEntries || game.racingEntries.length === 0)
     const racingTopPrimaryLabel = nextRace?.label
       ? 'NEXT RACE'
-      : String(game?.state || '').toLowerCase() === 'post'
-        ? 'FINAL'
-        : 'RACE STATUS'
+      : isPreRaceNoEntries
+        ? 'NEXT RACE'
+        : String(game?.state || '').toLowerCase() === 'post'
+          ? 'FINAL'
+          : 'RACE STATUS'
     const racingTopPrimaryText = nextRace?.label
       ? `${nextRace.label}${nextRace.dateText ? ` • ${nextRace.dateText}` : ''}`
-      : formatRuntimeStatus(game)
+      : isPreRaceNoEntries
+        ? (game?.runtimeDateText || formatRuntimeStatus(game) || String(game?.title || '').trim())
+        : formatRuntimeStatus(game)
     const racingTopTvText = hasLiveMode && runtimeDisplayLeague?.showTV && broadcastText
       ? `TV ${broadcastText}`
       : ''
@@ -2038,6 +2200,10 @@ function App() {
       }
       if (runtimeDisplayLeague?.showNews && venueText) {
         finalInfoParts.push(venueText);
+      }
+      // For calendar-sourced pre races (NASCAR future etc when no current event), make sure the date shows in the bottom meta line.
+      if (isPreRaceNoEntries && runtimeDateText) {
+        finalInfoParts.push(runtimeDateText);
       }
     }
 
@@ -2112,24 +2278,24 @@ function App() {
   })
   const runtimeMarqueeGames = runtimeDisplayGames.length
     ? runtimeDisplayGames
-    : runtimeLastStableMarqueeGames.length ? runtimeLastStableMarqueeGames : [];
-  // Always use exactly 2 copies for seamless (original design).
-  // For k=1 (F1 single race), we will use 2x the unit as animPeriod (see measure) to travel twice as far per cycle,
-  // reducing "restarts again and again" frequency, while keeping only 2 copies so you see at most ~2 (not 3+ duplicates).
+    : (stableForDisplayLeague && stableForDisplayLeague.length ? stableForDisplayLeague : []);
+  // Always 1 copy. k=1: distance-based advance (oneCopy = winW+cardW+extra). k>1: position-based (offset+W<=0).
   const originalK = runtimeMarqueeGames.length;
   const k = originalK;
-  const numCopies = 2;
   let seamlessMarqueeGames = runtimeMarqueeGames;
   if (k > 0) {
-    seamlessMarqueeGames = [];
-    for (let c = 0; c < numCopies; c++) {
-      seamlessMarqueeGames.push(...runtimeMarqueeGames);
-    }
+    seamlessMarqueeGames = [...runtimeMarqueeGames]; // always 1 copy; position-based advance handles k>1 exit
   }
   const runtimeRenderLeague = runtimeVisibleLeague || (runtimeDisplayGames.length ? runtimeDisplayLeague : null)
+  // The runtimeDisplayLeague is forced to the user's first during !complete, so use it (or the render one)
+  // for the lower left brand. This keeps the logo stable on the configured first league throughout load,
+  // no crazy flipping, and after the settle picker corrects the index it follows the proper start per order.
+  const brandLeague = runtimeRenderLeague || runtimeDisplayLeague || runtimeLeagues[0] || null
   const runtimeHasAnyGamesAcrossEnabledLeagues = runtimeLeagues.some((league) => {
     const payload = runtimePayloadByLeagueId[league.id]
-    return Array.isArray(payload?.normalizedGames) && payload.normalizedGames.length > 0
+    if (Array.isArray(payload?.normalizedGames) && payload.normalizedGames.length > 0) return true
+    const stable = stableGoodGamesByLeagueId[league.id]
+    return Array.isArray(stable) && stable.length > 0
   })
 
   useEffect(() => {
@@ -2166,8 +2332,28 @@ function App() {
     setRuntimeLeagueIndex(0)
     setRuntimeVisibleLeagueId('')
 
-    // Reset so the late re-measure for initial slot runs once.
+    // Reset measurement/animation state so the new board starts clean (right-entry, fresh widths).
+    marqueeTrackWidthRef.current = 0
+    marqueeWindowWidthRef.current = 0
+    marqueeOffsetRef.current = runtimeBoardWidth
+    setRuntimeScrollReady(false)
+    setRuntimeTrackWidth(0)
+    setRuntimeWindowWidth(0)
+    setK1SpacerWidth(0)
+    setCurrentSlotDuration(((sportsBoard?.rotateSeconds) || 30) * 1000)
+
+    setInitialPreFetchesComplete(false)
+
+    // Reset flag for initial slot late measure (one-time for first league at ticker start).
     didInitialLateMeasureRef.current = false
+    // Give a grace window after the pre-fetches complete (before skip/rotation can react to data).
+    // The settle picker has already chosen the correct start per order by the time this grace ends.
+    tickerEntryGraceRef.current = Date.now() + 700
+
+    leagueSlotStartTimeRef.current = 0
+    scrolledThisSlotRef.current = 0
+    currentSlotLeagueIdRef.current = ''
+    handoffGraceRef.current = 0
 
     // Load cached logo meta for all enabled runtime leagues so we can use
     // modern cached colors/logos (legacy teamStyles in config.json is gone)
@@ -2176,7 +2362,42 @@ function App() {
         loadLeagueLogoMeta(league.id)
       }
     })
+
+    // Pre-fetch scoreboard data (with 'all' override) for *all* enabled leagues in parallel.
+    // We use Promise.all on the refresh calls so that when they all resolve, we know *all*
+    // the initial data has been written into the payload/stable maps (the sets happen before resolve).
+    // Then we set the flag, the settle picker runs once, walks the exact user order, picks the
+    // first with content, sets the index. This guarantees we don't skip early leagues that have
+    // games just because their response was processed "early" or timing with per-display refreshes.
+    setStableGoodGamesByLeagueId({})
+    const preFetchPromises = runtimeLeagues.map((league) =>
+      refreshRuntimeLeaguePayload(league, { gameFilterOverride: 'all' }).catch(() => null)
+    )
+    Promise.all(preFetchPromises).then(() => {
+      setInitialPreFetchesComplete(true)
+      // Reset grace after settle so the starting league (first in user's order) gets its per-display
+      // refresh chance to populate fresh data before skip can decide it's "0" and advance.
+      tickerEntryGraceRef.current = Date.now() + 2000
+    })
   }, [isTickerRuntime, runtimeLeagueIdsKey])
+
+  // Once all initial pre-fetches are done (Promise.all resolved, so all data written to maps),
+  // ensure we are on the first league in the user's exact configured order (force index=0 if needed).
+  // (We no longer auto-skip leading "0s" at startup; the first in the list the user arranged is the start.
+  // If it truly has 0 after its initial refresh + grace, skip effect can advance it.)
+  // During pre-fetch phase, visuals are forced to first (see runtimeDisplayLeague) so no flipping on load.
+  useEffect(() => {
+    if (!isTickerRuntime || !initialPreFetchesComplete || !runtimeLeagues.length) return
+    const current = runtimeLeagueIndex % runtimeLeagues.length
+    if (current !== 0) {
+      setRuntimeVisibleLeagueId('')
+      setRuntimeLeagueIndex(0)
+      leagueSlotStartTimeRef.current = 0
+      scrolledThisSlotRef.current = 0
+      currentSlotLeagueIdRef.current = ''
+      handoffGraceRef.current = Date.now() + 800
+    }
+  }, [isTickerRuntime, initialPreFetchesComplete, runtimeLeagueIdsKey])
 
   useEffect(() => {
     if (!runtimeLeagues.length) {
@@ -2189,186 +2410,6 @@ function App() {
     }
   }, [runtimeLeagues, runtimeVisibleLeagueId, runtimePayloadByLeagueId])
 
-  useLayoutEffect(() => {
-    // Always reset ready at the start of measurement for this league/render.
-    // This ensures the JS rAF scroller + gpu styles are only applied after we have
-    // fresh accurate measurements for the *current* content. Prevents starting with 0/wrong widths.
-    setRuntimeScrollReady(false)
-    stopMarqueeAnimation()
-
-    if (!isTickerRuntime || !runtimeDisplayLeague || !runtimeMarqueeGames.length) {
-      setRuntimeScrollSeconds(45)
-      // Ensure clean state: no lingering offset when blank or no league.
-      if (runtimeMarqueeTrackRef.current) {
-        runtimeMarqueeTrackRef.current.style.setProperty('--marquee-offset', '')
-        runtimeMarqueeTrackRef.current.style.willChange = ''
-      }
-      return
-    }
-
-    const measureAndStartMarquee = () => {
-      const track = runtimeMarqueeTrackRef.current
-      if (!track) {
-        return
-      }
-
-      const windowEl = runtimeMarqueeWindowRef.current
-      const fullTrackWidth = track.scrollWidth || track.getBoundingClientRect().width || 0
-      // Use actual measured container width if available. Fall back to the configured
-      // monitor width (e.g. 1920 or 3840 for bar displays). This prevents Vw=0 which
-      // would make the initial offset 0 and cause "starts on the left" instead of
-      // content entering from the right.
-      const configuredWidth = Number(config?.monitor?.width) || 1920
-      const windowWidth = windowEl?.clientWidth || windowEl?.getBoundingClientRect().width || configuredWidth
-      if (!fullTrackWidth) {
-        // For complex cards (esp racing/F1/NASCAR with inner content, entries lists, etc.)
-        // the layout may not be ready at the first useLayoutEffect. Retry shortly so
-        // the scroller actually starts instead of staying "empty" or "stuck".
-        setTimeout(() => {
-          if (runtimeMarqueeTrackRef.current && !runtimeScrollReadyRef.current) {
-            measureAndStartMarquee()
-          }
-        }, 120)
-        return
-      }
-
-      // More accurate oneCopy: use the actual layout offset of the start of the second copy (using originalK even if we duplicated more for small k)
-      // instead of naive /2. This accounts for gaps, padding, subpixel, and exact flex layout.
-      let oneCopyWidth = Math.max(1, fullTrackWidth / 2)
-      const kids = track.children
-      const mid = Math.min(kids.length - 1, originalK)
-      if (kids.length > originalK && kids[mid] && kids[mid].offsetLeft > 0) {
-        oneCopyWidth = Math.max(1, kids[mid].offsetLeft)
-      }
-
-      // For k=1 (F1 single), use animPeriod = 2 * oneCopy so we travel twice the unit distance per cycle.
-      // This makes the single race scroll farther across the screen before the seamless wrap, reducing frequency of visible restarts,
-      // while numCopies=2 means at most ~2 copies visible (no "3 duplicates").
-      let animPeriod = oneCopyWidth;
-      if (originalK === 1) {
-        animPeriod = 2 * oneCopyWidth;
-      }
-
-      // If the league id is the same as last measurement but the number of items (length) changed,
-      // preserve the scroll progress instead of jumping back to the "start from right" position.
-      // This prevents visible "restarts over and over" when the list of games for the current league
-      // changes (e.g. a game starts/ends, or live updates add/remove for racing leagues).
-      const currentLeagueId = runtimeDisplayLeague?.id
-      const lastId = lastMeasuredLeagueIdRef.current
-      const oldW = marqueeTrackWidthRef.current
-      const currentOffset = marqueeOffsetRef.current
-      if (currentLeagueId && currentLeagueId === lastId && oldW > 0 && typeof currentOffset === 'number') {
-        const startX = windowWidth
-        const scrolled = startX - currentOffset
-        const fraction = oldW > 0 ? scrolled / oldW : 0
-        const newOffset = startX - fraction * oneCopyWidth
-        marqueeOffsetRef.current = newOffset
-      } else {
-        // new league (or first), start from the enter-from-right position
-        marqueeOffsetRef.current = windowWidth
-      }
-      lastMeasuredLeagueIdRef.current = currentLeagueId
-
-      setRuntimeTrackWidth(oneCopyWidth)
-      setRuntimeWindowWidth(windowWidth)
-      // secs kept for any debug/UI, but speed comes from pxPerSecond now.
-      const pxPerSecond = 110
-      const nextSeconds = Math.max(12, oneCopyWidth / pxPerSecond)
-      const secs = Number(nextSeconds.toFixed(1))
-      setRuntimeScrollSeconds(secs)
-
-      // Store in refs for the rAF loop (no closure staleness, no re-renders needed for anim).
-      // Use animPeriod (longer for k=1) as the wrap period W.
-      marqueeTrackWidthRef.current = animPeriod
-      marqueeWindowWidthRef.current = windowWidth
-      marqueeSpeedRef.current = pxPerSecond
-
-      // Direct DOM mutation *before paint* (useLayoutEffect) for correct initial state.
-      // We still set the -- vars (harmless, may be used by future CSS or debug).
-      if (track) {
-        track.style.setProperty('--runtime-scroll-seconds', `${secs}s`)
-        track.style.setProperty('--runtime-track-width', `${animPeriod}px`)
-        track.style.setProperty('--runtime-window-width', `${windowWidth}px`)
-      }
-
-      // Set initial offset (via var) to the "content entering from right" position immediately.
-      // This + the rAF starting from same value eliminates the "starts already scrolled to end/left" bug.
-      // Using --var (not direct transform) protects against React re-render clobbers.
-      const initialOffset = windowWidth
-      track.style.setProperty('--marquee-offset', `${initialOffset}px`)
-      track.style.willChange = 'transform'
-
-      setRuntimeScrollReady(true)
-
-      // Kick off the rAF JS animation. This replaces the old CSS keyframes entirely for the scroll motion.
-      startMarqueeAnimation()
-
-      // Belt + suspenders for the "starts on the left" problem:
-      // After React re-renders (which applies the style= prop with the --vars) and after
-      // any late layout from images/flex/viewport units, force the initial right-offset
-      // transform one more time on the next frame.
-      window.requestAnimationFrame(() => {
-        const liveTrack = runtimeMarqueeTrackRef.current
-        const off = marqueeWindowWidthRef.current || 0
-        if (liveTrack && off > 0) {
-          liveTrack.style.setProperty('--marquee-offset', `${off}px`)
-        }
-      })
-
-      // Targeted fix for the sole reported issue: the *first* league at ticker startup
-      // (whichever it is; if you swap order, the new first has the problem) shows only
-      // the watermark logo, no games scrolling, even though the payload has games 100%.
-      // Cause: the *initial* measurement (in early useLayoutEffect) happens before card
-      // images/logos are loaded/sized, so oneCopy/animPeriod/offset are based on wrong
-      // (too small/zero) widths -> rAF transform positions the content offscreen or
-      // not visible. Later leagues get measured after layout is stable -> they show fine.
-      // We do one late re-measure ~300ms after the *initial* slot starts (once per ticker
-      // start), then restart the scroller from the correct enter-from-right with now-accurate W.
-      // Acceptable at the very beginning of the first slot; no mid-animation changes.
-      // Only for the initial slot (flag reset on ticker entry).
-      if (!didInitialLateMeasureRef.current) {
-        didInitialLateMeasureRef.current = true
-        setTimeout(() => {
-          if (runtimeMarqueeTrackRef.current && runtimeScrollReadyRef.current) {
-            // Re-measure with stable sizes and restart anim cleanly from start pos.
-            measureAndStartMarquee()
-          }
-        }, 300)
-      }
-    }
-
-    if (typeof ResizeObserver === 'undefined') {
-      measureAndStartMarquee()
-      return undefined
-    }
-
-    const observer = new ResizeObserver(() => {
-      if (!runtimeScrollReadyRef.current) {
-        window.requestAnimationFrame(measureAndStartMarquee)
-      }
-    })
-
-    if (runtimeMarqueeTrackRef.current) {
-      observer.observe(runtimeMarqueeTrackRef.current)
-    }
-    if (runtimeMarqueeWindowRef.current) {
-      observer.observe(runtimeMarqueeWindowRef.current)
-    }
-
-    measureAndStartMarquee()
-
-    // Disconnect immediately after initial measurement so that resizes during the
-    // long animation (live score updates inside cards, etc.) do not retrigger measurement
-    // or restart the scroller. Next league (or length change) gets a fresh pass.
-    // This was already the intent; now even more important because we own the anim loop.
-    observer.disconnect()
-
-    return () => {
-      observer.disconnect()
-      stopMarqueeAnimation()
-    }
-  }, [isTickerRuntime, runtimeDisplayLeague?.id, runtimeMarqueeGames.length]) // eslint-disable-line react-hooks/exhaustive-deps -- narrow deps by design (id+length only) to prevent re-measuring/restarting marquee on every render or object identity churn. startMarqueeAnimation is an inner function decl.
-
   // Lifecycle for the JS marquee scroller: ensure we stop rAF when leaving ticker mode,
   // when scroll not ready (e.g. during re-measure on league switch), or on unmount.
   // The start is triggered from the measurement code above once widths are known.
@@ -2379,30 +2420,86 @@ function App() {
     return () => {
       stopMarqueeAnimation()
     }
-  }, [isTickerRuntime, runtimeScrollReady, runtimeDisplayLeague?.id])
+  }, [isTickerRuntime, runtimeDisplayLeague?.id])
 
   useEffect(() => {
-    if (!isTickerRuntime || runtimeLeagues.length <= 1 || !sportsBoard) {
+    // Do not start the rotation during the initial pre-fetch phase.
+    // Rotation (and skip) only after the settle picker has chosen the correct start per order.
+    if (!isTickerRuntime || runtimeLeagues.length <= 1 || !sportsBoard || !initialPreFetchesComplete) {
       return
     }
 
-    const rotateSeconds = Math.max(5, Number(sportsBoard.rotateSeconds) || 45)
-    const intervalId = window.setInterval(() => {
+    if (isTickerRuntimeRef.current) {
+      // Ticker advance is driven from the rAF tick using the measured slot dur for the
+      // current league's content (ensures old content fully off-screen before swap).
+      return
+    }
+
+    // Fallback (non-ticker preview etc): use the slot dur or configured.
+    const dur = currentSlotDuration || ((sportsBoard.rotateSeconds || 30) * 1000)
+    const timeoutId = window.setTimeout(() => {
       // Clear any "visible league pin" so the rotation index drives the next active league.
       // Simple +1 to cycle through all selected in order (as required). Empty leagues will
       // show last good content via fallback below, or empty if none yet.
       setRuntimeVisibleLeagueId('')
       setRuntimeLeagueIndex((current) => (current + 1) % runtimeLeagues.length)
-    }, rotateSeconds * 1000)
+      currentSlotLeagueIdRef.current = ''
+      handoffGraceRef.current = Date.now() + 800
+    }, dur)
 
-    return () => window.clearInterval(intervalId)
-  }, [isTickerRuntime, runtimeLeagueIdsKey, runtimeLeagues.length, sportsBoard])
+    return () => window.clearTimeout(timeoutId)
+  }, [isTickerRuntime, runtimeLeagueIdsKey, runtimeLeagues.length, sportsBoard, initialPreFetchesComplete, currentSlotDuration, runtimeLeagueIndex])
+
+  // Auto-skip 0-content leagues (per user: "nothing it will skip and go to the next league").
+  // If after an index change (rotation or initial) the current league has neither current
+  // payload games nor a stableGood from this session, immediately +1. Safeguarded by
+  // runtimeHasAnyGamesAcrossEnabledLeagues (if none have content, stop skipping).
+  // Uses the maps (not a closed stale view) so reacts to pre-fetch / refresh arrivals.
+  useEffect(() => {
+    if (!isTickerRuntime || runtimeLeagues.length <= 1) return
+    // Do not allow any skipping (even of true 0s) until the initial pre-fetch batch is fully complete
+    // and the settle picker has chosen the start per user order. This stops skipping first leagues
+    // during load.
+    if (!initialPreFetchesComplete) return
+    // During the initial grace window after entering ticker (or board change), do not skip.
+    // Pre-fetches and the first per-display refresh are still in flight; skipping now causes the
+    // "randomly showing a board + flashing + landing on wrong league" the user reported.
+    if (Date.now() < tickerEntryGraceRef.current) return
+    // Protect leagues we just handed off to (via the tick's setTimeout advance) from immediate
+    // skip. The handoff sets a short grace so the per-display refresh effect (on the new id)
+    // can set loading and/or the fetch can populate payload/stable before we decide "0" and +1.
+    // Prevents "nothing else scrolls after" the first league when later ones had 0 at pre-fetch.
+    if (Date.now() < handoffGraceRef.current) return
+    if (!runtimeHasAnyGamesAcrossEnabledLeagues) return // nothing to skip to; show empty/watermark
+    const idx = runtimeLeagueIndex % runtimeLeagues.length
+    const league = runtimeLeagues[idx]
+    if (!league) return
+    const p = runtimePayloadByLeagueId[league.id]
+    const hasP = Array.isArray(p?.normalizedGames) && p.normalizedGames.length > 0
+    const hasS = Array.isArray(stableGoodGamesByLeagueId[league.id]) && stableGoodGamesByLeagueId[league.id].length > 0
+    if (!hasP && !hasS) {
+      // Only skip this league if its own refresh/load has completed (or never started).
+      // Prevents skipping a good league whose response simply hasn't arrived yet.
+      const ls = runtimeLoadStateByLeagueId[league.id]
+      const thisLeagueLoadDone = !ls || !ls.loading
+      if (thisLeagueLoadDone) {
+        setRuntimeVisibleLeagueId('')
+        setRuntimeLeagueIndex((c) => (c + 1) % runtimeLeagues.length)
+        // Skip is outside the rAF tick path, so clear any active slot id so the incoming
+        // league's measurement will own the next animation start cleanly.
+        currentSlotLeagueIdRef.current = ''
+        handoffGraceRef.current = Date.now() + 800
+      }
+    }
+  }, [isTickerRuntime, runtimeLeagueIndex, runtimeLeagues, runtimePayloadByLeagueId, stableGoodGamesByLeagueId, runtimeHasAnyGamesAcrossEnabledLeagues, runtimeLoadStateByLeagueId, handoffCheckKey])
 
   async function refreshRuntimeLeaguePayload(
     league,
     {
       cacheTtlSeconds = 5,
       fallbackCacheTtlSeconds = 5,
+      gameFilterOverride = null,
+      useWeekFilterOverride = null,
     } = {},
   ) {
     if (!league?.id) {
@@ -2418,6 +2515,8 @@ function App() {
       const payload = await loadLeagueScoreboardWithSettings(league, {
         cacheTtlSeconds,
         fallbackCacheTtlSeconds,
+        gameFilterOverride,
+        useWeekFilterOverride,
       })
 
       setRuntimeLoadStateByLeagueId((current) => ({
@@ -2460,17 +2559,32 @@ function App() {
         }
       }
 
-      if (gameCount > 0 && (!runtimeVisibleLeagueId || runtimeVisibleLeagueId === league.id)) {
-        setRuntimeVisibleLeagueId(league.id)
+      // Maintain per-league stable good games (for display fallback on 0 visits, skip decisions,
+      // and "after cycle still has games").
+      if (gameCount > 0) {
+        setStableGoodGamesByLeagueId((cur) => ({
+          ...cur,
+          [league.id]: finalPayload?.normalizedGames || [],
+        }))
       }
 
-      // Store the (possibly relaxed) payload for runtime + preview
-      // (no auto-skip here anymore; we visit all selected leagues in order via rotation.
-      // Empty ones will fallback to last good content if available, to avoid blank screen.)
-      setRuntimePayloadByLeagueId((current) => ({
-        ...current,
-        [league.id]: finalPayload,
-      }))
+      // Store the (possibly relaxed) payload for runtime + preview.
+      // Do not overwrite a previously-good payload with an empty one on re-fetch
+      // (e.g. when cycling back to a league whose current ESPN snapshot is between slates,
+      // or for future races that only appear in calendar not the live "events" list).
+      // This keeps the games visible on subsequent visits in strict rotation order.
+      // A later fetch that *does* return games will update.
+      setRuntimePayloadByLeagueId((current) => {
+        const prev = current[league.id]
+        const prevCount = Array.isArray(prev?.normalizedGames) ? prev.normalizedGames.length : 0
+        if (gameCount === 0 && prevCount > 0) {
+          return current
+        }
+        return {
+          ...current,
+          [league.id]: finalPayload,
+        }
+      })
 
       return finalPayload
     } catch (loadError) {
@@ -2496,6 +2610,163 @@ function App() {
       loadLeagueLogoMeta(runtimeDisplayLeague.id)
     }
   }, [isTickerRuntime, runtimeDisplayLeague?.id])
+
+  // On league change (display.id), reset ready and prime offset so the new track's first paint
+  // (after the key remount) starts clean at right-entry, and we don't carry over old ready/anim state
+  // that could cause flicker or wrong positioning during handoff.
+  // useLayoutEffect so the opacity/offset reset happens before the browser paints the new league's
+  // cards — prevents one-frame flash of new content at the previous league's scroll position.
+  useLayoutEffect(() => {
+    if (isTickerRuntime && runtimeDisplayLeague) {
+      setRuntimeScrollReady(false)
+      hasStartedCurrentSlotRef.current = false
+      marqueeOffsetRef.current = runtimeBoardWidth
+      marqueeWindowWidthRef.current = runtimeBoardWidth
+      // Immediately push the CSS var off-screen right so new content can't briefly appear at the
+      // previous league's final scroll position while runtimeScrollReady is still true.
+      if (runtimeMarqueeTrackRef.current) {
+        runtimeMarqueeTrackRef.current.style.setProperty('--marquee-offset', `${runtimeBoardWidth}px`)
+      }
+      leagueSlotStartTimeRef.current = 0
+      scrolledThisSlotRef.current = 0
+      currentSlotLeagueIdRef.current = runtimeDisplayLeague.id
+      handoffGraceRef.current = Date.now() + 400
+      // After grace, bump the key to force skip effect re-run, so 0-content leagues get skipped if still 0 after refresh (prevents stick).
+      setTimeout(() => setHandoffCheckKey(k => k + 1), 500)
+      // measurement effect (below) will set ready=true and start fresh after its rAF measure.
+      // (Removed the firstCardForMeasureRef clear here — the new render for the league attaches the ref to its own card; clearing was causing fallback cardW=520 for all subsequent k=1, leading to too-small oneCross and no full clear/scroll for the second league even when it had 1 game.)
+      // Also pull fresh data for the new current league on handoff (the per-display effect also does this, but ensuring here makes the pull happen reliably for the new displayLeague).
+      refreshRuntimeLeaguePayload(runtimeDisplayLeague, { gameFilterOverride: 'all' })
+      if (!leagueLogoMetaById[runtimeDisplayLeague.id]) {
+        loadLeagueLogoMeta(runtimeDisplayLeague.id)
+      }
+    }
+  }, [isTickerRuntime, runtimeDisplayLeague?.id])
+
+  // When the current display league (or its game count) becomes available in ticker mode,
+  // measure the laid-out cards, compute the scroll distance for a full pass (for >1 games: width of the list copy;
+  // for exactly 1 game: board + card width + small so it fully clears left), prime, set ready,
+  // and start the rAF scroller.
+  // Uses rAF to wait for paint/layout after React commit.
+  // For the very first slot we also do one late re-measure (~350ms) after images/logos have settled
+  // (the didInitialLateMeasureRef guard, reset on ticker entry).
+  useEffect(() => {
+    if (!isTickerRuntime || !runtimeDisplayLeague || runtimeMarqueeGames.length === 0) {
+      return
+    }
+    // If this slot's animation is already running, ignore subsequent dep changes (e.g. fresh data
+    // arriving changes runtimeMarqueeGames.length). Re-measuring would reset the offset to the right
+    // edge causing visible content flash. The slot was already correctly started; let it run.
+    if (hasStartedCurrentSlotRef.current) return
+    // During initial pre-fetch phase, only allow the scroller to start for the configured first league
+    // once *its own* data has arrived (or after all pre-fetches complete). This lets the first league
+    // begin scrolling promptly. The settle picker (gated on initialPreFetchesComplete) will ensure
+    // we end up on the correct firstGood per order.
+    if (!initialPreFetchesComplete) {
+      const curIdx = runtimeLeagueIndex % (runtimeLeagues.length || 1)
+      const isTheInitialFirst = curIdx === 0
+      if (!isTheInitialFirst) return
+      // Has the first league's data arrived yet?
+      const firstL = runtimeLeagues[0]
+      const p = firstL ? runtimePayloadByLeagueId[firstL.id] : null
+      const hasForFirst = (p && Array.isArray(p.normalizedGames) && p.normalizedGames.length > 0) ||
+                          (firstL && Array.isArray(stableGoodGamesByLeagueId[firstL.id]) && stableGoodGamesByLeagueId[firstL.id].length > 0)
+      if (!hasForFirst) return
+    }
+    const runMeasure = () => {
+      const track = runtimeMarqueeTrackRef.current
+      if (!track) return
+      const winW = runtimeBoardWidth
+      const k = runtimeMarqueeGames.length
+
+      let cardW = 520
+      if (k === 1 && firstCardForMeasureRef.current) {
+        const r = firstCardForMeasureRef.current.getBoundingClientRect()
+        if (r && r.width > 80) cardW = r.width
+      }
+      // For 1-game leagues (any league can have 1, not just "k=1" specials like F1): use real measured cardW if available,
+      // but min 550 to ensure the travel distance is enough for full clear even if early measurement (subsequent leagues after handoff)
+      // gets small width before layout stable. This prevents "nothing scrolling" or short/partial move before advance.
+      cardW = Math.max(cardW, 550)
+      let oneCopy = winW
+      if (k === 1) {
+        // When the current league has exactly 1 game: render exactly that 1 game (no duplication).
+        // oneCopy = board + (measured or min) card width + small fixed so the single card fully enters from right,
+        // crosses the entire bar, and fully exits left (right edge off left) before advance.
+        // Small fixed (no per-card "padding guess" or spacer).
+        const extra = 100;
+        oneCopy = winW + cardW + extra;
+      } else {
+        // k>1: single copy rendered — scrollWidth is the full one-copy travel distance.
+        if (track.scrollWidth > 100) {
+          oneCopy = track.scrollWidth
+        }
+      }
+      marqueeTrackWidthRef.current = oneCopy
+      marqueeWindowWidthRef.current = winW
+      setRuntimeTrackWidth(oneCopy)
+      setRuntimeWindowWidth(winW)
+      const pxPerSec = 110
+      const secs = Math.max(10, Math.round((oneCopy / pxPerSec) * 10) / 10)
+      setRuntimeScrollSeconds(secs)
+      setRuntimeScrollReady(true)
+
+      // Slot duration for this league:
+      // - When exactly 1 game: time for the card to fully cross and clear left, then next league starts.
+      // - For >1 games: max( user's configured rotateSeconds, time for one full seamless pass ).
+      //   This guarantees the current league's games fully scroll off-screen (at least one complete unit
+      //   has passed the window) before we advance and swap in the next league's content.
+      //   Prevents the switch happening mid-scroll.
+      const baseDur = ((sportsBoard?.rotateSeconds) || 30) * 1000
+      let dur = baseDur
+      const exitMarginMs = 2000
+      if (k <= 1) {
+        // k=1: distance-based advance fires when card clears left; time backup covers oneCopy travel.
+        const onePassMs = Math.round( (oneCopy || winW) / pxPerSec * 1000 )
+        dur = Math.max(8000, onePassMs + exitMarginMs)
+      } else {
+        // k>1: position-based advance fires when offset+W<=0 (last card right edge at screen left).
+        // Time backup must cover the full entry+exit distance: winW (card enters from right) + W (entire track).
+        const fullExitMs = Math.round( (winW + (oneCopy || winW)) / pxPerSec * 1000 )
+        dur = Math.max(baseDur, fullExitMs + exitMarginMs)
+      }
+      setCurrentSlotDuration(dur)
+      currentSlotIsK1Ref.current = (k <= 1)
+
+      // Right-entry start position for this slot.
+      marqueeOffsetRef.current = winW
+      track.style.setProperty('--marquee-offset', `${winW}px`)
+      currentSlotLeagueIdRef.current = runtimeDisplayLeague?.id || ''
+      hasStartedCurrentSlotRef.current = true
+      startMarqueeAnimation()
+
+      // Record for progress-based advance in the tick (precise full-pass handoff).
+      leagueSlotStartTimeRef.current = performance.now()
+      currentSlotDurationRef.current = dur
+      scrolledThisSlotRef.current = 0
+    }
+    // First paint-stable pass — double rAF so layout of complex multi-card content (nfl scores, many team
+    // logos from cache, etc.) has an extra frame to settle before we read card widths / offsetLeft / compute
+    // oneCopy and start the rAF scroller. Helps "no [later league]" cases where first measure saw partial
+    // widths and either didn't start or used too-small period (causing early cutoff).
+    const raf1 = window.requestAnimationFrame(() =>
+      window.requestAnimationFrame(runMeasure)
+    )
+    // One late pass for the very first slot (images, logos, racing lists etc. affect widths).
+    let tLate = null
+    if (!didInitialLateMeasureRef.current) {
+      didInitialLateMeasureRef.current = true
+      tLate = window.setTimeout(() => {
+        if (runtimeMarqueeTrackRef.current && isTickerRuntime) runMeasure()
+      }, 350)
+    }
+    return () => {
+      cancelAnimationFrame(raf1)
+      if (tLate) clearTimeout(tLate)
+    }
+  }, [isTickerRuntime, runtimeDisplayLeague?.id, runtimeMarqueeGames.length, runtimeBoardWidth, initialPreFetchesComplete])
+// k1SpacerWidth state is legacy from previous spacer approach for k=1; no longer used for render duplication
+// (now single card for k=1 with synthetic full-cross oneCopy). Kept for now to avoid larger cleanups.
 
   // Measure the watermark image and compute a good size so it looks big but doesn't
   // get cut off at top/bottom on tall logos (UGA etc.) in the short ticker bar.
@@ -3035,6 +3306,8 @@ function App() {
         setRuntimeVisibleLeagueId('')
         setRuntimeLastStableLeagueId('')
         setRuntimeLastStableMarqueeGames([])
+        setStableGoodGamesByLeagueId({})
+        setStableGoodGamesByLeagueId({})
         setNotice(continueToNextPage ? 'Configuration saved. Moved to next section.' : 'Configuration saved.')
         if (nextPageId) {
           setActivePage(nextPageId)
@@ -3067,6 +3340,7 @@ function App() {
         setRuntimeVisibleLeagueId('')
         setRuntimeLastStableLeagueId('')
         setRuntimeLastStableMarqueeGames([])
+        setStableGoodGamesByLeagueId({})
         setNotice('Configuration reset to defaults.')
       })
     } catch (resetError) {
@@ -3111,7 +3385,20 @@ function App() {
   }
 
   if (isTickerRuntime) {
-    const runtimeBoardWidth = Math.max(320, Number(config?.monitor?.width) || 1920)
+    // Prime the offset ref to enter-from-right position.
+    // Only on uninitialized (===0) or when !ready (e.g. during load or right after league change).
+    // Do NOT reset if <0 while ready=true — this allows k=1 singles to scroll a long distance
+    // (board + cardW + breathing) to fully clear left without the card "jumping back to right and
+    // starting scrolling onto the screen again" on re-renders. The display id effect + runMeasure
+    // already prime to boardW at the start of each league slot.
+    if (marqueeOffsetRef.current === 0 || (marqueeOffsetRef.current < 0 && !runtimeScrollReady)) {
+      marqueeOffsetRef.current = runtimeBoardWidth
+    }
+    if (!marqueeWindowWidthRef.current) {
+      marqueeWindowWidthRef.current = runtimeBoardWidth
+    }
+
+    // runtimeBoardWidth is computed earlier (before seamless logic for k=1 spacers)
     const runtimeBoardHeight = Math.max(120, Number(config?.monitor?.height) || 380)
     const hasEnabledRuntimeLeagues = runtimeLeagues.length > 0
 
@@ -3159,16 +3446,26 @@ function App() {
                 ref={runtimeMarqueeTrackRef}
                 role="list"
                 aria-label="Ticker games"
-                style={runtimeScrollReady ? {
-                  '--runtime-scroll-seconds': `${runtimeScrollSeconds}s`,
-                  '--runtime-track-width': `${Math.max(1, runtimeTrackWidth)}px`,
-                  '--runtime-window-width': `${Math.max(1, runtimeWindowWidth)}px`,
-                  // Include current to ensure the var is present after React style updates on re-renders;
-                  // rAF continues to drive the live value without jumps.
-                  '--marquee-offset': `${marqueeOffsetRef.current || 0}px`,
-                } : undefined}
+                style={{
+                  // Always set the offset var (using the ref, which we prime to boardWidth in render
+                  // if it looks uninitialized or negative from previous league). This makes the very
+                  // first paint of a league's track (and remounts) position the content off the right
+                  // so it enters cleanly instead of flashing at left/0 then correcting.
+                  '--marquee-offset': `${marqueeOffsetRef.current || runtimeBoardWidth}px`,
+                  opacity: runtimeScrollReady ? 1 : 0,
+                  ...(runtimeScrollReady ? {
+                    '--runtime-scroll-seconds': `${runtimeScrollSeconds}s`,
+                    '--runtime-track-width': `${Math.max(1, runtimeTrackWidth)}px`,
+                    '--runtime-window-width': `${Math.max(1, runtimeWindowWidth)}px`,
+                  } : {}),
+                }}
               >
-                {seamlessMarqueeGames.map((game, index) => {
+                {seamlessMarqueeGames.map((item, index) => {
+                  if (item && item._spacer) {
+                    // Spacer for k=1 to separate copies so the single race card traverses the full bar alone without another copy visible.
+                    return <div key={`spacer-${index}`} style={{ width: `${item.width}px`, flexShrink: 0, height: '100%' }} aria-hidden="true" />;
+                  }
+                  const game = item;
                   const isSoloSlate = runtimeMarqueeGames.length === 1
                   const isDuoSlate = runtimeMarqueeGames.length === 2
                   const isFinishedRace = game?.isRacing && String(game?.state || '').toLowerCase() === 'post'
@@ -3193,9 +3490,16 @@ function App() {
                     ? allRacingEntries.slice(3, 15)   // show more for NASCAR-style races (was limited before)
                     : allRacingEntries.slice(0, isSoloSlate ? 16 : 6)
 
+                  // Attach ref to the very first real card (non-spacer) so the measurement effect can read its
+                  // actual rendered width after paint and compute a precise k1 spacer (boardW - cardW - gap).
+                  // This makes single-item leagues (NASCAR future, F1, 1-game NHL/NBA etc.) cross the full
+                  // bar "once" with correct breathing room before the next league starts.
+                  const isFirstCardForMeasure = !item._spacer && index === 0;
+
                   return (
                     <article
                       key={`${game.id || `${away?.id}-${home?.id}-${game?.startTimeUtc || ''}`}-${index}`}
+                      ref={isFirstCardForMeasure ? firstCardForMeasureRef : null}
                       className={`ticker-runtime-card ticker-runtime-card-sport-${sportToken} ticker-runtime-card-state-${stateToken} ticker-runtime-card-style-${game.cardStyle || 'standard'}${isSoloSlate ? ' ticker-runtime-card-solo' : ''}${isDuoSlate ? ' ticker-runtime-card-duo' : ''}${game?.isRacing ? ' ticker-runtime-card-racing' : ''}${game?.isRacing && isSoloSlate ? ' ticker-runtime-card-racing-solo' : ''}${game?.isLiveFeatured ? ` ticker-runtime-card-live ticker-runtime-card-live-${game.liveTheme || 'generic'}` : ''}${game?.useTeamCardColors ? ' ticker-runtime-card-use-team-colors' : ''}`}
                       style={runtimeCardStyle(game, game?.useTeamCardColors)}
                       role="listitem"
@@ -3517,13 +3821,13 @@ function App() {
             <footer className="ticker-runtime-lower" aria-label="Lower third">
               {/* Left: League / Bar brand */}
               <div className="ticker-runtime-lower-brand">
-                {resolveLeagueLogo(runtimeRenderLeague, runtimePayloadByLeagueId[runtimeRenderLeague?.id]) ? (
+                {resolveLeagueLogo(brandLeague, runtimePayloadByLeagueId[brandLeague?.id]) ? (
                   <img
-                    src={resolveLeagueLogo(runtimeRenderLeague, runtimePayloadByLeagueId[runtimeRenderLeague?.id])}
-                    alt={runtimeRenderLeague?.name || 'Ticker'}
+                    src={resolveLeagueLogo(brandLeague, runtimePayloadByLeagueId[brandLeague?.id])}
+                    alt={brandLeague?.name || 'Ticker'}
                   />
                 ) : (
-                  runtimeRenderLeague?.name || 'Ticker'
+                  brandLeague?.name || 'Ticker'
                 )}
               </div>
 
@@ -5066,6 +5370,6 @@ function App() {
       </div>
     </main>
   )
-}
+  }
 
 export default App

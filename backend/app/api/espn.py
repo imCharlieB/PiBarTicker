@@ -591,6 +591,57 @@ def get_scoreboard(
             continue
         filtered_events.append(event)
 
+    # For racing leagues (NASCAR Cup/Xfinity/Trucks via nascar-*, F1, Indy, etc.),
+    # ESPN's scoreboard "events" array is frequently empty (or only contains a just-finished "post" event)
+    # when the next race is still "in a few days". The authoritative list of all season races
+    # (with dates) is in payload.leagues[0].calendar. When our filters leave zero events,
+    # synthesize a single minimal upcoming "pre" event from the first future calendar entry.
+    # This lets the ticker (which forces game_filter=all + visits every selected league in order)
+    # actually show the scheduled race for NASCAR etc. instead of blank/empty slot.
+    # The synthetic is shaped so normalize_scoreboard_events produces a usable game (title/date/state=pre).
+    # Current/live events (when present) still win and get full competitor/racingEntries data.
+    if not filtered_events and _normalized(entry.sport) == "racing":
+        try:
+            cal = (payload.get("leagues") or [{}])[0].get("calendar") or []
+            for item in cal:
+                start_str = str((item or {}).get("startDate") or "").strip()
+                if not start_str:
+                    continue
+                try:
+                    ev_date = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
+                except Exception:
+                    continue
+                if ev_date >= now:
+                    ref = str(((item or {}).get("event") or {}).get("$ref") or "")
+                    cal_id = ref.rstrip("/").split("/")[-1].split("?")[0] if ref else ""
+                    fake_event = {
+                        "id": cal_id or f"cal-{start_str[:10]}",
+                        "date": start_str,
+                        "shortName": (item or {}).get("label") or (item or {}).get("name") or entry.league_id,
+                        "name": (item or {}).get("label") or (item or {}).get("name"),
+                        "status": {
+                            "type": {
+                                "state": "pre",
+                                "name": "Scheduled",
+                                "detail": "Upcoming",
+                                "completed": False,
+                            }
+                        },
+                        "competitions": [
+                            {
+                                "venue": {},
+                                "broadcasts": [],
+                                "odds": [],
+                                "competitors": [],
+                            }
+                        ],
+                    }
+                    filtered_events.append(fake_event)
+                    break  # just the next upcoming one
+        except Exception:
+            # best-effort only; fall back to whatever (possibly empty) we had
+            pass
+
     filtered_payload = dict(payload) if isinstance(payload, dict) else {"events": filtered_events}
     filtered_payload["events"] = filtered_events
     normalized_games = normalize_scoreboard_events(

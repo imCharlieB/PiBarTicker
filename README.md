@@ -77,7 +77,7 @@ Open the Vite URL in your browser. The frontend proxies `/api` requests to the b
 
 ## Setup UI
 
-Open `http://<pi-address>:8000` (or `http://localhost:8000` locally) to reach the setup page.
+Open `http://<pi-address>:8000/setup` (or `http://localhost:8000/setup` locally) to reach the setup page.
 
 Sections:
 - **Overview** — first-run checklist and section status

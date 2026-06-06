@@ -9,7 +9,7 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from app.api import espn
+from app.api.espn import scoreboard as espn
 
 
 def _event(*, away: dict, home: dict, state: str = "pre", completed: bool = False, date: datetime | None = None) -> dict:

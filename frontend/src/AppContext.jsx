@@ -165,7 +165,7 @@ function normalizeTeamDataFromScoreboard(payload) {
   return Array.from(teams.values()).sort((a, b) => a.name.localeCompare(b.name))
 }
 
-async function harvestRacingEntities(league) {
+export async function harvestRacingEntities(league) {
   const entities = new Map()
 
   try {
@@ -1301,7 +1301,8 @@ export function AppContextProvider({ children }) {
     updateBoard, updateLeague, moveLeague, toggleLeagueIncludedGroup, toggleLeagueIncludedTeam,
     addLeagueFromCatalog,
     // Logo cache
-    leagueLogoMetaById, logoSyncingLeagues, logoClearMessageById, setLogoClearMessageById,
+    leagueLogoMetaById, setLeagueLogoMetaById, logoSyncingLeagues, setLogoSyncingLeagues,
+    logoClearMessageById, setLogoClearMessageById,
     loadLeagueLogoMeta, enrichTeamsForLogoSync, triggerLogoCacheForLeague,
     downloadExtrasForTeam, getCachedOrRemoteLogo, tickerWatermarkUrl,
     // Runtime ticker
@@ -1317,7 +1318,7 @@ export function AppContextProvider({ children }) {
     leagueTeamsById, leagueLoadStateById, leagueGroupsById, leagueGroupsLoadStateById,
     teamLogoDetailsByKey, teamLogoLoadStateByKey,
     leagueTickerPreviewById, leagueTickerPreviewLoadStateById,
-    leagueCatalog, leagueCatalogSport, setLeagueCatalogSport,
+    leagueCatalog, setLeagueCatalog, leagueCatalogSport, setLeagueCatalogSport,
     leagueCatalogRegion, setLeagueCatalogRegion,
     leagueCatalogQuery, setLeagueCatalogQuery,
     leagueCatalogState, showLeagueCatalog, setShowLeagueCatalog,

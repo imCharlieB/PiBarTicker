@@ -287,18 +287,31 @@ if [[ "${LAUNCH_NOW}" == "1" ]]; then
   pkill -f "pibarticker-kiosk" 2>/dev/null || true
   sleep 1
 
+  # Detect the active Wayland socket for this user (wayland-0 or wayland-1 — varies by Pi OS).
+  # sudo strips the environment so we probe the real socket path rather than assuming wayland-1.
+  RESOLVED_XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/${USER_UID}}"
+  RESOLVED_WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-}"
+  if [[ -z "${RESOLVED_WAYLAND_DISPLAY}" ]]; then
+    for _sock in "${RESOLVED_XDG_RUNTIME_DIR}/wayland-1" "${RESOLVED_XDG_RUNTIME_DIR}/wayland-0"; do
+      if [[ -S "${_sock}" ]]; then
+        RESOLVED_WAYLAND_DISPLAY="$(basename "${_sock}")"
+        echo "Detected active Wayland socket: ${_sock} (WAYLAND_DISPLAY=${RESOLVED_WAYLAND_DISPLAY})"
+        break
+      fi
+    done
+    if [[ -z "${RESOLVED_WAYLAND_DISPLAY}" ]]; then
+      echo "No active Wayland socket found in ${RESOLVED_XDG_RUNTIME_DIR}/. Using wayland-1 default (kiosk will wait for compositor)."
+      RESOLVED_WAYLAND_DISPLAY="wayland-1"
+    fi
+  fi
+
   # Launch the ticker now at the end of install (no reboot needed).
-  # This runs the launcher in the background so you see the ticker immediately.
-  # We always provide sensible defaults for the graphical session env (Wayland for labwc
-  # or X11), so it works even if you ran the curl over ssh (the desktop session is still
-  # active on the Pi). The launcher will wait internally for the compositor if needed.
-  # Defaults assume the common "pi" user (uid 1000).
   sudo -u "${APP_USER}" \
     env DISPLAY="${DISPLAY:-:0}" \
         XAUTHORITY="${XAUTHORITY:-${APP_HOME}/.Xauthority}" \
-        WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}" \
-        XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/${USER_UID}}" \
-    sh -c 'nohup "'"${APP_DIR}/scripts/pi/launch-kiosk.sh"'" >> "'"${LOG_FILE}"'" 2>&1 &' 
+        WAYLAND_DISPLAY="${RESOLVED_WAYLAND_DISPLAY}" \
+        XDG_RUNTIME_DIR="${RESOLVED_XDG_RUNTIME_DIR}" \
+    sh -c 'nohup "'"${APP_DIR}/scripts/pi/launch-kiosk.sh"'" >> "'"${LOG_FILE}"'" 2>&1 &'
   echo "Kiosk launcher (re)started. The ticker should appear on the Pi screen shortly."
 
   # Give the launcher time to start (backend health wait up to 60s + compositor + chromium init).
@@ -357,7 +370,7 @@ setup_custom_splash() {
 
   # Install only the tools we need for this step (keeps the main package list unchanged)
   echo "Installing conversion tools (librsvg2-bin, imagemagick) for splash generation..."
-  if ! apt-get install -y --no-install-recommends librsvg2-bin imagemagick >/dev/null 2>&1; then
+  if ! apt-get install -y --no-install-recommends librsvg2-bin imagemagick; then
     echo "WARNING: Could not install image tools. Skipping custom boot splash."
     return 0
   fi
@@ -389,19 +402,37 @@ setup_custom_splash() {
     logo_w=960
   fi
 
-  # Prefer rsvg-convert (light, accurate for our SVG)
   local raster_ok=0
-  if ( cd "${tmp_dir}" && rsvg-convert --width=${logo_w} --keep-aspect-ratio pibarticker-logo.svg -o logo-raster.png >/dev/null 2>&1 ); then
-    raster_ok=1
-  else
-    echo "rsvg-convert did not succeed; trying ImageMagick convert fallback..."
-    if convert "${tmp_dir}/pibarticker-logo.svg" -resize ${logo_w}x -background none "${raster_png}" >/dev/null 2>&1; then
+
+  # Try 1: use the pre-rendered PNG directly — avoids SVG parsing entirely and
+  # sidesteps the ImageMagick Bookworm security policy that blocks SVG by default.
+  local src_png="${src_dir}/pibarticker-logo-transparent.png"
+  if [[ -f "${src_png}" ]]; then
+    echo "Attempting logo raster from pre-rendered PNG..."
+    if convert "${src_png}" -resize ${logo_w}x -background none "${raster_png}" 2>&1; then
       raster_ok=1
+      echo "Logo rasterized from PNG."
+    else
+      echo "PNG resize failed; will try SVG converters."
+    fi
+  fi
+
+  # Try 2: rsvg-convert from SVG (no ImageMagick policy issues)
+  if [[ ${raster_ok} -eq 0 ]]; then
+    echo "Attempting SVG rasterization via rsvg-convert..."
+    if ( cd "${tmp_dir}" && rsvg-convert --width=${logo_w} --keep-aspect-ratio pibarticker-logo.svg -o logo-raster.png 2>&1 ); then
+      raster_ok=1
+      echo "Logo rasterized via rsvg-convert."
+    else
+      echo "rsvg-convert did not succeed; trying ImageMagick convert fallback..."
+      if convert "${tmp_dir}/pibarticker-logo.svg" -resize ${logo_w}x -background none "${raster_png}" 2>&1; then
+        raster_ok=1
+      fi
     fi
   fi
 
   if [[ ${raster_ok} -eq 0 ]]; then
-    echo "WARNING: SVG to PNG conversion failed for splash. Skipping."
+    echo "WARNING: All logo-to-PNG conversion methods failed. Skipping custom boot splash."
     rm -rf "${tmp_dir}" 2>/dev/null || true
     return 0
   fi
@@ -409,7 +440,7 @@ setup_custom_splash() {
   # Black canvas + centered logo (no text, clean branding)
   if ! convert -size ${splash_w}x${splash_h} xc:#000000 \
        "${raster_png}" -gravity center -composite \
-       "${splash_png}" >/dev/null 2>&1; then
+       "${splash_png}" 2>&1; then
     echo "WARNING: Failed to create final splash composite."
     rm -rf "${tmp_dir}" 2>/dev/null || true
     return 0

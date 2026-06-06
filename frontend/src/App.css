@@ -8,6 +8,7 @@
 
 .ticker-runtime-shell {
   min-height: 100vh;
+  cursor: none;
   display: flex;
   justify-content: center;
   align-items: flex-start;

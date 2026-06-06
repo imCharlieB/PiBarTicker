@@ -218,6 +218,26 @@ ${APP_DIR}/scripts/pi/launch-kiosk.sh &
 LABWC_EOF
 chmod +x "${LABWC_AUTOSTART}"
 
+# Configure labwc to hide the cursor (size 0) — unclutter is X11-only and won't work
+# under Wayland/Labwc. Only write rc.xml if it doesn't already exist so we don't clobber
+# any existing labwc configuration the user may have set up.
+LABWC_RC="${APP_HOME}/.config/labwc/rc.xml"
+if [[ ! -f "${LABWC_RC}" ]]; then
+  cat > "${LABWC_RC}" <<'LABWC_RC_EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<openbox_config xmlns="http://openbox.org/3.4/rc">
+  <theme>
+    <cursor>
+      <size>0</size>
+    </cursor>
+  </theme>
+</openbox_config>
+LABWC_RC_EOF
+  echo "Created labwc rc.xml with cursor size 0 (hides cursor in kiosk mode)."
+else
+  echo "labwc rc.xml already exists; skipping cursor config. Add <cursor><size>0</size></cursor> under <theme> to hide the cursor."
+fi
+
 chown -R "${APP_USER}:${APP_USER}" "${APP_HOME}/.config"
 chmod +x "${APP_DIR}/scripts/pi/launch-kiosk.sh"
 
@@ -250,21 +270,23 @@ sudo raspi-config nonint do_boot_behaviour B4 || true
 echo "Disabling display-setup-script to stop LightDM/Labwc flashing..."
 sudo sed -i 's|^display-setup-script=.*|#display-setup-script=/usr/share/dispsetup.sh|' /etc/lightdm/lightdm.conf || true
 
-# --- Disable the "Login keyring did not get unlocked" prompt ---
-# Very common on Raspberry Pi OS Desktop with autologin (used by almost
-# all kiosk setups). The default "Login" keyring is password-protected,
-# but autologin never enters the password, so you get an annoying unlock
-# dialog on every boot.
-#
-# We ONLY remove the keyring file for the target user.
-# DO NOT purge the gnome-keyring package — it can mark desktop components
-# as "no longer required" and break the desktop session.
-echo "Disabling login keyring prompt (common on Pi autologin)..."
+# --- Suppress gnome-keyring prompts for kiosk autologin ---
+# Deleting login.keyring just causes gnome-keyring to pop up "create new keyring?" on
+# the next boot. Instead, disable the gnome-keyring daemon autostart for this user by
+# writing Hidden=true overrides in ~/.config/autostart/ — the package stays installed
+# (removing it breaks desktop components) but the daemon won't start, so no prompts.
+echo "Disabling gnome-keyring daemon autostart (suppresses keyring prompts on autologin)..."
 
-KEYRING_DIR="${APP_HOME}/.local/share/keyrings"
-sudo -u "${APP_USER}" mkdir -p "${KEYRING_DIR}"
-sudo -u "${APP_USER}" rm -f "${KEYRING_DIR}/login.keyring" 2>/dev/null || true
-echo "Removed user's login.keyring (safe; package left installed to keep desktop intact)."
+AUTOSTART_DIR="${APP_HOME}/.config/autostart"
+mkdir -p "${AUTOSTART_DIR}"
+for _gk_desktop in /etc/xdg/autostart/gnome-keyring-*.desktop; do
+  [[ -f "${_gk_desktop}" ]] || continue
+  _gk_fname="$(basename "${_gk_desktop}")"
+  printf '[Desktop Entry]\nType=Application\nHidden=true\n' > "${AUTOSTART_DIR}/${_gk_fname}"
+  echo "  Disabled autostart: ${_gk_fname}"
+done
+chown -R "${APP_USER}:${APP_USER}" "${AUTOSTART_DIR}"
+echo "gnome-keyring autostart disabled for user ${APP_USER}."
 
 if [[ "${LAUNCH_NOW}" == "1" ]]; then
   echo "Attempting immediate kiosk launch (no reboot needed for first run)..."
@@ -346,11 +368,12 @@ echo
 setup_custom_splash() {
   local pi_model=""
   if [[ -r /proc/device-tree/model ]]; then
-    # Use sed to strip NUL terminator(s) from device-tree strings (robust, no tr \0 quoting quirks)
-    pi_model="$(sed 's/\x00//g' /proc/device-tree/model 2>/dev/null || true)"
+    # tr -d '\0' is the most reliable way to strip NUL terminators from device-tree strings.
+    # The sed \x00 approach is GNU-only and can silently produce an empty string on some Pi OS images.
+    pi_model="$(tr -d '\0' < /proc/device-tree/model 2>/dev/null || true)"
   fi
 
-  echo "Detected hardware model: ${pi_model:-unknown}"
+  echo "Detected hardware model: ${pi_model:-unknown (device-tree unreadable)}"
 
   local is_pi4=0
   local is_pi5=0

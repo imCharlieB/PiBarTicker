@@ -94,3 +94,22 @@ export function computeSectionChecks(config) {
     complete: check.errors.length === 0,
   }))
 }
+
+export function findBoardByType(cfg, type) {
+  return cfg?.boards?.find((board) => board.type === type) || null
+}
+
+export function getSectionSnapshots(cfg) {
+  const homeAssistantBoard = findBoardByType(cfg, 'home-assistant')
+  const sportsBoard = findBoardByType(cfg, 'sports')
+  return {
+    display: { monitor: cfg.monitor, kiosk: cfg.kiosk },
+    theme: { theme: cfg.theme },
+    services: {
+      homeAssistant: cfg.homeAssistant,
+      http: cfg.http,
+      haSensors: homeAssistantBoard?.haSensors || [],
+    },
+    ticker: { sportsBoard },
+  }
+}

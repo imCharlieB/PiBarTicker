@@ -465,9 +465,7 @@ export function prepareDisplayGames(games, rawEventsById, displayLeague, leagueL
       : isPreRaceNoEntries
         ? (game?.runtimeDateText || formatRuntimeStatus(game) || String(game?.title || '').trim())
         : formatRuntimeStatus(game)
-    const racingTopTvText = hasLiveMode && displayLeague?.showTV && broadcastText
-      ? `TV ${broadcastText}`
-      : ''
+    const racingTopTvText = displayLeague?.showTV && broadcastText ? broadcastText : ''
 
     let finalInfoParts = []
     const isLargeLogoLiveBaseball = (displayLeague?.cardStyle || 'standard') === 'large-logo' && baseballLiveData

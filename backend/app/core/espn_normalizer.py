@@ -85,6 +85,7 @@ def _racing_entries(competition: dict[str, Any]) -> list[dict[str, Any]]:
 
         athlete = competitor.get("athlete") or {}
         flag = athlete.get("flag") or {}
+        team = competitor.get("team") or {}
         statistics = competitor.get("statistics") or []
         stat_items: list[dict[str, str]] = []
         if isinstance(statistics, list):
@@ -125,6 +126,12 @@ def _racing_entries(competition: dict[str, Any]) -> list[dict[str, Any]]:
                     "href": str(flag.get("href") or "").strip(),
                     "alt": str(flag.get("alt") or "").strip(),
                 },
+                "team": str(
+                    team.get("shortDisplayName")
+                    or team.get("displayName")
+                    or team.get("name")
+                    or ""
+                ).strip(),
             }
         )
 

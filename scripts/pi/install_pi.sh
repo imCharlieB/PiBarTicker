@@ -78,12 +78,20 @@ else
   exit 1
 fi
 
+# Install Node.js via NodeSource to get a reliable LTS version with npm included.
+# The default Raspberry Pi OS Bookworm repos sometimes lack the npm package or
+# ship a version too old for the frontend build.
+if ! command -v node >/dev/null 2>&1 || ! node --version | grep -qE '^v(18|20|22|[2-9][0-9])'; then
+  echo "Setting up NodeSource LTS repository for Node.js..."
+  apt-get install -y --no-install-recommends curl ca-certificates gnupg
+  curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
+fi
+
 apt-get install -y --no-install-recommends \
   python3 \
   python3-venv \
   python3-pip \
   nodejs \
-  npm \
   curl \
   rsync \
   "${CHROMIUM_PACKAGE}" \

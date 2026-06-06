@@ -67,19 +67,41 @@ export default function LeagueDetail({
         <div className="league-settings-panel">
           <h3>League settings</h3>
 
-          <label className="field" style={{ marginBottom: '12px' }}>
-            <span>Card style</span>
-            <select
-              value={selectedTickerLeague.cardStyle || 'standard'}
-              onChange={(event) => updateLeague(selectedTickerLeagueIndex, 'cardStyle', event.target.value)}
-            >
-              <option value="standard">Standard</option>
-              <option value="large-logo">Large Logo</option>
-            </select>
-            <small className="field-help">
-              Visual preset for how this league's games appear in the ticker.
-            </small>
-          </label>
+          <div className="league-card-controls">
+            <div className="league-card-control-group">
+              <span className="league-card-control-label">Card style</span>
+              <div className="league-card-control-item">
+                <div className="league-seg">
+                  {[['standard', 'Standard'], ['large-logo', 'Large Logo']].map(([val, label]) => (
+                    <button
+                      key={val}
+                      type="button"
+                      className={`league-seg-btn${(selectedTickerLeague.cardStyle || 'standard') === val ? ' league-seg-btn-active' : ''}`}
+                      onClick={() => updateLeague(selectedTickerLeagueIndex, 'cardStyle', val)}
+                    >{label}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="league-card-control-group">
+              <span className="league-card-control-label">Entry limit</span>
+              <div className="league-card-control-item">
+                <div className="league-seg">
+                  {[[null, 'All'], [5, '5'], [10, '10'], [25, '25']].map(([val, label]) => {
+                    const active = (selectedTickerLeague.entryLimit ?? null) === val
+                    return (
+                      <button
+                        key={label}
+                        type="button"
+                        className={`league-seg-btn${active ? ' league-seg-btn-active' : ''}`}
+                        onClick={() => updateLeague(selectedTickerLeagueIndex, 'entryLimit', val)}
+                      >{label}</button>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
 
           <div className="league-settings-layout">
             <div className="league-checkbox-group">
@@ -180,19 +202,15 @@ export default function LeagueDetail({
                 {selectedLeagueGroupsLoadState.loading ? 'Refreshing...' : 'Refresh groups'}
               </button>
             </div>
-
             {selectedLeagueGroupsLoadState.error ? (
               <p className="field-error">{selectedLeagueGroupsLoadState.error}</p>
             ) : null}
-
             {selectedLeagueGroups.length ? (
               <div className="league-groups-grid">
                 {selectedLeagueGroups.map((group) => {
                   const id = String(group.id || '').trim()
                   if (!id) return null
-                  const includedGroupIds = Array.isArray(selectedTickerLeague.includedGroups)
-                    ? selectedTickerLeague.includedGroups
-                    : []
+                  const includedGroupIds = Array.isArray(selectedTickerLeague.includedGroups) ? selectedTickerLeague.includedGroups : []
                   const isChecked = includedGroupIds.includes(id)
                   const parentName = group.parent?.name ? ` (${group.parent.name})` : ''
                   const label = group.name || group.abbreviation || id
@@ -209,7 +227,7 @@ export default function LeagueDetail({
                 })}
               </div>
             ) : (
-              <p className="field-help">No group metadata returned for this league.</p>
+              <p className="field-help">No group metadata loaded. Click Refresh groups to load.</p>
             )}
           </div>
 

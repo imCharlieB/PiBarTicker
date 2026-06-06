@@ -595,8 +595,8 @@ export function AppContextProvider({ children }) {
 
   // ── Runtime payload fetch ───────────────────────────────────────────────
   async function refreshRuntimeLeaguePayload(league, {
-    cacheTtlSeconds = 5,
-    fallbackCacheTtlSeconds = 5,
+    cacheTtlSeconds = 0,
+    fallbackCacheTtlSeconds = 0,
     gameFilterOverride = null,
     useWeekFilterOverride = null,
   } = {}) {

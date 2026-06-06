@@ -49,9 +49,9 @@ export default function BaseballCard({ game }) {
             <div className="ll-side">
               <div className="ll-baseball-field">
                 <div className="ll-infield" />
-                <div className="base" id="second-base" />
-                <div className="base" id="first-base" />
-                <div className="base" id="third-base" />
+                <div className={`base ll-base${game.baseballLiveData?.onSecond ? ' occupied' : ''}`} id="second-base" />
+                <div className={`base ll-base${game.baseballLiveData?.onFirst ? ' occupied' : ''}`} id="first-base" />
+                <div className={`base ll-base${game.baseballLiveData?.onThird ? ' occupied' : ''}`} id="third-base" />
               </div>
               <div className="ll-meta">
                 <div className="ll-inning-count">

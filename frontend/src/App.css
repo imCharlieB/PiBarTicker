@@ -504,9 +504,9 @@
 
 .ticker-runtime-ll .ll-base.occupied,
 .ticker-runtime-ll .ll-base.filled {
-  background: #ffeb3b;
-  border-color: #f4d03f;
-  box-shadow: 0 0 6px rgba(255, 235, 59, 0.85);
+  background: #74ff45;
+  border-color: #4ccc20;
+  box-shadow: 0 0 6px rgba(116, 255, 69, 0.85);
 }
 
 /* Base positioning using the exact structure and explicit top/left approach from the CodePen you pasted.
@@ -519,6 +519,13 @@
   background-color: white;
   transform: rotate(-45deg);
   z-index: 10;
+}
+
+.ticker-runtime-ll .ll-baseball-field .base.occupied,
+.ticker-runtime-ll .ll-baseball-field .base.filled {
+  background-color: #74ff45;
+  border-color: #4ccc20;
+  box-shadow: 0 0 6px rgba(116, 255, 69, 0.85);
 }
 
 /* Explicit rem positioning for the bases (the version that previously looked "somewhat in the right shape").
@@ -1209,6 +1216,64 @@
   font-size: 0.82rem;
   font-weight: 900;
   color: #95ff65;
+}
+
+/* Racing — pre-race upcoming card */
+.ticker-runtime-racing-pre {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 100%;
+  padding: 0.3rem 0.1rem;
+}
+
+.ticker-runtime-racing-pre-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.ticker-runtime-racing-pre-tv {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #cfffe1;
+  white-space: nowrap;
+}
+
+.ticker-runtime-racing-pre-title {
+  font-size: clamp(1.2rem, 2.4vw, 1.9rem);
+  font-weight: 900;
+  line-height: 1.1;
+  color: #f5f7fb;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.ticker-runtime-racing-pre-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.18rem 0.6rem;
+  align-items: center;
+}
+
+.ticker-runtime-racing-pre-footer span {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: color-mix(in srgb, #c8deff 80%, var(--accent));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ticker-runtime-racing-pre-footer span + span::before {
+  content: '·';
+  margin-right: 0.6rem;
+  opacity: 0.5;
 }
 
 .ticker-runtime-empty {
@@ -2137,6 +2202,65 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.55rem;
+}
+
+.league-card-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.league-card-control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.league-card-control-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  padding-left: 0.2rem;
+}
+
+.league-card-control-item {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 1 auto;
+  background: color-mix(in srgb, var(--panel-bg) 92%, transparent);
+  border: 1.5px solid var(--panel-border);
+  border-radius: 999px;
+  padding: 0.3rem 0.35rem;
+}
+
+.league-seg {
+  display: flex;
+  gap: 0.18rem;
+}
+
+.league-seg-btn {
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  padding: 0.22rem 0.65rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s;
+}
+
+.league-seg-btn:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--text-main);
+}
+
+.league-seg-btn-active {
+  background: color-mix(in srgb, var(--accent) 28%, var(--panel-bg));
+  color: var(--text-main);
 }
 
 .league-groups-panel {

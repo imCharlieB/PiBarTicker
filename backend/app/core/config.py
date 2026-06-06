@@ -89,6 +89,7 @@ class LeagueConfig(AppBaseModel):
     includedTeams: list[str] = Field(default_factory=list)
     includedGroups: list[str] = Field(default_factory=list)
     cardStyle: str = "standard"
+    entryLimit: int | None = None  # None = show all; used by racing to cap driver list
 
 
 class SportsBoardConfig(AppBaseModel):

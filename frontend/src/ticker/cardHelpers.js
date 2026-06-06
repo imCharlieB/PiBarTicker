@@ -287,10 +287,14 @@ export function extractBaseballLiveSituation(rawEvent, game) {
 
   if (!sportId.includes('baseball') || String(game?.state || '').toLowerCase() !== 'in') return null
 
-  const situation = game?.liveState || rawEvent?.competitions?.[0]?.situation || {}
-  const outs = Number.isInteger(Number(situation?.outs)) ? Number(situation.outs) : null
-  const balls = Number.isInteger(Number(situation?.balls)) ? Number(situation.balls) : null
-  const strikes = Number.isInteger(Number(situation?.strikes)) ? Number(situation.strikes) : null
+  // rawEvent situation has the most current ESPN data; game.liveState is derived from the same
+  // request but may fall back to empty if ESPN omitted the situation block
+  const rawSituation = rawEvent?.competitions?.[0]?.situation
+  const liveState = game?.liveState || {}
+  const situation = (rawSituation && typeof rawSituation === 'object') ? rawSituation : liveState
+  const outs = Number.isInteger(Number(situation?.outs)) ? Number(situation.outs) : (Number.isInteger(liveState.outs) ? liveState.outs : null)
+  const balls = Number.isInteger(Number(situation?.balls)) ? Number(situation.balls) : (Number.isInteger(liveState.balls) ? liveState.balls : null)
+  const strikes = Number.isInteger(Number(situation?.strikes)) ? Number(situation.strikes) : (Number.isInteger(liveState.strikes) ? liveState.strikes : null)
 
   const detailSources = [
     game?.liveState?.detail,
@@ -436,7 +440,7 @@ export function prepareDisplayGames(games, rawEventsById, displayLeague, leagueL
     const nextRace = isRacing ? nextRacingCalendarEvent(payload, game) : null
     const liveTheme = runtimeLiveTheme(game, rawEvent)
     const baseballLiveData = hasLiveMode && liveTheme === 'baseball'
-      ? (game?.liveState || extractBaseballLiveSituation(rawEvent, game))
+      ? extractBaseballLiveSituation(rawEvent, game)
       : null
     const baseballBattingSide = baseballLiveData ? resolveBaseballBattingSide(rawEvent, game) : null
     const runtimeDateText = formatRuntimeDate(game)

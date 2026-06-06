@@ -285,7 +285,7 @@ def get_scoreboard(
             continue
         if not _event_matches_team_filter(event, parsed_included_teams):
             continue
-        if not _event_matches_group_filter(event, parsed_included_groups, team_group_memberships):
+        if _normalized(entry.sport) != "racing" and not _event_matches_group_filter(event, parsed_included_groups, team_group_memberships):
             continue
         filtered_events.append(event)
 

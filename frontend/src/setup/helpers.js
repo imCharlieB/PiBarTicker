@@ -99,6 +99,62 @@ export function findBoardByType(cfg, type) {
   return cfg?.boards?.find((board) => board.type === type) || null
 }
 
+export function resolveTeamPrimaryLogo(team, leagueId) {
+  const logos = Array.isArray(team?.logos) ? team.logos : []
+  if (!logos.length) return ''
+
+  const leagueToken = String(leagueId || '').trim().toLowerCase()
+  const abbreviation = String(team?.abbreviation || '').trim().toLowerCase()
+
+  const ranked = logos
+    .filter((logo) => typeof logo?.href === 'string' && logo.href.trim())
+    .map((logo) => {
+      const href = logo.href.trim()
+      const lowerHref = href.toLowerCase()
+      let score = 0
+      if (leagueToken && lowerHref.includes(`/teamlogos/${leagueToken}/`)) score += 5
+      if (abbreviation) {
+        try {
+          const path = new URL(href).pathname.toLowerCase()
+          if (path.includes(`/${abbreviation}.`)) score += 4
+        } catch {
+          if (lowerHref.includes(`/${abbreviation}.`)) score += 4
+        }
+      }
+      if (lowerHref.includes('/500/')) score += 1
+      if (lowerHref.includes('/scoreboard/')) score -= 1
+      return { href, score }
+    })
+    .sort((a, b) => b.score - a.score)
+
+  return ranked[0]?.href || ''
+}
+
+export function getLeagueEntityType(league) {
+  const match = String(league?.url || '').match(/\/sports\/([^/]+)\/([^/]+)\/scoreboard/i)
+  const sport = (match ? match[1] : '').toLowerCase()
+  const leagueSlug = (match ? match[2] : (league?.id || '')).toLowerCase()
+
+  const isRacing = sport === 'racing' || sport === 'motorsports' ||
+    /racing|motorsport|motogp|nascar|indy|indycar|wec|imsa|supercars|rally|f2|f3/.test(leagueSlug)
+  const isGolf = sport === 'golf' || /golf|pga|lpga/.test(leagueSlug)
+  const isMma = sport === 'mma' || /mma|ufc|bellator|pfl|mixed martial/.test(leagueSlug)
+  const isCombat = sport === 'boxing' || /boxing/.test(leagueSlug)
+  const isTennis = sport === 'tennis' || /tennis|atp|wta/.test(leagueSlug)
+
+  if (isRacing) {
+    if (leagueSlug.includes('f1') || leagueSlug.includes('formula')) {
+      return { kind: 'hybrid', label: 'Teams & Drivers', singular: 'Entity' }
+    }
+    return { kind: 'individual', label: 'Drivers', singular: 'Driver' }
+  }
+  if (isGolf) return { kind: 'individual', label: 'Players', singular: 'Player' }
+  if (isMma) return { kind: 'individual', label: 'Fighters', singular: 'Fighter' }
+  if (isCombat) return { kind: 'individual', label: 'Boxers', singular: 'Boxer' }
+  if (isTennis) return { kind: 'individual', label: 'Players', singular: 'Player' }
+  return { kind: 'team', label: 'Teams', singular: 'Team' }
+}
+
 export function getSectionSnapshots(cfg) {
   const homeAssistantBoard = findBoardByType(cfg, 'home-assistant')
   const sportsBoard = findBoardByType(cfg, 'sports')

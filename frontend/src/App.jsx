@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from 'react'
 import './App.css'
 import { DARK_PRESET, deriveThemeTokens, LIGHT_PRESET } from './themeTokens'
+import TickerRuntime from './ticker/TickerRuntime'
 
 function parseList(value) {
   return value
@@ -849,19 +850,6 @@ function buildRuntimeDetailStats({ rawEvent, game, league, baseballSituationText
   return stats.slice(0, 3)
 }
 
-function teamRecordText(team) {
-  const record = String(team?.record || '').trim()
-  return record || ''
-}
-
-function runtimeTeamName(team) {
-  if (!team) {
-    return 'TBD'
-  }
-
-  return team.abbreviation || team.name || team.slug || 'TBD'
-}
-
 function sanitizeHexColor(value) {
   const token = String(value || '').trim().replace(/^#/, '')
   if (/^[0-9a-fA-F]{3}$/.test(token)) {
@@ -912,94 +900,8 @@ function readableTextForColor(hex) {
   return luma > 162 ? '#061018' : '#f5fbff'
 }
 
-function cssToken(value, fallback = 'unknown') {
-  const token = String(value || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-
-  return token || fallback
-}
-
 function isRacingGame(game) {
   return String(game?.sport || '').toLowerCase() === 'racing'
-}
-
-function racingCardTitle(game, league) {
-  const explicitTitle = String(game?.title || '').trim()
-  if (explicitTitle) {
-    return explicitTitle
-  }
-
-  return String(league?.name || 'Race').trim()
-}
-
-function racingEntrySummary(entry) {
-  const statItems = Array.isArray(entry?.stats) ? entry.stats : []
-  const summary = statItems
-    .slice(0, 2)
-    .map((item) => {
-      const label = String(item?.label || '').trim()
-      const value = String(item?.value || '').trim()
-      if (!value) {
-        return ''
-      }
-      return label ? `${label} ${value}` : value
-    })
-    .filter(Boolean)
-
-  if (summary.length) {
-    return summary.join(' • ')
-  }
-
-  const score = String(entry?.score || '').trim()
-  return score || ''
-}
-
-function racingHasTelemetry(entries) {
-  if (!Array.isArray(entries) || !entries.length) {
-    return false
-  }
-
-  return entries.some((entry) => {
-    const score = String(entry?.score || '').trim()
-    if (score) {
-      return true
-    }
-
-    const statItems = Array.isArray(entry?.stats) ? entry.stats : []
-    return statItems.some((item) => String(item?.value || '').trim())
-  })
-}
-
-function racingTelemetryFallback(game, entries) {
-  const parts = ['Running Order']
-  const lap = Number.isInteger(Number(game?.status?.period)) ? Number(game.status.period) : null
-  if (lap && lap > 0) {
-    parts.push(`Lap ${lap}`)
-  }
-
-  const leader = entries?.[0]
-  const leaderName = String(leader?.shortName || leader?.name || '').trim()
-  if (leaderName) {
-    parts.push(`Leader ${leaderName}`)
-  }
-
-  return parts.join(' • ')
-}
-
-function racingLiveHeader(game) {
-  const detail = String(game?.liveState?.detail || game?.status?.detail || game?.status?.shortDetail || '').trim()
-  const lap = Number.isInteger(Number(game?.status?.period)) ? Number(game.status.period) : null
-  if (lap && lap > 0) {
-    return detail ? `Lap ${lap} • ${detail}` : `Lap ${lap}`
-  }
-  if (detail) {
-    return detail
-  }
-
-  return 'Race in progress'
 }
 
 function formatRacingCalendarDate(value) {
@@ -1049,25 +951,6 @@ function nextRacingCalendarEvent(payload, game) {
     label: String(nextItem?.label || '').trim(),
     dateText: formatRacingCalendarDate(nextItem?.startDate),
   }
-}
-
-function resolveLeagueLogo(league, payload) {
-  const explicitLogo = String(league?.logo || '').trim()
-  if (explicitLogo) {
-    return explicitLogo
-  }
-
-  const payloadLogo = String(payload?.scoreboard?.leagues?.[0]?.logos?.[0]?.href || '').trim()
-  if (payloadLogo) {
-    return payloadLogo
-  }
-
-  const leagueId = String(league?.id || '').trim().toLowerCase()
-  if (!leagueId) {
-    return ''
-  }
-
-  return `https://a.espncdn.com/i/teamlogos/leagues/500/${leagueId}.png`
 }
 
 function extractEventOdds(rawEvent) {
@@ -1301,43 +1184,6 @@ function resolveEventTeamPalette(rawEvent, homeAway) {
   }
 }
 
-function teamRowStyle(team) {
-  const primary = sanitizeHexColor(team?.palette?.primary || team?.color)
-  if (!primary) {
-    return undefined
-  }
-
-  const alternate = sanitizeHexColor(team?.palette?.alternate || team?.alternateColor)
-  const textColor = readableTextForColor(primary)
-  const base = rgbaFromHex(primary, 0.84)
-  const blend = alternate ? rgbaFromHex(alternate, 0.74) : rgbaFromHex(primary, 0.62)
-
-  return {
-    '--team-row-bg': `linear-gradient(115deg, ${base}, ${blend})`,
-    '--team-row-border': rgbaFromHex(primary, 0.6),
-    '--team-row-text': textColor,
-    '--team-row-score': textColor,
-    '--team-row-glow': rgbaFromHex(primary, 0.48),
-  }
-}
-
-function runtimeCardStyle(game, useTeamCardColors = false) {
-  if (game?.isRacing || !useTeamCardColors) {
-    return undefined
-  }
-
-  const homePrimary = sanitizeHexColor(game?.teams?.home?.palette?.primary || game?.teams?.home?.color)
-  if (!homePrimary) {
-    return undefined
-  }
-
-  return {
-    '--card-accent': homePrimary,
-    '--card-accent-soft': rgbaFromHex(homePrimary, 0.24),
-    '--card-accent-glow': rgbaFromHex(homePrimary, 0.34),
-  }
-}
-
 function findNextLeagueIndexInOrder(currentIndex, leagues, payloadByLeagueId, loadStateByLeagueId = {}) {
   if (!Array.isArray(leagues) || leagues.length <= 1) {
     return 0
@@ -1457,40 +1303,10 @@ function App() {
   const [runtimeVisibleLeagueId, setRuntimeVisibleLeagueId] = useState('')
   const [runtimePayloadByLeagueId, setRuntimePayloadByLeagueId] = useState({})
   const [runtimeLoadStateByLeagueId, setRuntimeLoadStateByLeagueId] = useState({})
-  const [runtimeScrollSeconds, setRuntimeScrollSeconds] = useState(45)
-  const [runtimeTrackWidth, setRuntimeTrackWidth] = useState(0)
-  const [runtimeWindowWidth, setRuntimeWindowWidth] = useState(0)
-  // Dynamic spacer width for k=1 (single game/race like F1, a future NASCAR, NHL 1-game, etc.).
-  // Measured from the actual first card width after paint so the solo card + spacer makes it
-  // travel nearly the full board width "once", then the next league starts. Prevents "scrolls 2 times"
-  // or duplicate passes of the single item within one league slot.
-  const [k1SpacerWidth, setK1SpacerWidth] = useState(0)
-  const firstCardForMeasureRef = useRef(null)
-  // Per-league-slot duration (ms). For normal leagues = board rotateSeconds. For k<=1 we set it
-  // to the time for one full cross (oneCopy / pxPerSec) so the single item scrolls once then the
-  // rotation advances to the next league "same as regular".
-  const [currentSlotDuration, setCurrentSlotDuration] = useState(30000)
   // True after the initial parallel pre-fetch for *all* enabled leagues has completed (all loadStates done).
-  // Used to gate rotation, skip, and to trigger the one-time "pick first good league in user order" settle.
-  // Prevents flashing lower-left logos and crazy skipping of leagues during the load phase.
   const [initialPreFetchesComplete, setInitialPreFetchesComplete] = useState(false)
-  // Used to only apply the 'ticker-runtime-track-animated' class (GPU hints) *after*
-  // we have measured the real DOM widths in useLayoutEffect. Also gates starting
-  // the rAF scroller. Prevents starting the scroller with wrong/zero values which
-  // used to cause initial pop/jerk or bad start position.
-  const [runtimeScrollReady, setRuntimeScrollReady] = useState(false)
-  // Used to force re-evaluation of the skip effect after a handoff grace expires, to skip 0-content leagues that were protected at landing but still have 0 after the refresh completed.
+  // Used to force re-evaluation of the skip effect after a handoff grace expires.
   const [handoffCheckKey, setHandoffCheckKey] = useState(0)
-  // Nonce to force the measurement effect to re-run when data arrives for the current display league (e.g. per-display refresh brings games for a league that had 0 at the handoff render).
-  const [measureNonce, setMeasureNonce] = useState(0)
-  const runtimeScrollReadyRef = useRef(false)
-  const hasStartedCurrentSlotRef = useRef(false)
-
-  // Keep the ref in sync for any non-React callbacks (ResizeObserver etc.) that must
-  // read "ready" synchronously without causing extra renders or stale closures.
-  useEffect(() => {
-    runtimeScrollReadyRef.current = runtimeScrollReady
-  }, [runtimeScrollReady])
 
   const [runtimeLastStableLeagueId, setRuntimeLastStableLeagueId] = useState('')
   const [runtimeLastStableMarqueeGames, setRuntimeLastStableMarqueeGames] = useState([])
@@ -1500,11 +1316,6 @@ function App() {
   // current visit's payload is empty, and to decide skips for true 0 leagues. Populated on
   // any >0 arrival (pre-fetches at start + per-display refreshes).
   const [stableGoodGamesByLeagueId, setStableGoodGamesByLeagueId] = useState({})
-
-  // Computed size for the faint ticker watermark logo.
-  // We measure the actual image so tall logos (UGA etc.) and wide ones all look good
-  // without being tiny or getting clipped in the short ticker bar.
-  const [tickerWatermarkSize, setTickerWatermarkSize] = useState('82%')
 
   // Memoize the watermark URL so it can be safely used in effects and as a dependency
   // without temporal dead zone issues.
@@ -1535,192 +1346,18 @@ function App() {
   const runtimePayloadRef = useRef(runtimePayloadByLeagueId)
   const runtimeLoadStateRef = useRef(runtimeLoadStateByLeagueId)
   const configRef = useRef(null)
-  const runtimeMarqueeTrackRef = useRef(null)
-  const runtimeMarqueeWindowRef = useRef(null)
-
-  // === Marquee animation refs (rAF-driven for buttery smooth consistent speed on Pi) ===
-  // Using JS rAF + time-delta transform instead of CSS keyframes to:
-  // - Eliminate jitter/stutter from CSS anim timing/compositor resets on low-power hardware.
-  // - Allow precise initial offset so first content enters from right instead of starting at left.
-  // - Use exact modulo wrap for perfect seamless loop (no micro back-forth on cycle).
-  // - Avoid any layout reads or style recalcs during the animation loop (no thrashing).
-  // - Keep full control: start/stop cleanly on league change, no mid-cycle restarts from width updates.
-  const marqueeAnimationFrameRef = useRef(null)
-  const marqueeOffsetRef = useRef(0)
-  const marqueeLastTimeRef = useRef(0)
-  const marqueeTrackWidthRef = useRef(0)
-  const marqueeWindowWidthRef = useRef(0)
-  const marqueeSpeedRef = useRef(110) // px per second - matches previous visual speed
-  // Used only to ensure the late re-measure (for stable initial layout) runs exactly once
-  // for the very first league slot at ticker startup (the one that was getting bad early
-  // widths, causing no visible games).
-  const didInitialLateMeasureRef = useRef(false)
-  const lastMeasuredLeagueIdRef = useRef(null)
-  // Timestamp (ms) after which reactive 0-content skips are allowed. Set on fresh ticker entry
-  // to give the parallel pre-fetches (and first per-display refresh) time to populate before we
-  // decide a league is "truly 0" and should be skipped. Prevents initial flash-through of good
-  // leagues whose data hasn't arrived yet.
+  // Timestamp (ms) after which reactive 0-content skips are allowed.
   const tickerEntryGraceRef = useRef(0)
 
-  // For driving league rotation from the rAF tick (precise "full visual pass before handoff")
-  const isTickerRuntimeRef = useRef(false)
-  const leagueSlotStartTimeRef = useRef(0)
-  const currentSlotDurationRef = useRef(30000)
-  const currentSlotIsK1Ref = useRef(true)
+  // Refs for league rotation index/count — read by handleRuntimeAdvance to avoid stale closures.
   const currentLeaguesLengthRef = useRef(0)
   const currentRuntimeLeagueIndexRef = useRef(0)
-  const scrolledThisSlotRef = useRef(0)
-  // Tracks the league id for the *currently animating slot*. Used inside the rAF tick to abort
-  // any stale callbacks from a previous league's animation after handoff (prevents old ticks
-  // from stomping the new track's --offset or triggering extra advances). Critical for clean
-  // k=1 -> next league transitions (e.g. F1 to NASCAR) where measurement + start must win.
+
+  // Shared refs: owned here, passed into TickerRuntime so both sides can read/write.
+  const leagueSlotStartTimeRef = useRef(0)
   const currentSlotLeagueIdRef = useRef('')
-  // Short grace after each handoff/advance to prevent the skip effect from immediately +1'ing
-  // a newly landed league before its per-display refresh (triggered by the id change) has
-  // had time to set loading=true and/or populate payload/stable. This stops "only first league
-  // scrolls" / "nothing else scrolls after" when later leagues had 0 at initial pre-fetch but
-  // have (or will have) data on their turn.
+  const scrolledThisSlotRef = useRef(0)
   const handoffGraceRef = useRef(0)
-  const advanceToNextLeagueRef = useRef(() => {
-    const len = currentLeaguesLengthRef.current || 1
-    const nextIdx = (currentRuntimeLeagueIndexRef.current + 1) % len
-    const nextLeague = runtimeLeagues[nextIdx]
-    if (nextLeague) {
-      // Explicitly pull data for the next league on advance (with 'all' to get available games).
-      // This ensures the per-display pull happens for the new current on handoff, so if it had 0 at pre-fetch, the fresh call brings the data (e.g. synth for upcoming race), length becomes 1, scroller starts.
-      refreshRuntimeLeaguePayload(nextLeague, { gameFilterOverride: 'all' })
-    }
-    setRuntimeVisibleLeagueId('')
-    setRuntimeLeagueIndex((c) => (c + 1) % len)
-  })
-
-  // Stop any running marquee rAF loop. Called on unmount, league switch, !ready, etc.
-  function stopMarqueeAnimation() {
-    if (marqueeAnimationFrameRef.current) {
-      window.cancelAnimationFrame(marqueeAnimationFrameRef.current)
-      marqueeAnimationFrameRef.current = null
-    }
-    marqueeLastTimeRef.current = 0
-  }
-
-  // Start (or restart) the rAF-driven marquee.
-  // Must have widths in the *Refs already (from measurement).
-  function startMarqueeAnimation() {
-    stopMarqueeAnimation()
-    const W = marqueeTrackWidthRef.current
-    if (!W) {
-      return
-    }
-    // The offset in the ref was already set in measurement (to Vw for new league,
-    // or preserved progress for same league with length change). Do not override here.
-    marqueeLastTimeRef.current = 0
-
-    // Always grab the *current* element from the ref. This prevents stale element
-    // issues when the keyed track div remounts on league change.
-    const track = runtimeMarqueeTrackRef.current
-    if (track) {
-      // Prime using the (possibly preserved) offset already in the ref.
-      const initial = marqueeOffsetRef.current || 0
-      track.style.setProperty('--marquee-offset', `${initial}px`)
-      track.style.willChange = 'transform'
-    }
-
-    const tick = (ts) => {
-      // Abort any rAF callback that belongs to a previous league's slot. This can happen
-      // because rAF is queued asynchronously; after advance from F1 (or any) we stop() and
-      // the new league's measurement will start fresh, but a late old tick must not touch
-      // the new track or call advance again. The currentSlotLeagueIdRef is set right before
-      // each startMarqueeAnimation and cleared on advance / league change.
-      if (currentSlotLeagueIdRef.current && runtimeDisplayLeague?.id &&
-          currentSlotLeagueIdRef.current !== runtimeDisplayLeague.id) {
-        return
-      }
-      if (!marqueeLastTimeRef.current) {
-        marqueeLastTimeRef.current = ts
-      }
-      // dt in seconds, clamp to avoid huge jumps after tab sleep etc.
-      const dt = Math.min((ts - marqueeLastTimeRef.current) / 1000, 0.1)
-      marqueeLastTimeRef.current = ts
-
-      let offset = marqueeOffsetRef.current - marqueeSpeedRef.current * dt
-      const startX = marqueeWindowWidthRef.current || 0
-      const minX = startX - W
-
-      // accumulate scrolled distance this slot (primary for ensuring full pass + exit)
-      if (leagueSlotStartTimeRef.current > 0 && isTickerRuntimeRef.current) {
-        scrolledThisSlotRef.current += marqueeSpeedRef.current * dt
-      }
-
-      const oneCopy = W
-      // k=1: distance-based advance — card must scroll oneCopy+150 to fully clear left edge.
-      // k>1: position-based advance — fires when offset+W<=0 (last card right edge at screen left).
-      // Track always renders exactly 1 copy, so no seamless wrap needed.
-      const triggerAdvance = () => {
-        const cleared = minX - 800
-        marqueeOffsetRef.current = cleared
-        const liveTrack = runtimeMarqueeTrackRef.current
-        if (liveTrack) {
-          liveTrack.style.setProperty('--marquee-offset', `${cleared}px`)
-          liveTrack.style.opacity = '0'
-        }
-        stopMarqueeAnimation()
-        setRuntimeScrollReady(false)
-        setTimeout(() => {
-          advanceToNextLeagueRef.current()
-          scrolledThisSlotRef.current = 0
-          leagueSlotStartTimeRef.current = 0
-          currentSlotLeagueIdRef.current = ''
-          handoffGraceRef.current = Date.now() + 800
-          setTimeout(() => setHandoffCheckKey(k => k + 1), 900)
-        }, 100)
-      }
-      if (currentSlotIsK1Ref.current && scrolledThisSlotRef.current >= oneCopy + 150) {
-        triggerAdvance()
-        return
-      }
-      if (!currentSlotIsK1Ref.current && offset + W <= 0) {
-        triggerAdvance()
-        return
-      }
-      marqueeOffsetRef.current = offset
-
-      // Always use the live ref here too. Update via --var (not direct transform) so
-      // React re-renders during ticker do not reset the position to left (0).
-      const liveTrack = runtimeMarqueeTrackRef.current
-      if (liveTrack) {
-        liveTrack.style.setProperty('--marquee-offset', `${offset}px`)
-      }
-
-      // time backup
-      if (leagueSlotStartTimeRef.current > 0 && isTickerRuntimeRef.current) {
-        const elapsed = (ts - leagueSlotStartTimeRef.current) / 1000
-        const target = (currentSlotDurationRef.current || 30000) / 1000
-        if (elapsed >= target) {
-          const cleared = minX - 700
-          marqueeOffsetRef.current = cleared
-          const liveTrack2 = runtimeMarqueeTrackRef.current
-          if (liveTrack2) {
-            liveTrack2.style.setProperty('--marquee-offset', `${cleared}px`)
-            liveTrack2.style.opacity = '0'
-          }
-          stopMarqueeAnimation()
-          setRuntimeScrollReady(false)
-          setTimeout(() => {
-            advanceToNextLeagueRef.current()
-            scrolledThisSlotRef.current = 0
-            leagueSlotStartTimeRef.current = 0
-            currentSlotLeagueIdRef.current = ''
-            handoffGraceRef.current = Date.now() + 800
-          }, 100)
-          return
-        }
-      }
-
-      marqueeAnimationFrameRef.current = window.requestAnimationFrame(tick)
-    }
-
-    marqueeAnimationFrameRef.current = window.requestAnimationFrame(tick)
-  }
 
   // === Logo cache helpers ===
   async function loadLeagueLogoMeta(leagueId) {
@@ -2061,14 +1698,7 @@ function App() {
   const themeTokens = config ? deriveThemeTokens(config.theme, { sportsBoard, leagueLogoMetaById }) : null
   const runtimeLeagues = sportsBoard?.leagues.filter((league) => league.enabled) ?? []
   const runtimeLeagueIdsKey = runtimeLeagues.map((league) => league.id).join('|')
-  // Hoisted early so it's available during seamlessMarqueeGames build for k=1 spacers (avoids ReferenceError at runtime in ticker for F1/NASCAR single slates).
   const runtimeBoardWidth = Math.max(320, Number(config?.monitor?.width) || 1920)
-
-  // Keep timing refs in sync. These must be *after* the declarations of the variables they read
-  // (runtimeLeagues, isTickerRuntime) to avoid TDZ during render when evaluating the effect.
-  useEffect(() => {
-    isTickerRuntimeRef.current = isTickerRuntime
-  }, [isTickerRuntime])
 
   useEffect(() => {
     currentLeaguesLengthRef.current = runtimeLeagues.length
@@ -2279,13 +1909,6 @@ function App() {
   const runtimeMarqueeGames = runtimeDisplayGames.length
     ? runtimeDisplayGames
     : (stableForDisplayLeague && stableForDisplayLeague.length ? stableForDisplayLeague : []);
-  // Always 1 copy. k=1: distance-based advance (oneCopy = winW+cardW+extra). k>1: position-based (offset+W<=0).
-  const originalK = runtimeMarqueeGames.length;
-  const k = originalK;
-  let seamlessMarqueeGames = runtimeMarqueeGames;
-  if (k > 0) {
-    seamlessMarqueeGames = [...runtimeMarqueeGames]; // always 1 copy; position-based advance handles k>1 exit
-  }
   const runtimeRenderLeague = runtimeVisibleLeague || (runtimeDisplayGames.length ? runtimeDisplayLeague : null)
   // The runtimeDisplayLeague is forced to the user's first during !complete, so use it (or the render one)
   // for the lower left brand. This keeps the logo stable on the configured first league throughout load,
@@ -2331,23 +1954,9 @@ function App() {
 
     setRuntimeLeagueIndex(0)
     setRuntimeVisibleLeagueId('')
-
-    // Reset measurement/animation state so the new board starts clean (right-entry, fresh widths).
-    marqueeTrackWidthRef.current = 0
-    marqueeWindowWidthRef.current = 0
-    marqueeOffsetRef.current = runtimeBoardWidth
-    setRuntimeScrollReady(false)
-    setRuntimeTrackWidth(0)
-    setRuntimeWindowWidth(0)
-    setK1SpacerWidth(0)
-    setCurrentSlotDuration(((sportsBoard?.rotateSeconds) || 30) * 1000)
-
     setInitialPreFetchesComplete(false)
 
-    // Reset flag for initial slot late measure (one-time for first league at ticker start).
-    didInitialLateMeasureRef.current = false
-    // Give a grace window after the pre-fetches complete (before skip/rotation can react to data).
-    // The settle picker has already chosen the correct start per order by the time this grace ends.
+    // Grace window before skip/rotation can react to data.
     tickerEntryGraceRef.current = Date.now() + 700
 
     leagueSlotStartTimeRef.current = 0
@@ -2410,18 +2019,6 @@ function App() {
     }
   }, [runtimeLeagues, runtimeVisibleLeagueId, runtimePayloadByLeagueId])
 
-  // Lifecycle for the JS marquee scroller: ensure we stop rAF when leaving ticker mode,
-  // when scroll not ready (e.g. during re-measure on league switch), or on unmount.
-  // The start is triggered from the measurement code above once widths are known.
-  useEffect(() => {
-    if (!isTickerRuntime || !runtimeScrollReady) {
-      stopMarqueeAnimation()
-    }
-    return () => {
-      stopMarqueeAnimation()
-    }
-  }, [isTickerRuntime, runtimeDisplayLeague?.id])
-
   useEffect(() => {
     // Do not start the rotation during the initial pre-fetch phase.
     // Rotation (and skip) only after the settle picker has chosen the correct start per order.
@@ -2429,14 +2026,13 @@ function App() {
       return
     }
 
-    if (isTickerRuntimeRef.current) {
-      // Ticker advance is driven from the rAF tick using the measured slot dur for the
-      // current league's content (ensures old content fully off-screen before swap).
+    if (isTickerRuntime) {
+      // Ticker advance is driven from the rAF tick in TickerRuntime.
       return
     }
 
-    // Fallback (non-ticker preview etc): use the slot dur or configured.
-    const dur = currentSlotDuration || ((sportsBoard.rotateSeconds || 30) * 1000)
+    // Fallback for non-ticker preview contexts.
+    const dur = (sportsBoard.rotateSeconds || 30) * 1000
     const timeoutId = window.setTimeout(() => {
       // Clear any "visible league pin" so the rotation index drives the next active league.
       // Simple +1 to cycle through all selected in order (as required). Empty leagues will
@@ -2448,7 +2044,7 @@ function App() {
     }, dur)
 
     return () => window.clearTimeout(timeoutId)
-  }, [isTickerRuntime, runtimeLeagueIdsKey, runtimeLeagues.length, sportsBoard, initialPreFetchesComplete, currentSlotDuration, runtimeLeagueIndex])
+  }, [isTickerRuntime, runtimeLeagueIdsKey, runtimeLeagues.length, sportsBoard, initialPreFetchesComplete, runtimeLeagueIndex])
 
   // Auto-skip 0-content leagues (per user: "nothing it will skip and go to the next league").
   // If after an index change (rotation or initial) the current league has neither current
@@ -2611,186 +2207,6 @@ function App() {
     }
   }, [isTickerRuntime, runtimeDisplayLeague?.id])
 
-  // On league change (display.id), reset ready and prime offset so the new track's first paint
-  // (after the key remount) starts clean at right-entry, and we don't carry over old ready/anim state
-  // that could cause flicker or wrong positioning during handoff.
-  // useLayoutEffect so the opacity/offset reset happens before the browser paints the new league's
-  // cards — prevents one-frame flash of new content at the previous league's scroll position.
-  useLayoutEffect(() => {
-    if (isTickerRuntime && runtimeDisplayLeague) {
-      setRuntimeScrollReady(false)
-      hasStartedCurrentSlotRef.current = false
-      marqueeOffsetRef.current = runtimeBoardWidth
-      marqueeWindowWidthRef.current = runtimeBoardWidth
-      // Immediately push the CSS var off-screen right so new content can't briefly appear at the
-      // previous league's final scroll position while runtimeScrollReady is still true.
-      if (runtimeMarqueeTrackRef.current) {
-        runtimeMarqueeTrackRef.current.style.setProperty('--marquee-offset', `${runtimeBoardWidth}px`)
-      }
-      leagueSlotStartTimeRef.current = 0
-      scrolledThisSlotRef.current = 0
-      currentSlotLeagueIdRef.current = runtimeDisplayLeague.id
-      handoffGraceRef.current = Date.now() + 400
-      // After grace, bump the key to force skip effect re-run, so 0-content leagues get skipped if still 0 after refresh (prevents stick).
-      setTimeout(() => setHandoffCheckKey(k => k + 1), 500)
-      // measurement effect (below) will set ready=true and start fresh after its rAF measure.
-      // (Removed the firstCardForMeasureRef clear here — the new render for the league attaches the ref to its own card; clearing was causing fallback cardW=520 for all subsequent k=1, leading to too-small oneCross and no full clear/scroll for the second league even when it had 1 game.)
-      // Also pull fresh data for the new current league on handoff (the per-display effect also does this, but ensuring here makes the pull happen reliably for the new displayLeague).
-      refreshRuntimeLeaguePayload(runtimeDisplayLeague, { gameFilterOverride: 'all' })
-      if (!leagueLogoMetaById[runtimeDisplayLeague.id]) {
-        loadLeagueLogoMeta(runtimeDisplayLeague.id)
-      }
-    }
-  }, [isTickerRuntime, runtimeDisplayLeague?.id])
-
-  // When the current display league (or its game count) becomes available in ticker mode,
-  // measure the laid-out cards, compute the scroll distance for a full pass (for >1 games: width of the list copy;
-  // for exactly 1 game: board + card width + small so it fully clears left), prime, set ready,
-  // and start the rAF scroller.
-  // Uses rAF to wait for paint/layout after React commit.
-  // For the very first slot we also do one late re-measure (~350ms) after images/logos have settled
-  // (the didInitialLateMeasureRef guard, reset on ticker entry).
-  useEffect(() => {
-    if (!isTickerRuntime || !runtimeDisplayLeague || runtimeMarqueeGames.length === 0) {
-      return
-    }
-    // If this slot's animation is already running, ignore subsequent dep changes (e.g. fresh data
-    // arriving changes runtimeMarqueeGames.length). Re-measuring would reset the offset to the right
-    // edge causing visible content flash. The slot was already correctly started; let it run.
-    if (hasStartedCurrentSlotRef.current) return
-    // During initial pre-fetch phase, only allow the scroller to start for the configured first league
-    // once *its own* data has arrived (or after all pre-fetches complete). This lets the first league
-    // begin scrolling promptly. The settle picker (gated on initialPreFetchesComplete) will ensure
-    // we end up on the correct firstGood per order.
-    if (!initialPreFetchesComplete) {
-      const curIdx = runtimeLeagueIndex % (runtimeLeagues.length || 1)
-      const isTheInitialFirst = curIdx === 0
-      if (!isTheInitialFirst) return
-      // Has the first league's data arrived yet?
-      const firstL = runtimeLeagues[0]
-      const p = firstL ? runtimePayloadByLeagueId[firstL.id] : null
-      const hasForFirst = (p && Array.isArray(p.normalizedGames) && p.normalizedGames.length > 0) ||
-                          (firstL && Array.isArray(stableGoodGamesByLeagueId[firstL.id]) && stableGoodGamesByLeagueId[firstL.id].length > 0)
-      if (!hasForFirst) return
-    }
-    const runMeasure = () => {
-      const track = runtimeMarqueeTrackRef.current
-      if (!track) return
-      const winW = runtimeBoardWidth
-      const k = runtimeMarqueeGames.length
-
-      let cardW = 520
-      if (k === 1 && firstCardForMeasureRef.current) {
-        const r = firstCardForMeasureRef.current.getBoundingClientRect()
-        if (r && r.width > 80) cardW = r.width
-      }
-      // For 1-game leagues (any league can have 1, not just "k=1" specials like F1): use real measured cardW if available,
-      // but min 550 to ensure the travel distance is enough for full clear even if early measurement (subsequent leagues after handoff)
-      // gets small width before layout stable. This prevents "nothing scrolling" or short/partial move before advance.
-      cardW = Math.max(cardW, 550)
-      let oneCopy = winW
-      if (k === 1) {
-        // When the current league has exactly 1 game: render exactly that 1 game (no duplication).
-        // oneCopy = board + (measured or min) card width + small fixed so the single card fully enters from right,
-        // crosses the entire bar, and fully exits left (right edge off left) before advance.
-        // Small fixed (no per-card "padding guess" or spacer).
-        const extra = 100;
-        oneCopy = winW + cardW + extra;
-      } else {
-        // k>1: single copy rendered — scrollWidth is the full one-copy travel distance.
-        if (track.scrollWidth > 100) {
-          oneCopy = track.scrollWidth
-        }
-      }
-      marqueeTrackWidthRef.current = oneCopy
-      marqueeWindowWidthRef.current = winW
-      setRuntimeTrackWidth(oneCopy)
-      setRuntimeWindowWidth(winW)
-      const pxPerSec = 110
-      const secs = Math.max(10, Math.round((oneCopy / pxPerSec) * 10) / 10)
-      setRuntimeScrollSeconds(secs)
-      setRuntimeScrollReady(true)
-
-      // Slot duration for this league:
-      // - When exactly 1 game: time for the card to fully cross and clear left, then next league starts.
-      // - For >1 games: max( user's configured rotateSeconds, time for one full seamless pass ).
-      //   This guarantees the current league's games fully scroll off-screen (at least one complete unit
-      //   has passed the window) before we advance and swap in the next league's content.
-      //   Prevents the switch happening mid-scroll.
-      const baseDur = ((sportsBoard?.rotateSeconds) || 30) * 1000
-      let dur = baseDur
-      const exitMarginMs = 2000
-      if (k <= 1) {
-        // k=1: distance-based advance fires when card clears left; time backup covers oneCopy travel.
-        const onePassMs = Math.round( (oneCopy || winW) / pxPerSec * 1000 )
-        dur = Math.max(8000, onePassMs + exitMarginMs)
-      } else {
-        // k>1: position-based advance fires when offset+W<=0 (last card right edge at screen left).
-        // Time backup must cover the full entry+exit distance: winW (card enters from right) + W (entire track).
-        const fullExitMs = Math.round( (winW + (oneCopy || winW)) / pxPerSec * 1000 )
-        dur = Math.max(baseDur, fullExitMs + exitMarginMs)
-      }
-      setCurrentSlotDuration(dur)
-      currentSlotIsK1Ref.current = (k <= 1)
-
-      // Right-entry start position for this slot.
-      marqueeOffsetRef.current = winW
-      track.style.setProperty('--marquee-offset', `${winW}px`)
-      currentSlotLeagueIdRef.current = runtimeDisplayLeague?.id || ''
-      hasStartedCurrentSlotRef.current = true
-      startMarqueeAnimation()
-
-      // Record for progress-based advance in the tick (precise full-pass handoff).
-      leagueSlotStartTimeRef.current = performance.now()
-      currentSlotDurationRef.current = dur
-      scrolledThisSlotRef.current = 0
-    }
-    // First paint-stable pass — double rAF so layout of complex multi-card content (nfl scores, many team
-    // logos from cache, etc.) has an extra frame to settle before we read card widths / offsetLeft / compute
-    // oneCopy and start the rAF scroller. Helps "no [later league]" cases where first measure saw partial
-    // widths and either didn't start or used too-small period (causing early cutoff).
-    const raf1 = window.requestAnimationFrame(() =>
-      window.requestAnimationFrame(runMeasure)
-    )
-    // One late pass for the very first slot (images, logos, racing lists etc. affect widths).
-    let tLate = null
-    if (!didInitialLateMeasureRef.current) {
-      didInitialLateMeasureRef.current = true
-      tLate = window.setTimeout(() => {
-        if (runtimeMarqueeTrackRef.current && isTickerRuntime) runMeasure()
-      }, 350)
-    }
-    return () => {
-      cancelAnimationFrame(raf1)
-      if (tLate) clearTimeout(tLate)
-    }
-  }, [isTickerRuntime, runtimeDisplayLeague?.id, runtimeMarqueeGames.length, runtimeBoardWidth, initialPreFetchesComplete])
-// k1SpacerWidth state is legacy from previous spacer approach for k=1; no longer used for render duplication
-// (now single card for k=1 with synthetic full-cross oneCopy). Kept for now to avoid larger cleanups.
-
-  // Measure the watermark image and compute a good size so it looks big but doesn't
-  // get cut off at top/bottom on tall logos (UGA etc.) in the short ticker bar.
-  useEffect(() => {
-    if (!tickerWatermarkUrl) {
-      setTickerWatermarkSize('82%')
-      return
-    }
-
-    const img = new Image()
-    img.onload = () => {
-      const boardH = Number(config?.monitor?.height) || 380
-      // For a sparse elegant pattern ("just a few" larger logos with breathing room),
-      // target the logo to occupy a large portion of the ticker height.
-      const targetHeight = boardH * 0.85
-      let sizePercent = (targetHeight / img.naturalHeight) * 100
-
-      // Wider range for sparse look: bigger logos, more space between repeats
-      sizePercent = Math.max(60, Math.min(95, sizePercent))
-
-      setTickerWatermarkSize(`${sizePercent.toFixed(0)}%`)
-    }
-    img.src = tickerWatermarkUrl
-  }, [tickerWatermarkUrl, config?.monitor?.height])
 
   // Load the logo meta for the Theme page's selected "Team league" (if any) so that buildThemeTeamOptions
   // can populate the Teams dropdown from the cached team styles/colors. This runs on mount and when
@@ -3348,6 +2764,11 @@ function App() {
     }
   }
 
+  function handleRuntimeAdvance() {
+    setRuntimeVisibleLeagueId('')
+    setRuntimeLeagueIndex((current) => (current + 1) % (currentLeaguesLengthRef.current || 1))
+  }
+
   if (isLoading) {
     return (
       <main className="app-shell loading-shell">
@@ -3381,469 +2802,33 @@ function App() {
     '--hero-eyebrow': themeTokens.heroEyebrow,
     '--button-text': themeTokens.buttonText,
     ...(tickerWatermarkUrl ? { '--ticker-watermark-url': `url(${tickerWatermarkUrl})` } : {}),
-    '--ticker-watermark-size': tickerWatermarkSize  // height-based; larger % = bigger individual logos, fewer repeats, more elegant/sparse look
   }
 
   if (isTickerRuntime) {
-    // Prime the offset ref to enter-from-right position.
-    // Only on uninitialized (===0) or when !ready (e.g. during load or right after league change).
-    // Do NOT reset if <0 while ready=true — this allows k=1 singles to scroll a long distance
-    // (board + cardW + breathing) to fully clear left without the card "jumping back to right and
-    // starting scrolling onto the screen again" on re-renders. The display id effect + runMeasure
-    // already prime to boardW at the start of each league slot.
-    if (marqueeOffsetRef.current === 0 || (marqueeOffsetRef.current < 0 && !runtimeScrollReady)) {
-      marqueeOffsetRef.current = runtimeBoardWidth
-    }
-    if (!marqueeWindowWidthRef.current) {
-      marqueeWindowWidthRef.current = runtimeBoardWidth
-    }
-
-    // runtimeBoardWidth is computed earlier (before seamless logic for k=1 spacers)
-    const runtimeBoardHeight = Math.max(120, Number(config?.monitor?.height) || 380)
-    const hasEnabledRuntimeLeagues = runtimeLeagues.length > 0
-
-    // Sparse elegant watermark positions — deliberately only a few large logos with good breathing room
-    let watermarkPositions = 'center'
-    let watermarkImages = 'none'
-
-    if (tickerWatermarkUrl) {
-      const url = `url(${tickerWatermarkUrl})`
-
-      if (runtimeBoardWidth > 3000) {
-        // Very wide boards (3840 etc.) — 4 logos, nicely spread
-        watermarkPositions = '8% center, 30% center, 70% center, 92% center'
-        watermarkImages = `${url}, ${url}, ${url}, ${url}`
-      } else if (runtimeBoardWidth > 1800) {
-        // Standard 1920-wide — only 2 logos, spread well toward the edges
-        watermarkPositions = '12% center, 88% center'
-        watermarkImages = `${url}, ${url}`
-      } else {
-        // Narrower boards — 2 logos
-        watermarkPositions = '15% center, 85% center'
-        watermarkImages = `${url}, ${url}`
-      }
-    }
-
     return (
-      <main className={`ticker-runtime-shell ${themeTokens.modeClass}`} style={shellStyle}>
-        {!hasEnabledRuntimeLeagues ? (
-          <p className="ticker-runtime-empty">Enable at least one league.</p>
-        ) : (
-          <section
-            className="ticker-runtime-board"
-            style={{
-              width: '100%',
-              maxWidth: `${runtimeBoardWidth}px`,
-              height: '100%',
-              '--ticker-watermark-images': watermarkImages,
-              '--ticker-watermark-positions': watermarkPositions,
-            }}
-          >
-            <div className="ticker-runtime-marquee-window" ref={runtimeMarqueeWindowRef}>
-              <div
-                key={`marquee-${runtimeRenderLeague?.id || 'none'}`}
-                className={`ticker-runtime-track ${runtimeScrollReady ? 'ticker-runtime-track-animated' : ''}`}
-                ref={runtimeMarqueeTrackRef}
-                role="list"
-                aria-label="Ticker games"
-                style={{
-                  // Always set the offset var (using the ref, which we prime to boardWidth in render
-                  // if it looks uninitialized or negative from previous league). This makes the very
-                  // first paint of a league's track (and remounts) position the content off the right
-                  // so it enters cleanly instead of flashing at left/0 then correcting.
-                  '--marquee-offset': `${marqueeOffsetRef.current || runtimeBoardWidth}px`,
-                  opacity: runtimeScrollReady ? 1 : 0,
-                  ...(runtimeScrollReady ? {
-                    '--runtime-scroll-seconds': `${runtimeScrollSeconds}s`,
-                    '--runtime-track-width': `${Math.max(1, runtimeTrackWidth)}px`,
-                    '--runtime-window-width': `${Math.max(1, runtimeWindowWidth)}px`,
-                  } : {}),
-                }}
-              >
-                {seamlessMarqueeGames.map((item, index) => {
-                  if (item && item._spacer) {
-                    // Spacer for k=1 to separate copies so the single race card traverses the full bar alone without another copy visible.
-                    return <div key={`spacer-${index}`} style={{ width: `${item.width}px`, flexShrink: 0, height: '100%' }} aria-hidden="true" />;
-                  }
-                  const game = item;
-                  const isSoloSlate = runtimeMarqueeGames.length === 1
-                  const isDuoSlate = runtimeMarqueeGames.length === 2
-                  const isFinishedRace = game?.isRacing && String(game?.state || '').toLowerCase() === 'post'
-                  const sportToken = cssToken(game?.sport, 'generic')
-                  const stateToken = cssToken(game?.state, 'unknown')
-                  const away = game?.teams?.away
-                  const home = game?.teams?.home
-                  const awayLogo = away?.logo || ''
-                  const homeLogo = home?.logo || ''
-                  const awayBadge = String(away?.abbreviation || away?.name || '?').slice(0, 3).toUpperCase()
-                  const homeBadge = String(home?.abbreviation || home?.name || '?').slice(0, 3).toUpperCase()
-                  const hasBaseballLiveDiamond = Boolean(game?.showLiveState && game?.baseballLiveData)
-                  const resolvedBattingSide = game?.baseballBattingSide === 'home' || game?.baseballBattingSide === 'away'
-                    ? game.baseballBattingSide
-                    : 'away'
-                  const showAwayBaseDiamond = hasBaseballLiveDiamond && resolvedBattingSide === 'away'
-                  const showHomeBaseDiamond = hasBaseballLiveDiamond && resolvedBattingSide === 'home'
-                  const allRacingEntries = Array.isArray(game?.racingEntries) ? game.racingEntries : []
-                  const hasLiveRacingTelemetry = racingHasTelemetry(allRacingEntries)
-                  const podiumEntries = isFinishedRace && isSoloSlate ? allRacingEntries.slice(0, 3) : []
-                  const racingEntries = isFinishedRace && isSoloSlate
-                    ? allRacingEntries.slice(3, 15)   // show more for NASCAR-style races (was limited before)
-                    : allRacingEntries.slice(0, isSoloSlate ? 16 : 6)
-
-                  // Attach ref to the very first real card (non-spacer) so the measurement effect can read its
-                  // actual rendered width after paint and compute a precise k1 spacer (boardW - cardW - gap).
-                  // This makes single-item leagues (NASCAR future, F1, 1-game NHL/NBA etc.) cross the full
-                  // bar "once" with correct breathing room before the next league starts.
-                  const isFirstCardForMeasure = !item._spacer && index === 0;
-
-                  return (
-                    <article
-                      key={`${game.id || `${away?.id}-${home?.id}-${game?.startTimeUtc || ''}`}-${index}`}
-                      ref={isFirstCardForMeasure ? firstCardForMeasureRef : null}
-                      className={`ticker-runtime-card ticker-runtime-card-sport-${sportToken} ticker-runtime-card-state-${stateToken} ticker-runtime-card-style-${game.cardStyle || 'standard'}${isSoloSlate ? ' ticker-runtime-card-solo' : ''}${isDuoSlate ? ' ticker-runtime-card-duo' : ''}${game?.isRacing ? ' ticker-runtime-card-racing' : ''}${game?.isRacing && isSoloSlate ? ' ticker-runtime-card-racing-solo' : ''}${game?.isLiveFeatured ? ` ticker-runtime-card-live ticker-runtime-card-live-${game.liveTheme || 'generic'}` : ''}${game?.useTeamCardColors ? ' ticker-runtime-card-use-team-colors' : ''}`}
-                      style={runtimeCardStyle(game, game?.useTeamCardColors)}
-                      role="listitem"
-                      data-card-style={game.cardStyle || 'standard'}
-                    >
-                      {game?.isLiveFeatured ? (
-                        <p className="ticker-runtime-live-flag">LIVE</p>
-                      ) : null}
-                      {game?.isRacing ? (
-                        <>
-                          <div className="ticker-runtime-racing-head">
-                            <div className="ticker-runtime-racing-head-main">
-                              <span className="ticker-runtime-racing-series">MOTORSPORT</span>
-                              <strong className="ticker-runtime-racing-title">{racingCardTitle(game, runtimeRenderLeague)}</strong>
-                            </div>
-                            {game?.racingTopInfo?.tv ? (
-                              <div className="ticker-runtime-racing-head-side" aria-label="Race schedule and TV">
-                                <p className="ticker-runtime-racing-head-line ticker-runtime-racing-head-tv">
-                                  <span>TV</span>
-                                  <strong>{String(game.racingTopInfo.tv).replace(/^TV\s+/, '')}</strong>
-                                </p>
-                              </div>
-                            ) : null}
-                          </div>
-
-                          <div className="ticker-runtime-divider" />
-
-                          {game?.isLiveFeatured && game?.showLiveState ? (
-                            <div className="ticker-runtime-racing-live-bar">{racingLiveHeader(game)}</div>
-                          ) : null}
-
-                          {game?.isLiveFeatured && !hasLiveRacingTelemetry ? (
-                            <div className="ticker-runtime-racing-telemetry-fallback">
-                              {racingTelemetryFallback(game, allRacingEntries)}
-                            </div>
-                          ) : null}
-
-                          {podiumEntries.length ? (
-                            <div className="ticker-runtime-racing-podium" aria-label="Race podium">
-                              {podiumEntries.map((entry) => (
-                                <div key={`${game.id}-podium-${entry.id || entry.position || entry.name}`} className="ticker-runtime-racing-podium-item">
-                                  <span className="ticker-runtime-racing-podium-rank">P{entry.position || '-'}</span>
-                                  <span className="ticker-runtime-racing-podium-name">{entry.shortName || entry.name || 'Driver'}</span>
-                                </div>
-                              ))}
-                            </div>
-                          ) : null}
-
-                          <div className={`ticker-runtime-racing-leaders${isSoloSlate ? ' ticker-runtime-racing-leaders-solo' : ''}${game?.isLiveFeatured ? ' ticker-runtime-racing-leaders-live' : ''}${isFinishedRace && isSoloSlate ? ' ticker-runtime-racing-leaders-finished' : ''}`}>
-                            {racingEntries.map((entry) => (
-                              <div key={`${game.id}-${entry.id || entry.position || entry.name}`} className="ticker-runtime-racing-driver-row">
-                                <span className="ticker-runtime-racing-position">P{entry.position || '-'}</span>
-                                <span className="ticker-runtime-racing-driver-block">
-                                  <span className="ticker-runtime-racing-driver">
-                                    {entry?.flag?.href ? (
-                                      <img src={entry.flag.href} alt={entry.flag.alt || entry.name || 'Flag'} />
-                                    ) : null}
-                                    <span>{entry.shortName || entry.name || 'Driver'}</span>
-                                  </span>
-                                  {game?.isLiveFeatured && racingEntrySummary(entry) ? (
-                                    <span className="ticker-runtime-racing-detail">{racingEntrySummary(entry)}</span>
-                                  ) : null}
-                                </span>
-                                <span className="ticker-runtime-racing-status">{entry.winner ? 'WIN' : ''}</span>
-                              </div>
-                            ))}
-                          </div>
-
-                          {game?.nextRace?.label ? (
-                            <div className="ticker-runtime-racing-next-bar">
-                              <span className="ticker-runtime-racing-next-label">Next</span>
-                              <span className="ticker-runtime-racing-next-text">{game.nextRace.label}{game.nextRace.dateText ? ` • ${game.nextRace.dateText}` : ''}</span>
-                            </div>
-                          ) : null}
-                        </>
-                      ) : (
-                        game.cardStyle === 'large-logo' ? (
-                          // Large Logo theme (MLB reference + user spec): completely different from Standard.
-                          // Live: stacked large logos (away top) left + team-colored score box + diamond + inning/arrow + count + 3 yellow outs.
-                          // Postgame final: large left logo (dominant) with FINAL label at top, score at bottom, second logo on right.
-                          <div className="ticker-runtime-ll">
-                            {String(game?.state || '').toLowerCase() === 'in' && game.baseballLiveData ? (
-                              <div className="ll-live">
-                                {/* Left: large logos stacked vertically (visitor/away on top) */}
-                                <div className="ll-logos">
-                                  <div className="ll-logo ll-away">
-                                    {awayLogo ? (
-                                      <img src={awayLogo} alt={runtimeTeamName(away)} />
-                                    ) : (
-                                      <span className="ll-badge">{awayBadge}</span>
-                                    )}
-                                  </div>
-                                  <div className="ll-logo ll-home">
-                                    {homeLogo ? (
-                                      <img src={homeLogo} alt={runtimeTeamName(home)} />
-                                    ) : (
-                                      <span className="ll-badge">{homeBadge}</span>
-                                    )}
-                                  </div>
-                                </div>
-
-                                {/* Team colored score box (two bands using team primary colors) */}
-                                <div className="ll-scorebox">
-                                  <div
-                                    className="ll-score ll-away-score"
-                                    style={away?.palette?.primary ? { backgroundColor: away.palette.primary, color: '#fff' } : {}}
-                                  >
-                                    {away?.score ?? '-'}
-                                  </div>
-                                  <div
-                                    className="ll-score ll-home-score"
-                                    style={home?.palette?.primary ? { backgroundColor: home.palette.primary, color: '#fff' } : {}}
-                                  >
-                                    {home?.score ?? '-'}
-                                  </div>
-                                </div>
-
-                                {/* Diamond left, compact meta (inning | count + outs under count) right of it — text stays at diamond height, not low in card */}
-                                <div className="ll-side">
-                                  <div className="ll-baseball-field">
-                                    {/* Simple brown infield (dirt) as a visual layer underneath the bases */}
-                                    <div className="ll-infield"></div>
-
-                                    {/* Bases using the explicit top/left positioning from the CodePen you provided (direct children of the field) */}
-                                    <div className="base" id="second-base"></div>
-                                    <div className="base" id="first-base"></div>
-                                    <div className="base" id="third-base"></div>
-                                  </div>
-
-                                  <div className="ll-meta">
-                                    <div className="ll-inning-count">
-                                      <div className="ll-inning">
-                                        {game.baseballLiveData?.inning || '?'}
-                                        <span className="ll-arrow">
-                                          {(game.baseballLiveData?.halfInning || '').toLowerCase().startsWith('top') ? '▲' : '▼'}
-                                        </span>
-                                      </div>
-                                      <div className="ll-count">
-                                        {game.baseballLiveData?.balls ?? 0}-{game.baseballLiveData?.strikes ?? 0}
-                                      </div>
-                                    </div>
-                                    <div className="ll-outs">
-                                      {[0, 1, 2].map((i) => (
-                                        <span
-                                          key={i}
-                                          className={`ll-out ${i < (game.baseballLiveData?.outs || 0) ? 'filled' : ''}`}
-                                        />
-                                      ))}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            ) : String(game?.state || '').toLowerCase() === 'post' ? (
-                              /* FINAL — "FINAL" at very top of card, two large logos, score centered at bottom middle */
-                              <div className="ll-final">
-                                <div className="ll-final-top">FINAL</div>
-
-                                <div className="ll-final-logos">
-                                  <div className="ll-final-logo">
-                                    {awayLogo ? (
-                                      <img src={awayLogo} alt={runtimeTeamName(away)} />
-                                    ) : (
-                                      <span className="ll-badge ll-big">{awayBadge}</span>
-                                    )}
-                                  </div>
-                                  <div className="ll-final-logo">
-                                    {homeLogo ? (
-                                      <img src={homeLogo} alt={runtimeTeamName(home)} />
-                                    ) : (
-                                      <span className="ll-badge ll-big">{homeBadge}</span>
-                                    )}
-                                  </div>
-                                </div>
-
-                                <div className="ll-final-score-bottom">
-                                  {away?.score ?? '-'} — {home?.score ?? '-'}
-                                </div>
-                              </div>
-                            ) : (
-                              /* Non-live / scheduled / preview / postponed etc. for Large Logo — fancy matchup treatment */
-                              <div className="ll-scheduled">
-                                <div className="ll-sched-logos">
-                                  <div className="ll-logo ll-away ll-sched-logo">
-                                    {awayLogo ? (
-                                      <img src={awayLogo} alt={runtimeTeamName(away)} />
-                                    ) : (
-                                      <span className="ll-badge">{awayBadge}</span>
-                                    )}
-                                  </div>
-                                  <div className="ll-sched-vs">VS</div>
-                                  <div className="ll-logo ll-home ll-sched-logo">
-                                    {homeLogo ? (
-                                      <img src={homeLogo} alt={runtimeTeamName(home)} />
-                                    ) : (
-                                      <span className="ll-badge">{homeBadge}</span>
-                                    )}
-                                  </div>
-                                </div>
-
-                                <div className="ll-sched-time">
-                                  {game.runtimeDateText || 'TBD'}
-                                </div>
-
-                                {/* Only show interesting status (Postponed, Delayed, etc.) — never the generic "Scheduled" */}
-                                {game?.status?.detail && !/scheduled|pre/i.test(String(game.status.detail)) ? (
-                                  <div className="ll-sched-detail">{game.status.detail}</div>
-                                ) : null}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <>
-                            <div className="ticker-runtime-row ticker-runtime-row-away" style={game?.useTeamCardColors ? teamRowStyle(away) : undefined}>
-                              <div className="ticker-runtime-team">
-                                {awayLogo ? (
-                                  <img src={awayLogo} alt={runtimeTeamName(away)} />
-                                ) : (
-                                  <span className="ticker-runtime-team-mark" aria-hidden="true">{awayBadge}</span>
-                                )}
-                                <span className="ticker-runtime-team-name-block">
-                                  {game?.showStatRecords && teamRecordText(away) ? (
-                                    <span className="ticker-runtime-team-meta-row">
-                                      <span className="ticker-runtime-team-name">{runtimeTeamName(away)}</span>
-                                      <span className="ticker-runtime-team-record">{teamRecordText(away)}</span>
-                                    </span>
-                                  ) : (
-                                    <span className="ticker-runtime-team-name">{runtimeTeamName(away)}</span>
-                                  )}
-                                </span>
-                              </div>
-                              <span className="ticker-runtime-score-block">
-                                <strong className="ticker-runtime-score">{away?.score || '-'}</strong>
-                                {showAwayBaseDiamond ? (
-                                  <div className="ticker-runtime-baseball-diamond ticker-runtime-baseball-diamond-score" aria-label="Away team at bat">
-                                    <span className={`ticker-runtime-base ticker-runtime-base-second${game.baseballLiveData.onSecond ? ' is-occupied' : ''}`} />
-                                    <span className={`ticker-runtime-base ticker-runtime-base-first${game.baseballLiveData.onFirst ? ' is-occupied' : ''}`} />
-                                    <span className="ticker-runtime-base ticker-runtime-base-home" />
-                                    <span className={`ticker-runtime-base ticker-runtime-base-third${game.baseballLiveData.onThird ? ' is-occupied' : ''}`} />
-                                  </div>
-                                ) : null}
-                              </span>
-                            </div>
-
-                            <div className="ticker-runtime-divider" />
-
-                            <div className="ticker-runtime-row ticker-runtime-row-home" style={game?.useTeamCardColors ? teamRowStyle(home) : undefined}>
-                              <div className="ticker-runtime-team">
-                                {homeLogo ? (
-                                  <img src={homeLogo} alt={runtimeTeamName(home)} />
-                                ) : (
-                                  <span className="ticker-runtime-team-mark" aria-hidden="true">{homeBadge}</span>
-                                )}
-                                <span className="ticker-runtime-team-name-block">
-                                  {game?.showStatRecords && teamRecordText(home) ? (
-                                    <span className="ticker-runtime-team-meta-row">
-                                      <span className="ticker-runtime-team-name">{runtimeTeamName(home)}</span>
-                                      <span className="ticker-runtime-team-record">{teamRecordText(home)}</span>
-                                    </span>
-                                  ) : (
-                                    <span className="ticker-runtime-team-name">{runtimeTeamName(home)}</span>
-                                  )}
-                                </span>
-                              </div>
-                              <span className="ticker-runtime-score-block">
-                                <strong className="ticker-runtime-score">{home?.score || '-'}</strong>
-                                {showHomeBaseDiamond ? (
-                                  <div className="ticker-runtime-baseball-diamond ticker-runtime-baseball-diamond-score" aria-label="Home team at bat">
-                                    <span className={`ticker-runtime-base ticker-runtime-base-second${game.baseballLiveData.onSecond ? ' is-occupied' : ''}`} />
-                                    <span className={`ticker-runtime-base ticker-runtime-base-first${game.baseballLiveData.onFirst ? ' is-occupied' : ''}`} />
-                                    <span className="ticker-runtime-base ticker-runtime-base-home" />
-                                    <span className={`ticker-runtime-base ticker-runtime-base-third${game.baseballLiveData.onThird ? ' is-occupied' : ''}`} />
-                                  </div>
-                                ) : null}
-                              </span>
-                            </div>
-
-                            {game?.showLiveState && game?.baseballLiveData ? (
-                              <div className="ticker-runtime-baseball-situation-right" aria-label="Baseball live situation">
-                                <div className="ticker-runtime-baseball-live-text">
-                                  <p>
-                                    {[
-                                      game.baseballLiveData.outs !== null
-                                        ? `${game.baseballLiveData.outs} out${game.baseballLiveData.outs === 1 ? '' : 's'}`
-                                        : 'Live',
-                                      game.baseballLiveData.balls !== null && game.baseballLiveData.strikes !== null
-                                        ? `Count ${game.baseballLiveData.balls}-${game.baseballLiveData.strikes}`
-                                        : '',
-                                    ].filter(Boolean).join(' • ')}
-                                  </p>
-                                </div>
-                              </div>
-                            ) : null}
-
-                            {game?.runtimeDateText ? (
-                              <p className="ticker-runtime-game-date">{game.runtimeDateText}</p>
-                            ) : null}
-
-                            {Array.isArray(game?.detailStats) && game.detailStats.length ? (
-                              <div className="ticker-runtime-stats" aria-label="Game detail stats">
-                                {game.detailStats.map((item) => (
-                                  <p key={`${game.id || index}-${item.label}`} className="ticker-runtime-stat-item">
-                                    <span>{item.label}</span>
-                                    <strong>{item.value}</strong>
-                                  </p>
-                                ))}
-                              </div>
-                            ) : null}
-                          </>
-                        )
-                      )}
-
-                      <p className="ticker-runtime-meta">{game.cardInfo}</p>
-                    </article>
-                  )
-                })}
-              </div>
-            </div>
-
-            <footer className="ticker-runtime-lower" aria-label="Lower third">
-              {/* Left: League / Bar brand */}
-              <div className="ticker-runtime-lower-brand">
-                {resolveLeagueLogo(brandLeague, runtimePayloadByLeagueId[brandLeague?.id]) ? (
-                  <img
-                    src={resolveLeagueLogo(brandLeague, runtimePayloadByLeagueId[brandLeague?.id])}
-                    alt={brandLeague?.name || 'Ticker'}
-                  />
-                ) : (
-                  brandLeague?.name || 'Ticker'
-                )}
-              </div>
-
-              {/* Scrolling info area (sensors + future news) */}
-              <div className="ticker-runtime-lower-scroll">
-                <div className="ticker-runtime-lower-item">
-                  {(homeAssistantBoard?.haSensors || []).length
-                    ? homeAssistantBoard.haSensors.slice(0, 6).join('  •  ')
-                    : 'Home Assistant sensors not configured'}
-                  {/* Future: news items will be injected here and will scroll */}
-                </div>
-              </div>
-            </footer>
-          </section>
-        )}
-      </main>
+      <TickerRuntime
+        leagues={runtimeLeagues}
+        displayLeague={runtimeDisplayLeague}
+        renderLeague={runtimeRenderLeague}
+        brandLeague={brandLeague}
+        payloadByLeagueId={runtimePayloadByLeagueId}
+        games={runtimeMarqueeGames}
+        themeTokens={themeTokens}
+        shellStyle={shellStyle}
+        boardWidth={runtimeBoardWidth}
+        config={config}
+        watermarkUrl={tickerWatermarkUrl}
+        homeAssistantBoard={homeAssistantBoard}
+        initialPreFetchesComplete={initialPreFetchesComplete}
+        sportsBoard={sportsBoard}
+        sessionKey={runtimeLeagueIdsKey}
+        handoffGraceRef={handoffGraceRef}
+        scrolledThisSlotRef={scrolledThisSlotRef}
+        leagueSlotStartTimeRef={leagueSlotStartTimeRef}
+        currentSlotLeagueIdRef={currentSlotLeagueIdRef}
+        onAdvance={handleRuntimeAdvance}
+        onHandoffCheck={() => setHandoffCheckKey(k => k + 1)}
+      />
     )
   }
 

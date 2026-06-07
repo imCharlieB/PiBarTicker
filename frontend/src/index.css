@@ -64,12 +64,12 @@ html.kiosk-mode .ticker-runtime-board {
   overflow: hidden;
 }
 
-/* Ensure full viewport fill in kiosk for the bar display */
-html.kiosk-mode .ticker-runtime-shell {
+/* Ensure full viewport fill for the bar display (dev and kiosk) */
+.ticker-runtime-shell {
   height: 100vh;
   min-height: 100vh;
 }
 
-html.kiosk-mode .ticker-runtime-board {
-  height: 100% !important;
+.ticker-runtime-board {
+  height: 100%;
 }

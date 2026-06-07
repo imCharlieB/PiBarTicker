@@ -111,22 +111,6 @@ function App() {
   const runtimeRenderLeague = runtimeVisibleLeague || (runtimeMarqueeGames.length ? runtimeDisplayLeague : null)
   const brandLeague = runtimeRenderLeague || runtimeDisplayLeague || runtimeLeagues[0] || null
 
-  if (isLoading) {
-    return (
-      <main className="app-shell loading-shell">
-        <p className="status-chip">Loading setup configuration...</p>
-      </main>
-    )
-  }
-
-  if (error && !config) {
-    return (
-      <main className="app-shell loading-shell">
-        <p className="status-chip status-chip-error">{error}</p>
-      </main>
-    )
-  }
-
   const shellStyle = useMemo(() => ({
     '--page-bg': themeTokens?.pageBg,
     '--page-gradient': themeTokens?.pageGradient,
@@ -143,6 +127,22 @@ function App() {
     '--button-text': themeTokens?.buttonText,
     ...(tickerWatermarkUrl ? { '--ticker-watermark-url': `url(${tickerWatermarkUrl})` } : {}),
   }), [themeTokens, tickerWatermarkUrl])
+
+  if (isLoading) {
+    return (
+      <main className="app-shell loading-shell">
+        <p className="status-chip">Loading setup configuration...</p>
+      </main>
+    )
+  }
+
+  if (error && !config) {
+    return (
+      <main className="app-shell loading-shell">
+        <p className="status-chip status-chip-error">{error}</p>
+      </main>
+    )
+  }
 
   if (isTickerRuntime) {
     return (

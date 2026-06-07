@@ -242,6 +242,7 @@ while true; do
     --incognito \
     --no-first-run \
     --no-default-browser-check \
+    --password-store=basic \
     --window-size=${WIDTH},${HEIGHT} \
     --window-position=0,0 \
     --kiosk \

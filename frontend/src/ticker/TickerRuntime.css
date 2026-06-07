@@ -87,7 +87,7 @@
   height: 100%;
   background:
     radial-gradient(circle at 14% 38%, var(--card-accent-soft), transparent 62%),
-    linear-gradient(150deg, color-mix(in srgb, #0f1320 72%, var(--card-accent)), #070a12 58%, #090c15);
+    linear-gradient(150deg, var(--card-gradient-start, color-mix(in srgb, #0f1320 72%, var(--card-accent))), #070a12 58%, #090c15);
   box-shadow:
     0 12px 36px color-mix(in srgb, #000 58%, transparent),
     inset 0 0 0 1px color-mix(in srgb, #ffffff 6%, transparent);

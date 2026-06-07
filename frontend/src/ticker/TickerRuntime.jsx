@@ -6,7 +6,7 @@ import FootballCard from './FootballCard.jsx'
 import BasketballCard from './BasketballCard.jsx'
 import HockeyCard from './HockeyCard.jsx'
 import GameCard from './GameCard.jsx'
-import { sanitizeHexColor, rgbaFromHex } from './cardHelpers.js'
+import { sanitizeHexColor, rgbaFromHex, hexToRgb } from './cardHelpers.js'
 
 // ── TickerRuntime-only helpers ───────────────────────────────────────────────
 
@@ -23,10 +23,17 @@ function runtimeCardStyle(game, useTeamCardColors = false) {
   if (game?.isRacing || !useTeamCardColors) return undefined
   const homePrimary = sanitizeHexColor(game?.teams?.home?.palette?.primary || game?.teams?.home?.color)
   if (!homePrimary) return undefined
+  const rgb = hexToRgb(homePrimary)
+  // Pre-compute color-mix(in srgb, #0f1320 72%, card-accent) in JS so the GPU rasterizer
+  // never has to evaluate it — eliminates a repaint trigger on every Pi compositor tile.
+  const gradStart = rgb
+    ? `rgb(${Math.round(0x0f * 0.72 + rgb.r * 0.28)}, ${Math.round(0x13 * 0.72 + rgb.g * 0.28)}, ${Math.round(0x20 * 0.72 + rgb.b * 0.28)})`
+    : null
   return {
     '--card-accent': homePrimary,
     '--card-accent-soft': rgbaFromHex(homePrimary, 0.24),
     '--card-accent-glow': rgbaFromHex(homePrimary, 0.34),
+    ...(gradStart ? { '--card-gradient-start': gradStart } : {}),
   }
 }
 
@@ -277,8 +284,47 @@ function TickerRuntime({
       // Start GPU compositor animation — no per-frame JS from here
       startCSSAnimation(track, winW, scrollEndPx, dur, oneCopy, leagueId)
 
-      track.style.opacity = '1'
-      scrollReadyRef.current = true
+      // Collect all image URLs from this game slate.
+      // Images that finish decoding after the compositor layer's first rasterize
+      // trigger a full GPU re-rasterize of every tile (the white flash).
+      // Preloading with img.decode() ensures all textures are resident before reveal.
+      const imageUrls = []
+      for (const game of games) {
+        if (game?._spacer) continue
+        if (game?.isRacing) {
+          for (const entry of (game.racingEntries ?? [])) {
+            if (entry?.flag?.href) imageUrls.push(entry.flag.href)
+          }
+        } else {
+          if (game?.teams?.home?.logo) imageUrls.push(game.teams.home.logo)
+          if (game?.teams?.away?.logo) imageUrls.push(game.teams.away.logo)
+        }
+      }
+      const uniqueUrls = [...new Set(imageUrls.filter(Boolean))]
+
+      let shown = false
+      const showTrack = () => {
+        if (shown || !trackRef.current || currentSlotLeagueIdRef.current !== leagueId) return
+        shown = true
+        trackRef.current.style.opacity = '1'
+        scrollReadyRef.current = true
+      }
+
+      if (uniqueUrls.length === 0) {
+        showTrack()
+        return
+      }
+
+      // Reveal once all images are decoded — fallback after 1500ms so the ticker
+      // never hangs if a CDN image is slow or unreachable.
+      const fallbackTimer = setTimeout(showTrack, 1500)
+      Promise.all(
+        uniqueUrls.map(url => {
+          const img = new Image()
+          img.src = url
+          return img.decode ? img.decode().catch(() => {}) : new Promise(res => { img.onload = res; img.onerror = res })
+        })
+      ).then(() => { clearTimeout(fallbackTimer); showTrack() })
     }
 
     const raf1 = window.requestAnimationFrame(() => window.requestAnimationFrame(runMeasure))

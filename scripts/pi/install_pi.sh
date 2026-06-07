@@ -219,11 +219,54 @@ LABWC_EOF
 chmod +x "${LABWC_AUTOSTART}"
 
 # Hide the cursor for kiosk mode.
-# Two layers:
-#  1. rc.xml  — sets labwc cursor size to 0 (compositor-level, hides the wlroots HW cursor)
-#  2. environment file — sets XCURSOR_SIZE=0 so every Wayland client (including Chromium)
-#     also requests a 0-size cursor, which wlroots renders as invisible.
-# unclutter is X11-only and doesn't work under pure Wayland/Labwc.
+# XCURSOR_SIZE=0 is not reliable — wlroots treats 0 as "use default size."
+# The correct approach is a blank cursor theme: all cursor files are valid Xcursor
+# binaries but contain a single 1x1 fully-transparent pixel. When wlroots renders
+# any cursor from this theme it displays nothing. We generate the theme with Python
+# (no extra packages) and point labwc at it via the environment file and rc.xml.
+echo "Creating blank cursor theme for kiosk (hides cursor on Wayland)..."
+BLANK_THEME_DIR="/usr/share/icons/kiosk-no-cursor"
+BLANK_CURSOR_DIR="${BLANK_THEME_DIR}/cursors"
+mkdir -p "${BLANK_CURSOR_DIR}"
+python3 - "${BLANK_CURSOR_DIR}" <<'PY'
+import struct, sys, os
+
+cursor_dir = sys.argv[1]
+
+def make_xcursor():
+    """Minimal Xcursor file: one 1x1 fully-transparent image frame."""
+    IMAGE_TYPE = 0xfffd0002
+    nominal = 1
+    # Image chunk: header (36 bytes) + 1 ARGB pixel (4 bytes)
+    chunk = struct.pack('<IIIIIIIII', 36, IMAGE_TYPE, nominal, 1, 1, 1, 0, 0, 50)
+    chunk += struct.pack('<I', 0x00000000)          # transparent pixel
+    file_header = b'Xcur' + struct.pack('<III', 16, 1, 1)
+    toc = struct.pack('<III', IMAGE_TYPE, nominal, 28)  # image starts at byte 28
+    return file_header + toc + chunk
+
+data = make_xcursor()
+names = [
+    'default', 'left_ptr', 'text', 'xterm', 'ibeam',
+    'hand1', 'hand2', 'pointing_hand', 'pointer',
+    'move', 'fleur', 'crosshair', 'cross',
+    'wait', 'watch', 'progress', 'half-busy',
+    'n-resize', 's-resize', 'e-resize', 'w-resize',
+    'nw-resize', 'ne-resize', 'sw-resize', 'se-resize',
+    'ns-resize', 'ew-resize', 'nwse-resize', 'nesw-resize',
+    'col-resize', 'row-resize', 'all-scroll',
+    'not-allowed', 'no-drop', 'grabbing', 'grab',
+    'zoom-in', 'zoom-out',
+]
+for name in names:
+    with open(os.path.join(cursor_dir, name), 'wb') as f:
+        f.write(data)
+print(f"Created {len(names)} blank cursor files in {cursor_dir}")
+PY
+printf '[Icon Theme]\nName=kiosk-no-cursor\nComment=Blank cursor theme for kiosk\n' \
+  > "${BLANK_THEME_DIR}/index.theme"
+echo "Blank cursor theme ready at ${BLANK_THEME_DIR}."
+
+# rc.xml: tell labwc to use the blank cursor theme (only create if not already present)
 LABWC_RC="${APP_HOME}/.config/labwc/rc.xml"
 if [[ ! -f "${LABWC_RC}" ]]; then
   cat > "${LABWC_RC}" <<'LABWC_RC_EOF'
@@ -231,22 +274,23 @@ if [[ ! -f "${LABWC_RC}" ]]; then
 <openbox_config xmlns="http://openbox.org/3.4/rc">
   <theme>
     <cursor>
-      <size>0</size>
+      <theme>kiosk-no-cursor</theme>
+      <size>24</size>
     </cursor>
   </theme>
 </openbox_config>
 LABWC_RC_EOF
-  echo "Created labwc rc.xml with cursor size 0."
+  echo "Created labwc rc.xml pointing to blank cursor theme."
 else
-  echo "labwc rc.xml already exists; skipping (add <cursor><size>0</size></cursor> under <theme> manually if cursor is visible)."
+  echo "labwc rc.xml already exists; skipping rc.xml cursor config."
 fi
 
+# environment file: set XCURSOR_THEME so every Wayland client also picks up the blank theme
 LABWC_ENV="${APP_HOME}/.config/labwc/environment"
 touch "${LABWC_ENV}"
-if ! grep -q "XCURSOR_SIZE" "${LABWC_ENV}"; then
-  echo "XCURSOR_SIZE=0" >> "${LABWC_ENV}"
-  echo "Set XCURSOR_SIZE=0 in labwc environment (hides cursor on Wayland)."
-fi
+sed -i '/^XCURSOR_SIZE=/d; /^XCURSOR_THEME=/d' "${LABWC_ENV}" 2>/dev/null || true
+printf 'XCURSOR_THEME=kiosk-no-cursor\nXCURSOR_SIZE=24\n' >> "${LABWC_ENV}"
+echo "Set XCURSOR_THEME=kiosk-no-cursor in labwc environment."
 
 chown -R "${APP_USER}:${APP_USER}" "${APP_HOME}/.config"
 chmod +x "${APP_DIR}/scripts/pi/launch-kiosk.sh"

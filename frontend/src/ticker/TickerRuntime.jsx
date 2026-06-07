@@ -348,7 +348,7 @@ export default function TickerRuntime({
         >
           <div className="ticker-runtime-marquee-window" ref={windowRef}>
             <div
-              key={`marquee-${renderLeague?.id || 'none'}`}
+              key={`marquee-${displayLeague?.id || 'none'}`}
               className="ticker-runtime-track"
               ref={trackRef}
               role="list"

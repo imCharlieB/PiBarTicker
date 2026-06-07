@@ -18,33 +18,37 @@ function App() {
   const searchParams =
     typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams()
   const explicitView = String(searchParams.get('view') || '').trim().toLowerCase()
+  const isKioskParam = searchParams.get('kiosk') === '1'
   const isSetupRoute = pathname.startsWith('/setup') || explicitView === 'setup'
   const isTickerRoute =
     pathname === '/'
     || pathname.startsWith('/ticker')
     || pathname.startsWith('/runtime')
     || explicitView === 'ticker'
-    || searchParams.get('kiosk') === '1'
+    || isKioskParam
   const isTickerRuntime = isTickerRoute && !isSetupRoute
 
   useEffect(() => {
     const root = document.documentElement
     const body = document.body
     if (isTickerRuntime) {
-      root.classList.add('kiosk-mode')
       root.style.overflow = 'hidden'
       if (body) body.style.overflow = 'hidden'
     } else {
-      root.classList.remove('kiosk-mode')
       root.style.overflow = ''
       if (body) body.style.overflow = ''
+    }
+    if (isKioskParam) {
+      root.classList.add('kiosk-mode')
+    } else {
+      root.classList.remove('kiosk-mode')
     }
     return () => {
       root.classList.remove('kiosk-mode')
       root.style.overflow = ''
       if (body) body.style.overflow = ''
     }
-  }, [isTickerRuntime])
+  }, [isTickerRuntime, isKioskParam])
 
   const {
     config, savedConfig, isLoading, error, notice,

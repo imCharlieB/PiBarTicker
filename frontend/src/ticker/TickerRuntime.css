@@ -54,18 +54,15 @@
   width: max-content;
   padding: 0 0.2rem;
   align-items: stretch;
-  /* Prevent any sub-pixel overflow that can trigger scrollbars on Pi */
+  /* Prevent sub-pixel overflow from triggering scrollbars on Pi */
   contain: layout style paint;
-}
-
-.ticker-runtime-track-animated {
-  /* Scrolling driven by element.animate() (Web Animations API) in TickerRuntime.jsx.
-     Runs on the GPU compositor thread — zero per-frame JS, zero style-recalc.
-     JS touches the DOM once per league slot to start the animation. */
+  /* Scrolling driven by element.animate() — GPU compositor thread, zero per-frame JS.
+     opacity and transform are written directly to the DOM (never via React state)
+     so Chrome never invalidates the compositor layer textures during animation. */
+  opacity: 0;
   will-change: transform;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  contain: layout style paint;
 }
 
 .ticker-runtime-card {

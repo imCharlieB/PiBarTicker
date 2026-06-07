@@ -91,11 +91,9 @@ export default function TickerRuntime({
   onHandoffCheck,
 }) {
   // ── Internal state ──────────────────────────────────────────────────────
-  const [scrollReady, setScrollReady] = useState(false)
-  const [trackWidth, setTrackWidth] = useState(0)
-  const [windowWidth, setWindowWidth] = useState(0)
+  // Only watermarkSize needs to be React state (it drives a CSS var on the shell).
+  // Everything else that used to be state is now a ref — no re-renders during animation.
   const [watermarkSize, setWatermarkSize] = useState('82%')
-  const [slotDuration, setSlotDuration] = useState(30000)
   // ── DOM refs ────────────────────────────────────────────────────────────
   const trackRef = useRef(null)
   const windowRef = useRef(null)
@@ -108,6 +106,8 @@ export default function TickerRuntime({
   const advanceTimerRef = useRef(null) // backup setTimeout in case onfinish doesn't fire
   const trackWidthRef = useRef(0)
   const windowWidthRef = useRef(0)
+  // scrollReadyRef: track visibility driven by direct DOM writes — no React state, no re-renders
+  const scrollReadyRef = useRef(false)
 
   // ── Slot-tracking refs ──────────────────────────────────────────────────
   const didInitialLateMeasureRef = useRef(false)
@@ -141,7 +141,7 @@ export default function TickerRuntime({
     if (liveTrack) liveTrack.style.opacity = '0'
     stopCSSAnimation()
     scrolledThisSlotRef.current = oneCopy
-    setScrollReady(false)
+    scrollReadyRef.current = false
     setTimeout(() => {
       onAdvanceRef.current()
       scrolledThisSlotRef.current = 0
@@ -179,18 +179,17 @@ export default function TickerRuntime({
   // ── Session reset: new ticker session or league-set change ──────────────
   useEffect(() => {
     didInitialLateMeasureRef.current = false
-    setScrollReady(false)
+    scrollReadyRef.current = false
     stopCSSAnimation()
-    setTrackWidth(0)
-    setWindowWidth(0)
-    setSlotDuration(((sportsBoard?.rotateSeconds) || 30) * 1000)
     trackWidthRef.current = 0
     windowWidthRef.current = 0
+    slotDurationRef.current = ((sportsBoard?.rotateSeconds) || 30) * 1000
+    if (trackRef.current) trackRef.current.style.opacity = '0'
   }, [sessionKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Stop animation on league change (cleanup) ───────────────────────────
   useEffect(() => {
-    if (!scrollReady) stopCSSAnimation()
+    if (!scrollReadyRef.current) stopCSSAnimation()
     return () => stopCSSAnimation()
   }, [displayLeague?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -198,10 +197,11 @@ export default function TickerRuntime({
   useLayoutEffect(() => {
     if (!displayLeague) return
     stopCSSAnimation()
-    setScrollReady(false)
+    scrollReadyRef.current = false
     hasStartedRef.current = false
     windowWidthRef.current = boardWidth
     if (trackRef.current) {
+      trackRef.current.style.opacity = '0'
       trackRef.current.style.transform = `translateX(${boardWidth}px) translateZ(0)`
     }
     leagueSlotStartTimeRef.current = 0
@@ -238,8 +238,6 @@ export default function TickerRuntime({
 
       trackWidthRef.current = oneCopy
       windowWidthRef.current = winW
-      setTrackWidth(oneCopy)
-      setWindowWidth(winW)
 
       const pxPerSec = 110
       const baseDur = ((sportsBoard?.rotateSeconds) || 30) * 1000
@@ -265,13 +263,12 @@ export default function TickerRuntime({
       leagueSlotStartTimeRef.current = performance.now()
       slotDurationRef.current = dur
       scrolledThisSlotRef.current = 0
-      setSlotDuration(dur)
 
       // Start GPU compositor animation — no per-frame JS from here
       startCSSAnimation(track, winW, scrollEndPx, dur, oneCopy, leagueId)
 
       track.style.opacity = '1'
-      setScrollReady(true)
+      scrollReadyRef.current = true
     }
 
     const raf1 = window.requestAnimationFrame(() => window.requestAnimationFrame(runMeasure))
@@ -350,13 +347,10 @@ export default function TickerRuntime({
           <div className="ticker-runtime-marquee-window" ref={windowRef}>
             <div
               key={`marquee-${renderLeague?.id || 'none'}`}
-              className={`ticker-runtime-track ${scrollReady ? 'ticker-runtime-track-animated' : ''}`}
+              className="ticker-runtime-track"
               ref={trackRef}
               role="list"
               aria-label="Ticker games"
-              style={{
-                opacity: scrollReady ? 1 : 0,
-              }}
             >
               {seamlessGames.map((item, index) => {
                 if (item && item._spacer) {

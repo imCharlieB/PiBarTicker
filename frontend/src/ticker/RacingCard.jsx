@@ -7,19 +7,19 @@ import {
   racingTelemetryFallback,
 } from './cardHelpers.js'
 
-function DriverBox({ entry, index, gameId, isFinished }) {
+function DriverBox({ entry, index, gameId }) {
   const pos = entry.position ?? index + 1
   const stat = racingEntrySummary(entry) || entry.score || ''
+  const podiumClass = pos === 1 ? 'ticker-runtime-racing-driver-card-p1'
+    : pos === 2 ? 'ticker-runtime-racing-driver-card-p2'
+    : pos === 3 ? 'ticker-runtime-racing-driver-card-p3'
+    : ''
   return (
     <div
-      className={[
-        'ticker-runtime-racing-driver-card',
-        entry.winner ? 'ticker-runtime-racing-driver-card-p1' : '',
-        pos === 1 && isFinished ? 'ticker-runtime-racing-driver-card-p1' : '',
-      ].filter(Boolean).join(' ')}
+      className={['ticker-runtime-racing-driver-card', podiumClass].filter(Boolean).join(' ')}
       key={`${gameId}-box-${entry.id || index}`}
     >
-      <span className="ticker-runtime-racing-card-pos">P{pos}</span>
+      <span className="ticker-runtime-racing-card-pos">{pos}</span>
       {entry.flag?.href ? (
         <img
           className="ticker-runtime-racing-card-flag"
@@ -108,7 +108,6 @@ export default function RacingCard({ game, isSoloSlate, renderLeague }) {
             entry={entry}
             index={i}
             gameId={game.id}
-            isFinished={isFinishedRace}
           />
         ))}
       </div>

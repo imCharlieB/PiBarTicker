@@ -957,13 +957,14 @@
   align-items: center;
   gap: 0.5rem;
   flex-shrink: 0;
-  min-width: 0;
+  padding-bottom: 0.22rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 20%, #1c2232);
 }
 
 .ticker-runtime-racing-bar-left {
   display: flex;
   flex-direction: column;
-  gap: 0.04rem;
+  gap: 0.06rem;
   min-width: 0;
   flex: 1 1 auto;
   overflow: hidden;
@@ -972,62 +973,66 @@
 .ticker-runtime-racing-bar-right {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.32rem;
   flex-shrink: 0;
 }
 
 .ticker-runtime-racing-bar-title {
-  font-size: clamp(1rem, 1.6vw, 1.35rem);
+  font-size: clamp(1rem, 1.8vw, 1.5rem);
   font-weight: 900;
-  color: #f5f7fb;
+  color: #eef4ff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.15;
+  line-height: 1.1;
 }
 
+/* State pills */
 .ticker-runtime-racing-state-pill {
-  padding: 0.1rem 0.45rem;
-  border-radius: 0.22rem;
-  font-size: 0.72rem;
+  padding: 0.1rem 0.48rem;
+  border-radius: 0.18rem;
+  font-size: 0.66rem;
   font-weight: 900;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
 .ticker-runtime-racing-state-pill-live {
-  color: #d0ffea;
-  background: linear-gradient(90deg, color-mix(in srgb, #00ff88 28%, #091208), color-mix(in srgb, var(--accent) 22%, #0c1118));
+  color: #a8ffd0;
+  background: #071610;
+  border: 1px solid #14472a;
 }
 
 .ticker-runtime-racing-state-pill-final {
-  color: #c8e4ff;
-  background: color-mix(in srgb, var(--accent) 18%, #0d1520);
-  border: 1px solid color-mix(in srgb, var(--accent) 28%, #1a2230);
+  color: #9bbcd8;
+  background: #080e18;
+  border: 1px solid #1a2840;
 }
 
 .ticker-runtime-racing-state-pill-grid {
-  color: #ffe8a0;
-  background: linear-gradient(90deg, color-mix(in srgb, #ffc000 22%, #120e04), color-mix(in srgb, var(--accent) 14%, #100e00));
+  color: #ffe080;
+  background: #100d00;
+  border: 1px solid #3e2e00;
 }
 
 .ticker-runtime-racing-tv-pill {
-  padding: 0.1rem 0.4rem;
-  border-radius: 0.22rem;
-  font-size: 0.7rem;
+  padding: 0.1rem 0.42rem;
+  border-radius: 0.18rem;
+  font-size: 0.66rem;
   font-weight: 800;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   white-space: nowrap;
-  color: #cfffe1;
-  background: color-mix(in srgb, #00c060 14%, #091210);
-  border: 1px solid color-mix(in srgb, #00c060 22%, #0d1a14);
+  color: #9dffcc;
+  background: #071410;
+  border: 1px solid #143824;
 }
 
 /* Racing — driver card strip */
 .ticker-runtime-racing-strip {
   display: flex;
   flex-direction: row;
-  gap: 0.3rem;
+  gap: 0.28rem;
   flex: 1;
   min-height: 0;
   align-items: stretch;
@@ -1037,60 +1042,96 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: space-evenly;
-  gap: 0.1rem;
-  min-width: 6.8rem;
-  padding: 0.3rem 0.25rem;
-  border-radius: 0.4rem;
-  background: color-mix(in srgb, #0e1320 88%, var(--accent));
-  border: 1px solid color-mix(in srgb, var(--accent) 22%, #1a2030);
+  justify-content: center;
+  gap: 0.2rem;
+  min-width: 6.6rem;
+  padding: 0.35rem 0.3rem;
+  border-radius: 0.45rem;
+  background: linear-gradient(170deg, #10161f, #0b0e16);
+  border: 1px solid #1b2335;
   overflow: hidden;
+  position: relative;
 }
 
+/* Subtle accent line at top of every card */
+.ticker-runtime-racing-driver-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 12%;
+  right: 12%;
+  height: 2px;
+  border-radius: 0 0 3px 3px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 55%, transparent), transparent);
+}
+
+/* Podium cards — gold / silver / bronze */
 .ticker-runtime-racing-driver-card-p1 {
-  background: linear-gradient(170deg, color-mix(in srgb, var(--accent) 32%, #0e1320), color-mix(in srgb, #0e1320 88%, var(--accent)));
-  border-color: color-mix(in srgb, var(--accent) 52%, #1a2030);
+  background: linear-gradient(170deg, #18140a, #0e0b06);
+  border-color: #332800;
+}
+.ticker-runtime-racing-driver-card-p1::before {
+  background: linear-gradient(90deg, transparent, #e8c000, transparent);
 }
 
+.ticker-runtime-racing-driver-card-p2 {
+  background: linear-gradient(170deg, #131820, #0c1018);
+  border-color: #243040;
+}
+.ticker-runtime-racing-driver-card-p2::before {
+  background: linear-gradient(90deg, transparent, #90a8c0, transparent);
+}
+
+.ticker-runtime-racing-driver-card-p3 {
+  background: linear-gradient(170deg, #170f08, #0e0a06);
+  border-color: #2e1808;
+}
+.ticker-runtime-racing-driver-card-p3::before {
+  background: linear-gradient(90deg, transparent, #b07040, transparent);
+}
+
+/* Position number */
 .ticker-runtime-racing-card-pos {
-  font-size: clamp(1.4rem, 2.8vw, 2.1rem);
+  font-size: clamp(1.6rem, 2.8vw, 2.2rem);
   font-weight: 900;
-  letter-spacing: 0.02em;
-  color: #8fd7ff;
+  letter-spacing: -0.03em;
+  color: #3a6898;
   line-height: 1;
 }
 
-.ticker-runtime-racing-driver-card-p1 .ticker-runtime-racing-card-pos {
-  color: color-mix(in srgb, var(--accent) 90%, #e0f8ff);
-}
+.ticker-runtime-racing-driver-card-p1 .ticker-runtime-racing-card-pos { color: #e8c000; }
+.ticker-runtime-racing-driver-card-p2 .ticker-runtime-racing-card-pos { color: #8aaac4; }
+.ticker-runtime-racing-driver-card-p3 .ticker-runtime-racing-card-pos { color: #a86830; }
 
 .ticker-runtime-racing-card-flag {
-  width: 1.6rem;
-  height: 1.1rem;
+  width: 2.2rem;
+  height: 1.46rem;
   object-fit: cover;
-  border-radius: 0.12rem;
+  border-radius: 0.14rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55);
 }
 
 .ticker-runtime-racing-card-flag-placeholder {
-  width: 1.6rem;
-  height: 1.1rem;
+  width: 2.2rem;
+  height: 1.46rem;
 }
 
 .ticker-runtime-racing-card-name {
-  font-size: clamp(0.88rem, 1.3vw, 1.05rem);
+  font-size: clamp(0.95rem, 1.5vw, 1.2rem);
   font-weight: 800;
-  color: #f0f6ff;
+  color: #ddeeff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
   text-align: center;
+  line-height: 1.1;
 }
 
 .ticker-runtime-racing-card-team {
-  font-size: clamp(0.7rem, 0.9vw, 0.82rem);
-  font-weight: 700;
-  color: color-mix(in srgb, #aac8e8 80%, var(--accent));
+  font-size: clamp(0.68rem, 0.95vw, 0.8rem);
+  font-weight: 600;
+  color: #4e7098;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1099,9 +1140,9 @@
 }
 
 .ticker-runtime-racing-card-stat {
-  font-size: clamp(0.72rem, 1vw, 0.88rem);
+  font-size: clamp(0.74rem, 1.05vw, 0.88rem);
   font-weight: 700;
-  color: color-mix(in srgb, #d4eeff 80%, var(--accent));
+  color: #6898bc;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

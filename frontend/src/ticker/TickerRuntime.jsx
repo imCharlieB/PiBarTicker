@@ -70,6 +70,49 @@ function LiveClock() {
   return <>{time}</>
 }
 
+// ── MemoizedCard — stable article wrapper ────────────────────────────────────
+// Defined at module scope (not inside TickerRuntime) so React sees the same
+// component type across renders. memo() prevents re-render when game data,
+// isSoloSlate, and renderLeague haven't changed — keeping <img> DOM nodes alive
+// so the browser never has to re-decode textures that are already in GPU memory.
+const MemoizedCard = memo(function MemoizedCard({
+  game, isSoloSlate, isDuoSlate, isFirstCardForMeasure,
+  CardComponent, firstCardRef, renderLeague,
+}) {
+  const sportToken = cssToken(game?.sport, 'generic')
+  const stateToken = cssToken(game?.state, 'unknown')
+  return (
+    <article
+      ref={isFirstCardForMeasure ? firstCardRef : null}
+      className={[
+        'ticker-runtime-card',
+        `ticker-runtime-card-sport-${sportToken}`,
+        `ticker-runtime-card-state-${stateToken}`,
+        `ticker-runtime-card-style-${game.cardStyle || 'standard'}`,
+        isSoloSlate ? 'ticker-runtime-card-solo' : '',
+        isDuoSlate ? 'ticker-runtime-card-duo' : '',
+        game?.isRacing ? 'ticker-runtime-card-racing' : '',
+        game?.isRacing && isSoloSlate ? 'ticker-runtime-card-racing-solo' : '',
+        game?.isLiveFeatured ? `ticker-runtime-card-live ticker-runtime-card-live-${game.liveTheme || 'generic'}` : '',
+        game?.useTeamCardColors ? 'ticker-runtime-card-use-team-colors' : '',
+      ].filter(Boolean).join(' ')}
+      style={runtimeCardStyle(game, game?.useTeamCardColors)}
+      role="listitem"
+      data-card-style={game.cardStyle || 'standard'}
+    >
+      {game?.isLiveFeatured ? (
+        <p className="ticker-runtime-live-flag">LIVE</p>
+      ) : null}
+      {game?.isRacing ? (
+        <RacingCard game={game} isSoloSlate={isSoloSlate} renderLeague={renderLeague} />
+      ) : (
+        <CardComponent game={game} />
+      )}
+      <p className="ticker-runtime-meta">{game.cardInfo}</p>
+    </article>
+  )
+})
+
 // ── TickerRuntime ────────────────────────────────────────────────────────────
 
 function TickerRuntime({
@@ -424,44 +467,23 @@ function TickerRuntime({
                 const game = item
                 const isSoloSlate = games.length === 1
                 const isDuoSlate = games.length === 2
-                const sportToken = cssToken(game?.sport, 'generic')
-                const stateToken = cssToken(game?.state, 'unknown')
-                const isFirstCardForMeasure = !item._spacer && index === 0
-
+                const isFirstCardForMeasure = index === 0
                 const CardComponent = pickCardComponent(game)
+                // Stable key without -${index}: prevents DOM destruction when array order changes.
+                // Any reorder would flip the index suffix, destroying <img> nodes and forcing re-decode.
+                const cardKey = game.id || `${game?.teams?.away?.id || ''}-${game?.teams?.home?.id || ''}-${game?.startTimeUtc || ''}`
 
                 return (
-                  <article
-                    key={`${game.id || `${game?.teams?.away?.id}-${game?.teams?.home?.id}-${game?.startTimeUtc || ''}`}-${index}`}
-                    ref={isFirstCardForMeasure ? firstCardRef : null}
-                    className={[
-                      'ticker-runtime-card',
-                      `ticker-runtime-card-sport-${sportToken}`,
-                      `ticker-runtime-card-state-${stateToken}`,
-                      `ticker-runtime-card-style-${game.cardStyle || 'standard'}`,
-                      isSoloSlate ? 'ticker-runtime-card-solo' : '',
-                      isDuoSlate ? 'ticker-runtime-card-duo' : '',
-                      game?.isRacing ? 'ticker-runtime-card-racing' : '',
-                      game?.isRacing && isSoloSlate ? 'ticker-runtime-card-racing-solo' : '',
-                      game?.isLiveFeatured ? `ticker-runtime-card-live ticker-runtime-card-live-${game.liveTheme || 'generic'}` : '',
-                      game?.useTeamCardColors ? 'ticker-runtime-card-use-team-colors' : '',
-                    ].filter(Boolean).join(' ')}
-                    style={runtimeCardStyle(game, game?.useTeamCardColors)}
-                    role="listitem"
-                    data-card-style={game.cardStyle || 'standard'}
-                  >
-                    {game?.isLiveFeatured ? (
-                      <p className="ticker-runtime-live-flag">LIVE</p>
-                    ) : null}
-
-                    {game?.isRacing ? (
-                      <RacingCard game={game} isSoloSlate={isSoloSlate} renderLeague={renderLeague} />
-                    ) : (
-                      <CardComponent game={game} />
-                    )}
-
-                    <p className="ticker-runtime-meta">{game.cardInfo}</p>
-                  </article>
+                  <MemoizedCard
+                    key={cardKey}
+                    game={game}
+                    isSoloSlate={isSoloSlate}
+                    isDuoSlate={isDuoSlate}
+                    isFirstCardForMeasure={isFirstCardForMeasure}
+                    CardComponent={CardComponent}
+                    firstCardRef={firstCardRef}
+                    renderLeague={renderLeague}
+                  />
                 )
               })}
             </div>

@@ -25,6 +25,8 @@ function DriverBox({ entry, index, gameId }) {
           className="ticker-runtime-racing-card-flag"
           src={entry.flag.href}
           alt={entry.flag.alt || entry.name || ''}
+          loading="eager"
+          decoding="sync"
         />
       ) : (
         <span className="ticker-runtime-racing-card-flag-placeholder" />

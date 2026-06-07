@@ -23,12 +23,12 @@ export default function BaseballCard({ game }) {
             <div className="ll-logos">
               <div className="ll-logo ll-away">
                 {awayLogo
-                  ? <img src={awayLogo} alt={runtimeTeamName(away)} />
+                  ? <img src={awayLogo} alt={runtimeTeamName(away)} loading="eager" decoding="sync" />
                   : <span className="ll-badge">{awayBadge}</span>}
               </div>
               <div className="ll-logo ll-home">
                 {homeLogo
-                  ? <img src={homeLogo} alt={runtimeTeamName(home)} />
+                  ? <img src={homeLogo} alt={runtimeTeamName(home)} loading="eager" decoding="sync" />
                   : <span className="ll-badge">{homeBadge}</span>}
               </div>
             </div>
@@ -88,12 +88,12 @@ export default function BaseballCard({ game }) {
             <div className="ll-final-logos">
               <div className="ll-final-logo">
                 {awayLogo
-                  ? <img src={awayLogo} alt={runtimeTeamName(away)} />
+                  ? <img src={awayLogo} alt={runtimeTeamName(away)} loading="eager" decoding="sync" />
                   : <span className="ll-badge ll-big">{awayBadge}</span>}
               </div>
               <div className="ll-final-logo">
                 {homeLogo
-                  ? <img src={homeLogo} alt={runtimeTeamName(home)} />
+                  ? <img src={homeLogo} alt={runtimeTeamName(home)} loading="eager" decoding="sync" />
                   : <span className="ll-badge ll-big">{homeBadge}</span>}
               </div>
             </div>

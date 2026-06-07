@@ -18,12 +18,12 @@ export default function GameCard({ game }) {
             <div className="ll-final-logos">
               <div className="ll-final-logo">
                 {awayLogo
-                  ? <img src={awayLogo} alt={runtimeTeamName(away)} />
+                  ? <img src={awayLogo} alt={runtimeTeamName(away)} loading="eager" decoding="sync" />
                   : <span className="ll-badge ll-big">{awayBadge}</span>}
               </div>
               <div className="ll-final-logo">
                 {homeLogo
-                  ? <img src={homeLogo} alt={runtimeTeamName(home)} />
+                  ? <img src={homeLogo} alt={runtimeTeamName(home)} loading="eager" decoding="sync" />
                   : <span className="ll-badge ll-big">{homeBadge}</span>}
               </div>
             </div>

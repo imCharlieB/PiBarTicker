@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import './TickerRuntime.css'
 import RacingCard from './RacingCard.jsx'
 import BaseballCard from './BaseballCard.jsx'
@@ -65,7 +65,7 @@ function LiveClock() {
 
 // ── TickerRuntime ────────────────────────────────────────────────────────────
 
-export default function TickerRuntime({
+function TickerRuntime({
   leagues,
   displayLeague,
   renderLeague,
@@ -438,3 +438,5 @@ export default function TickerRuntime({
     </main>
   )
 }
+
+export default memo(TickerRuntime)

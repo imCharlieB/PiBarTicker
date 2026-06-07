@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import './App.css'
 import { deriveThemeTokens } from './themeTokens'
 import TickerRuntime from './ticker/TickerRuntime'
@@ -63,10 +63,18 @@ function App() {
     handoffGraceRef, scrolledThisSlotRef, leagueSlotStartTimeRef, currentSlotLeagueIdRef,
   } = useAppContext()
 
+  const onHandoffCheck = useCallback(() => setHandoffCheckKey(k => k + 1), [setHandoffCheckKey])
+
   const sportsBoard = config?.boards.find((board) => board.type === 'sports')
   const homeAssistantBoard = config?.boards.find((board) => board.type === 'home-assistant')
-  const themeTokens = config ? deriveThemeTokens(config.theme, { sportsBoard, leagueLogoMetaById }) : null
-  const runtimeLeagues = sportsBoard?.leagues.filter((league) => league.enabled) ?? []
+  const themeTokens = useMemo(
+    () => config ? deriveThemeTokens(config.theme, { sportsBoard, leagueLogoMetaById }) : null,
+    [config?.theme, sportsBoard, leagueLogoMetaById], // eslint-disable-line react-hooks/exhaustive-deps
+  )
+  const runtimeLeagues = useMemo(
+    () => sportsBoard?.leagues.filter((league) => league.enabled) ?? [],
+    [sportsBoard?.leagues], // eslint-disable-line react-hooks/exhaustive-deps
+  )
   const runtimeLeagueIdsKey = runtimeLeagues.map((league) => league.id).join('|')
   const runtimeBoardWidth = Math.max(320, Number(config?.monitor?.width) || 1920)
 
@@ -81,32 +89,26 @@ function App() {
   const activeRuntimePayload = runtimeDisplayLeague
     ? runtimePayloadByLeagueId[runtimeDisplayLeague.id] || null
     : null
-  const activeRuntimeGames = Array.isArray(activeRuntimePayload?.normalizedGames)
-    ? activeRuntimePayload.normalizedGames
-    : []
-  const stableForDisplayLeague = runtimeDisplayLeague
-    ? (stableGoodGamesByLeagueId[runtimeDisplayLeague.id] || [])
-    : []
-  const activeRuntimeRawEvents = Array.isArray(activeRuntimePayload?.scoreboard?.events)
-    ? activeRuntimePayload.scoreboard.events
-    : []
-  const activeRuntimeRawEventsById = new Map(
-    activeRuntimeRawEvents
-      .map((event) => [String(event?.id || '').trim(), event])
-      .filter(([id]) => id),
-  )
-
-  const runtimeDisplayGames = prepareDisplayGames(
-    activeRuntimeGames,
-    activeRuntimeRawEventsById,
-    runtimeDisplayLeague,
-    runtimeDisplayLeague ? leagueLogoMetaById[runtimeDisplayLeague.id] : null,
-    activeRuntimePayload,
-  )
-  const runtimeMarqueeGames = runtimeDisplayGames.length
-    ? runtimeDisplayGames
-    : (stableForDisplayLeague.length ? stableForDisplayLeague : [])
-  const runtimeRenderLeague = runtimeVisibleLeague || (runtimeDisplayGames.length ? runtimeDisplayLeague : null)
+  // Memoized so TickerRuntime only re-renders when actual game data changes,
+  // not on every unrelated AppContext state update.
+  const runtimeMarqueeGames = useMemo(() => {
+    const activeGames = Array.isArray(activeRuntimePayload?.normalizedGames)
+      ? activeRuntimePayload.normalizedGames : []
+    const stableGames = runtimeDisplayLeague
+      ? (stableGoodGamesByLeagueId[runtimeDisplayLeague.id] || []) : []
+    const rawEvents = Array.isArray(activeRuntimePayload?.scoreboard?.events)
+      ? activeRuntimePayload.scoreboard.events : []
+    const eventsById = new Map(
+      rawEvents.map((e) => [String(e?.id || '').trim(), e]).filter(([id]) => id),
+    )
+    const displayGames = prepareDisplayGames(
+      activeGames, eventsById, runtimeDisplayLeague,
+      runtimeDisplayLeague ? leagueLogoMetaById[runtimeDisplayLeague.id] : null,
+      activeRuntimePayload,
+    )
+    return displayGames.length ? displayGames : stableGames
+  }, [activeRuntimePayload, runtimeDisplayLeague, stableGoodGamesByLeagueId, leagueLogoMetaById]) // eslint-disable-line react-hooks/exhaustive-deps
+  const runtimeRenderLeague = runtimeVisibleLeague || (runtimeMarqueeGames.length ? runtimeDisplayLeague : null)
   const brandLeague = runtimeRenderLeague || runtimeDisplayLeague || runtimeLeagues[0] || null
 
   if (isLoading) {
@@ -125,22 +127,22 @@ function App() {
     )
   }
 
-  const shellStyle = {
-    '--page-bg': themeTokens.pageBg,
-    '--page-gradient': themeTokens.pageGradient,
-    '--panel-bg': themeTokens.panelBg,
-    '--panel-border': themeTokens.panelBorder,
-    '--text-main': themeTokens.textMain,
-    '--text-muted': themeTokens.textMuted,
-    '--accent': themeTokens.accent,
-    '--ticker-bg': themeTokens.tickerBg,
-    '--ticker-text': themeTokens.tickerText,
-    '--lower-bg': themeTokens.lowerBg,
-    '--lower-text': themeTokens.lowerText,
-    '--hero-eyebrow': themeTokens.heroEyebrow,
-    '--button-text': themeTokens.buttonText,
+  const shellStyle = useMemo(() => ({
+    '--page-bg': themeTokens?.pageBg,
+    '--page-gradient': themeTokens?.pageGradient,
+    '--panel-bg': themeTokens?.panelBg,
+    '--panel-border': themeTokens?.panelBorder,
+    '--text-main': themeTokens?.textMain,
+    '--text-muted': themeTokens?.textMuted,
+    '--accent': themeTokens?.accent,
+    '--ticker-bg': themeTokens?.tickerBg,
+    '--ticker-text': themeTokens?.tickerText,
+    '--lower-bg': themeTokens?.lowerBg,
+    '--lower-text': themeTokens?.lowerText,
+    '--hero-eyebrow': themeTokens?.heroEyebrow,
+    '--button-text': themeTokens?.buttonText,
     ...(tickerWatermarkUrl ? { '--ticker-watermark-url': `url(${tickerWatermarkUrl})` } : {}),
-  }
+  }), [themeTokens, tickerWatermarkUrl])
 
   if (isTickerRuntime) {
     return (
@@ -165,7 +167,7 @@ function App() {
         leagueSlotStartTimeRef={leagueSlotStartTimeRef}
         currentSlotLeagueIdRef={currentSlotLeagueIdRef}
         onAdvance={handleRuntimeAdvance}
-        onHandoffCheck={() => setHandoffCheckKey(k => k + 1)}
+        onHandoffCheck={onHandoffCheck}
       />
     )
   }

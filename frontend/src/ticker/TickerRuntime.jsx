@@ -167,13 +167,18 @@ export default function TickerRuntime({
     })
     animRef.current = anim
 
-    anim.onfinish = () => triggerAdvance(leagueId, oneCopy)
+    anim.onfinish = () => {
+      // Commit end position to base style so cancel() in triggerAdvance
+      // doesn't snap the track back to its start position.
+      track.style.transform = `translateX(${scrollEndPx}px) translateZ(0)`
+      triggerAdvance(leagueId, oneCopy)
+    }
 
     // Backup: if onfinish doesn't fire (tab hidden, suspended, etc.) force advance
-    advanceTimerRef.current = setTimeout(
-      () => triggerAdvance(leagueId, oneCopy),
-      dur + 800
-    )
+    advanceTimerRef.current = setTimeout(() => {
+      track.style.transform = `translateX(${scrollEndPx}px) translateZ(0)`
+      triggerAdvance(leagueId, oneCopy)
+    }, dur + 800)
   }
 
   // ── Session reset: new ticker session or league-set change ──────────────
@@ -190,7 +195,12 @@ export default function TickerRuntime({
   // ── Stop animation on league change (cleanup) ───────────────────────────
   useEffect(() => {
     if (!scrollReadyRef.current) stopCSSAnimation()
-    return () => stopCSSAnimation()
+    return () => {
+      // Set opacity 0 before cancelling so the position snap from cancel()
+      // is never visible — mirrors what triggerAdvance does.
+      if (trackRef.current) trackRef.current.style.opacity = '0'
+      stopCSSAnimation()
+    }
   }, [displayLeague?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── League-change reset (pre-paint, synchronous with React commit) ───────

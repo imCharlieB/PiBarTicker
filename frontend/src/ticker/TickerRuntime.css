@@ -1,0 +1,1546 @@
+/* ── TickerRuntime styles ─────────────────────────────────────────────────── */
+
+.ticker-runtime-shell {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 0.25rem 0 0;
+  overflow: hidden;
+  color: var(--ticker-text);
+  background:
+    radial-gradient(circle at 20% 15%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 55%),
+    radial-gradient(circle at 85% 20%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 52%),
+    var(--ticker-bg);
+}
+
+.ticker-runtime-board {
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: 1fr;
+  width: 100%;
+  padding: 0.1rem 0 0;
+  background: transparent;
+  position: relative;
+}
+
+/* Faint team/custom logo watermark behind the games */
+.ticker-runtime-board::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--ticker-watermark-images, none);
+  background-position: var(--ticker-watermark-positions, center);
+  background-size: auto var(--ticker-watermark-size, 82%);
+  background-repeat: no-repeat;
+  opacity: 0.11;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.ticker-runtime-marquee-window {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.ticker-runtime-track {
+  display: inline-flex;
+  gap: 0.35rem;
+  min-height: 100%;
+  width: max-content;
+  padding: 0 0.2rem;
+  align-items: stretch;
+  /* Prevent any sub-pixel overflow that can trigger scrollbars on Pi */
+  contain: layout style paint;
+}
+
+.ticker-runtime-track-animated {
+  /* Scrolling driven by element.animate() (Web Animations API) in TickerRuntime.jsx.
+     Runs on the GPU compositor thread — zero per-frame JS, zero style-recalc.
+     JS touches the DOM once per league slot to start the animation. */
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  contain: layout style paint;
+}
+
+.ticker-runtime-card {
+  --card-accent: var(--accent);
+  --card-accent-soft: color-mix(in srgb, var(--card-accent) 24%, transparent);
+  --card-accent-glow: color-mix(in srgb, var(--card-accent) 34%, transparent);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border: 1px solid color-mix(in srgb, var(--card-accent) 32%, #1f232e);
+  border-radius: 0.85rem;
+  padding: 0.42rem 0.58rem;
+  width: min(36vw, 560px);
+  min-width: 330px;
+  min-height: 10.6rem;
+  height: 100%;
+  background:
+    radial-gradient(circle at 14% 38%, var(--card-accent-soft), transparent 62%),
+    linear-gradient(150deg, color-mix(in srgb, #0f1320 72%, var(--card-accent)), #070a12 58%, #090c15);
+  box-shadow:
+    0 12px 36px color-mix(in srgb, #000 58%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, #ffffff 6%, transparent);
+  overflow: hidden;
+}
+
+.ticker-runtime-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2.5px;
+  border-radius: 0.85rem 0.85rem 0 0;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--card-accent) 92%, #7ae8ff), transparent 70%);
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.ticker-runtime-card-solo {
+  width: min(34vw, 520px);
+  min-width: 320px;
+  height: auto;
+  max-height: 15.2rem;
+  min-height: 9.8rem;
+  align-self: center;
+}
+
+.ticker-runtime-card-duo {
+  width: min(42vw, 720px);
+  min-width: min(42vw, 720px);
+}
+
+.ticker-runtime-card-live.ticker-runtime-card-duo:not(.ticker-runtime-card-racing) {
+  width: min(48vw, 860px);
+  min-width: min(48vw, 860px);
+}
+
+.ticker-runtime-card-live.ticker-runtime-card-solo:not(.ticker-runtime-card-racing) {
+  width: min(40vw, 620px);
+}
+
+.ticker-runtime-card-racing {
+  width: max-content;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 18%, transparent), transparent 42%),
+    linear-gradient(180deg, #0c1015, #14181f 46%, #10141a);
+}
+
+.ticker-runtime-card-racing.ticker-runtime-card-solo {
+  width: max-content;
+  min-width: 360px;
+  height: 100%;
+  max-height: none;
+  min-height: 10.8rem;
+  align-self: stretch;
+}
+
+.ticker-runtime-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.16rem 0.32rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--team-row-border, color-mix(in srgb, var(--panel-border) 48%, transparent));
+  background: var(--team-row-bg, color-mix(in srgb, #0f1420 82%, transparent));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #ffffff 8%, transparent);
+}
+
+.ticker-runtime-score {
+  font-size: clamp(2.2rem, 6vw, 4rem);
+  line-height: 0.86;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--team-row-score, #f5fbff);
+  text-shadow: 0 2px 16px var(--team-row-glow, color-mix(in srgb, var(--accent) 44%, transparent));
+}
+
+.ticker-runtime-score-block {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.ticker-runtime-team {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.ticker-runtime-team img {
+  width: clamp(3rem, 6vw, 4.8rem);
+  height: clamp(3rem, 6vw, 4.8rem);
+  object-fit: contain;
+}
+
+/* Large logo card style preset */
+.ticker-runtime-card-style-large-logo .ticker-runtime-team img {
+  width: clamp(4.5rem, 9vw, 7.5rem);
+  height: clamp(4.5rem, 9vw, 7.5rem);
+  object-fit: contain;
+}
+
+.ticker-runtime-card-style-large-logo .ticker-runtime-score {
+  font-size: clamp(2.6rem, 7vw, 5rem);
+}
+
+/* Large Logo theme - MLB Live style */
+.ticker-runtime-large-logo-layout.live-baseball {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.25rem;
+  width: 100%;
+  min-height: 10.5rem;
+}
+
+/* Left column: Two large logos stacked */
+.ticker-runtime-large-logo-logos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.ticker-runtime-large-logo-logos .ticker-runtime-large-logo-team img {
+  width: 4.8rem;
+  height: 4.8rem;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+/* Middle: Team colored score box */
+.ticker-runtime-large-logo-scorebox {
+  background: #222;
+  color: white;
+  font-weight: 900;
+  font-size: 2.1rem;
+  line-height: 1;
+  padding: 0.35rem 0.55rem;
+  border-radius: 6px;
+  min-width: 3.2rem;
+  text-align: center;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.ticker-runtime-large-logo-scorebox .score-line {
+  line-height: 1.05;
+}
+
+/* Right side container */
+.ticker-runtime-large-logo-right {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Diamond */
+.ticker-runtime-large-logo-diamond .diamond {
+  width: 4.2rem;
+  height: 4.2rem;
+  position: relative;
+  background: #1a2a1a;
+  border: 2px solid #4a7c4a;
+  transform: rotate(45deg);
+  border-radius: 4px;
+}
+
+.ticker-runtime-large-logo-diamond .base {
+  position: absolute;
+  width: 0.7rem;
+  height: 0.7rem;
+  background: transparent;
+  border: 2px solid #4a7c4a;
+  transform: rotate(-45deg);
+}
+
+.ticker-runtime-large-logo-diamond .base.occupied {
+  background: #ffeb3b;
+  border-color: #ffeb3b;
+}
+
+.ticker-runtime-large-logo-diamond .second { top: 4px; left: 50%; transform: translateX(-50%) rotate(-45deg); }
+.ticker-runtime-large-logo-diamond .first { top: 50%; right: 4px; transform: translateY(-50%) rotate(-45deg); }
+.ticker-runtime-large-logo-diamond .home { bottom: 4px; left: 50%; transform: translateX(-50%) rotate(-45deg); }
+.ticker-runtime-large-logo-diamond .third { top: 50%; left: 4px; transform: translateY(-50%) rotate(-45deg); }
+
+/* Inning / Count / Outs */
+.ticker-runtime-large-logo-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #ddd;
+}
+
+.ticker-runtime-large-logo-meta .inning-line {
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.ticker-runtime-large-logo-meta .count-line {
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: #fff;
+}
+
+.ticker-runtime-large-logo-meta .outs-line {
+  display: flex;
+  gap: 3px;
+  margin-top: 0.1rem;
+}
+
+.ticker-runtime-large-logo-meta .out {
+  width: 0.72rem;
+  height: 0.72rem;
+  border: 1.5px solid #ffeb3b;
+  border-radius: 2px;
+}
+
+.ticker-runtime-large-logo-meta .out.filled {
+  background: #ffeb3b;
+}
+
+/* =========================================================
+   LARGE LOGO CARD STYLE (per user MLB live/final spec)
+   Only active when league cardStyle === "large-logo"
+   Standard cards are 100% untouched.
+   ========================================================= */
+
+.ticker-runtime-card-style-large-logo {
+  min-height: 13.8rem;
+  padding: 0.2rem 0.35rem;
+}
+
+.ticker-runtime-card-style-large-logo .ticker-runtime-live-flag {
+  margin-bottom: 0.08rem;
+}
+
+/* Main wrapper inside the large-logo cards */
+.ticker-runtime-ll {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* LIVE baseball layout */
+.ticker-runtime-ll .ll-live {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.4rem;
+  width: 100%;
+  padding: 0.45rem 0.15rem 0.1rem;
+}
+
+/* Left: two large logos stacked (away/visitor on top) */
+.ticker-runtime-ll .ll-logos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  flex-shrink: 0;
+}
+
+.ticker-runtime-ll .ll-logo {
+  width: 7.4rem;
+  height: 7.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.ticker-runtime-ll .ll-logo img {
+  max-width: 94%;
+  max-height: 94%;
+  object-fit: contain;
+  display: block;
+}
+
+.ticker-runtime-ll .ll-logo .ll-badge {
+  font-size: 1.35rem;
+  font-weight: 900;
+  color: #9aa4b8;
+  letter-spacing: 0.5px;
+}
+
+/* Middle: team-colored vertical score box */
+.ticker-runtime-ll .ll-scorebox {
+  display: flex;
+  flex-direction: column;
+  width: 5.5rem;
+  min-height: 14rem;
+  flex-shrink: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  align-self: flex-start;
+  justify-content: space-evenly;
+}
+
+.ticker-runtime-ll .ll-score {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3.8rem;
+  font-weight: 900;
+  line-height: 1;
+  padding: 0.4rem 0.05rem;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  min-height: 4.0rem;
+}
+
+.ticker-runtime-ll .ll-score.ll-away-score {
+  background: #c8102e;
+}
+
+.ticker-runtime-ll .ll-score.ll-home-score {
+  background: #0c2340;
+}
+
+/* Diamond with meta */
+.ticker-runtime-ll .ll-side {
+  flex: 1.5;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding-left: 0.1rem;
+}
+
+/* Simple container for the diamond area */
+.ticker-runtime-ll .ll-baseball-field {
+  position: relative;
+  width: 9rem;
+  height: 9rem;
+  flex-shrink: 0;
+}
+
+/* Simple brown dirt infield */
+.ticker-runtime-ll .ll-infield {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6rem;
+  height: 6rem;
+  background: #836539;
+  border: 1px solid #5c4730;
+  transform: translate(-50%, -50%) rotate(45deg);
+  border-radius: 2px;
+  z-index: 1;
+}
+
+/* Inner grass ring inside the dirt */
+.ticker-runtime-ll .ll-diamond::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 3.4rem;
+  height: 3.4rem;
+  background: #2e7d32;
+  transform: translate(-50%, -50%) rotate(-45deg);
+  border-radius: 2px;
+  z-index: 1;
+}
+
+.ticker-runtime-ll .ll-base {
+  position: absolute;
+  width: 0.7rem;
+  height: 0.7rem;
+  background: #f5f5f5;
+  border: 1px solid #222;
+  transform: rotate(-45deg);
+  border-radius: 1px;
+  z-index: 3;
+}
+
+.ticker-runtime-ll .ll-base.occupied,
+.ticker-runtime-ll .ll-base.filled {
+  background: #74ff45;
+  border-color: #4ccc20;
+  box-shadow: 0 0 6px rgba(116, 255, 69, 0.85);
+}
+
+.ticker-runtime-ll .ll-baseball-field .base {
+  position: absolute;
+  height: 0.75rem;
+  width: 0.75rem;
+  border: 1px solid white;
+  background-color: white;
+  transform: rotate(-45deg);
+  z-index: 10;
+}
+
+.ticker-runtime-ll .ll-baseball-field .base.occupied,
+.ticker-runtime-ll .ll-baseball-field .base.filled {
+  background-color: #74ff45;
+  border-color: #4ccc20;
+  box-shadow: 0 0 6px rgba(116, 255, 69, 0.85);
+}
+
+.ticker-runtime-ll .ll-baseball-field #second-base {
+  top: 1.6rem;
+  left: 4.15rem;
+}
+
+.ticker-runtime-ll .ll-baseball-field #first-base {
+  top: 4.1rem;
+  left: 6.8rem;
+}
+
+.ticker-runtime-ll .ll-baseball-field #third-base {
+  top: 4.1rem;
+  left: 1.4rem;
+}
+
+/* Inning + count + outs */
+.ticker-runtime-ll .ll-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.04rem;
+  font-weight: 800;
+  color: #e6e9f0;
+  font-size: 0.92rem;
+}
+
+.ticker-runtime-ll .ll-inning-count {
+  display: flex;
+  align-items: baseline;
+  gap: 0.95rem;
+}
+
+.ticker-runtime-ll .ll-inning {
+  font-size: 1.1rem;
+  font-weight: 900;
+  letter-spacing: 0.4px;
+  display: flex;
+  align-items: center;
+  gap: 0.06rem;
+}
+
+.ticker-runtime-ll .ll-arrow {
+  font-size: 0.9rem;
+  margin-left: 1px;
+  color: #9cf0ff;
+}
+
+.ticker-runtime-ll .ll-count {
+  font-size: 1.32rem;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: 0.4px;
+}
+
+.ticker-runtime-ll .ll-outs {
+  display: flex;
+  gap: 3px;
+  margin-left: 1.85rem;
+}
+
+.ticker-runtime-ll .ll-out {
+  width: 0.78rem;
+  height: 0.78rem;
+  border: 2px solid #ffeb3b;
+  border-radius: 2px;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.3);
+}
+
+.ticker-runtime-ll .ll-out.filled {
+  background: #ffeb3b;
+  box-shadow: 0 0 5px rgba(255, 235, 59, 0.9);
+}
+
+/* FINAL state */
+.ticker-runtime-ll .ll-final {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 11.8rem;
+  padding-top: 0.08rem;
+  padding-bottom: 0.12rem;
+}
+
+.ticker-runtime-ll .ll-final-top {
+  font-size: 1.05rem;
+  font-weight: 900;
+  letter-spacing: 4px;
+  color: #9aa8c2;
+  text-transform: uppercase;
+  margin-bottom: 0.15rem;
+}
+
+.ticker-runtime-ll .ll-final-logos {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 1.4rem;
+  width: 100%;
+}
+
+.ticker-runtime-ll .ll-final-logo {
+  width: 8.6rem;
+  height: 8.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  flex-shrink: 0;
+}
+
+.ticker-runtime-ll .ll-final-logo img {
+  max-width: 97%;
+  max-height: 97%;
+  object-fit: contain;
+}
+
+.ticker-runtime-ll .ll-final-score-bottom {
+  font-size: 2.35rem;
+  font-weight: 900;
+  color: #e8f0ff;
+  letter-spacing: 2px;
+  margin-top: 0.2rem;
+}
+
+.ticker-runtime-ll .ll-final-side img {
+  max-width: 92%;
+  max-height: 8.8rem;
+  object-fit: contain;
+}
+
+/* Non-live / scheduled / preview / postponed for Large Logo */
+.ticker-runtime-ll .ll-scheduled {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.2rem 0.35rem;
+  min-height: 11.2rem;
+}
+
+.ticker-runtime-ll .ll-sched-logos {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 1.35rem;
+  width: 100%;
+}
+
+.ticker-runtime-ll .ll-sched-logo {
+  width: 7.4rem;
+  height: 7.4rem;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.ticker-runtime-ll .ll-sched-logo img {
+  max-width: 92%;
+  max-height: 92%;
+}
+
+.ticker-runtime-ll .ll-sched-vs {
+  font-size: 1.85rem;
+  font-weight: 900;
+  color: color-mix(in srgb, var(--accent) 75%, #6b7280);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  user-select: none;
+  margin: 0 0.15rem;
+  opacity: 0.85;
+}
+
+.ticker-runtime-ll .ll-sched-time {
+  font-size: 1.75rem;
+  font-weight: 900;
+  letter-spacing: 0.8px;
+  color: #e6edf7;
+  text-align: center;
+  margin-top: 0.2rem;
+  line-height: 1.05;
+}
+
+.ticker-runtime-ll .ll-sched-detail {
+  font-size: 1.0rem;
+  font-weight: 700;
+  color: #f59e0b;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-top: 0.08rem;
+}
+
+/* Fallback badge sizing inside ll */
+.ticker-runtime-ll .ll-badge.ll-big {
+  font-size: 2.1rem;
+}
+
+/* Large Logo cards keep their main graphic content dominant, but we let a very small
+   meta line show at the absolute bottom when there is extra info (TV, odds, venue, etc.)
+   so the cards respect the same toggles as Standard. */
+.ticker-runtime-card-style-large-logo .ticker-runtime-baseball-situation-right,
+.ticker-runtime-card-style-large-logo .ticker-runtime-game-date,
+.ticker-runtime-card-style-large-logo .ticker-runtime-stats {
+  display: none !important;
+}
+
+/* Bottom meta line */
+.ticker-runtime-card-style-large-logo .ticker-runtime-meta {
+  margin-top: 0.2rem;
+  font-size: 0.82rem;
+  opacity: 0.82;
+  text-align: center;
+  letter-spacing: 0.03em;
+}
+
+/* Give the custom ll content a bit more breathing room inside the card */
+.ticker-runtime-card-style-large-logo .ticker-runtime-ll {
+  padding-top: 0.15rem;
+  padding-bottom: 0.1rem;
+}
+
+.ticker-runtime-team-mark {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: var(--button-text);
+  background: color-mix(in srgb, var(--accent) 68%, #101215);
+}
+
+.ticker-runtime-team span {
+  font-size: clamp(1.08rem, 2.5vw, 1.52rem);
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: var(--team-row-text, var(--ticker-text));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ticker-runtime-divider {
+  border-top: 1px solid color-mix(in srgb, var(--panel-border) 62%, var(--accent));
+  margin: 0.3rem 0;
+}
+
+.ticker-runtime-meta {
+  margin: auto 0 0;
+  font-size: clamp(0.72rem, 1.1vw, 0.88rem);
+  color: color-mix(in srgb, var(--ticker-text) 84%, #9ce8ff);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.ticker-runtime-game-date {
+  margin: 0.32rem 0 0;
+  font-size: clamp(0.98rem, 1.7vw, 1.3rem);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: color-mix(in srgb, #f3fbff 84%, var(--card-accent));
+  text-transform: uppercase;
+}
+
+.ticker-runtime-stats {
+  margin-top: 0.25rem;
+  display: grid;
+  gap: 0.18rem;
+}
+
+.ticker-runtime-stat-item {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.38rem;
+  align-items: baseline;
+  font-size: clamp(0.72rem, 1.1vw, 0.88rem);
+  letter-spacing: 0.01em;
+}
+
+.ticker-runtime-stat-item span {
+  font-weight: 800;
+  color: color-mix(in srgb, #9bdcff 78%, var(--card-accent));
+  text-transform: uppercase;
+}
+
+.ticker-runtime-stat-item strong {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: color-mix(in srgb, #ecf7ff 82%, var(--ticker-text));
+}
+
+.ticker-runtime-baseball-live {
+  margin-top: 0.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.18rem 0.28rem;
+  border-radius: 0.35rem;
+  border: 1px solid color-mix(in srgb, #9ad46f 36%, var(--panel-border));
+  background: color-mix(in srgb, #101a12 74%, transparent);
+}
+
+.ticker-runtime-baseball-live-text {
+  display: grid;
+  gap: 0.04rem;
+}
+
+.ticker-runtime-baseball-live-text p {
+  margin: 0;
+  font-size: clamp(0.68rem, 1vw, 0.82rem);
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: color-mix(in srgb, #efffe7 84%, #9ad46f);
+  text-transform: uppercase;
+}
+
+.ticker-runtime-baseball-diamond {
+  position: relative;
+  width: 2.05rem;
+  height: 2.05rem;
+  transform: none;
+}
+
+.ticker-runtime-base {
+  position: absolute;
+  width: 0.54rem;
+  height: 0.54rem;
+  border-radius: 0;
+  border: 1px solid color-mix(in srgb, #d3e8f5 68%, var(--panel-border));
+  background: color-mix(in srgb, #2a3442 84%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #ffffff 10%, transparent);
+}
+
+.ticker-runtime-base.is-occupied {
+  border-color: color-mix(in srgb, #93ff58 70%, #1f3f20);
+  background: linear-gradient(145deg, #74ff45, #1e6f21);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, #ffffff 24%, transparent),
+    0 0 10px color-mix(in srgb, #74ff45 30%, transparent);
+}
+
+.ticker-runtime-base-second {
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.ticker-runtime-base-first {
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.ticker-runtime-base-home {
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.ticker-runtime-base-third {
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.ticker-runtime-card-state-in:not(.ticker-runtime-card-use-team-colors) .ticker-runtime-row {
+  background: color-mix(in srgb, #0f1f1a 64%, #111826);
+}
+
+.ticker-runtime-card-state-post:not(.ticker-runtime-card-use-team-colors) .ticker-runtime-row {
+  background: color-mix(in srgb, #1b1a14 56%, #111826);
+}
+
+.ticker-runtime-card-sport-football:not(.ticker-runtime-card-use-team-colors) {
+  background:
+    radial-gradient(circle at 14% 30%, color-mix(in srgb, #39dcff 30%, transparent), transparent 60%),
+    linear-gradient(145deg, #0b1320, #090d16 58%, #0d1018);
+}
+
+.ticker-runtime-card-sport-basketball:not(.ticker-runtime-card-use-team-colors) {
+  background:
+    radial-gradient(circle at 12% 34%, color-mix(in srgb, #ff9a3c 26%, transparent), transparent 58%),
+    linear-gradient(145deg, #1a1310, #0e1017 62%, #141015);
+}
+
+.ticker-runtime-card-sport-baseball:not(.ticker-runtime-card-use-team-colors) {
+  background:
+    radial-gradient(circle at 10% 36%, color-mix(in srgb, #d6ff62 24%, transparent), transparent 58%),
+    linear-gradient(145deg, #101614, #0d1017 64%, #121614);
+}
+
+.ticker-runtime-card-sport-hockey:not(.ticker-runtime-card-use-team-colors) {
+  background:
+    radial-gradient(circle at 12% 32%, color-mix(in srgb, #79adff 26%, transparent), transparent 56%),
+    linear-gradient(145deg, #0f1420, #0a0f18 62%, #111522);
+}
+
+/* Racing — compact header bar above driver strip */
+.ticker-runtime-racing-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  padding-bottom: 0.22rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 20%, #1c2232);
+}
+
+.ticker-runtime-racing-bar-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.06rem;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.ticker-runtime-racing-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.32rem;
+  flex-shrink: 0;
+}
+
+.ticker-runtime-racing-bar-title {
+  font-size: clamp(1rem, 1.8vw, 1.5rem);
+  font-weight: 900;
+  color: #eef4ff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.1;
+}
+
+.ticker-runtime-racing-bar-title-row {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.45rem;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ticker-runtime-racing-session-label {
+  font-size: clamp(0.82rem, 1.2vw, 1rem);
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* State pills */
+.ticker-runtime-racing-state-pill {
+  padding: 0.1rem 0.48rem;
+  border-radius: 0.18rem;
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ticker-runtime-racing-state-pill-live {
+  color: #a8ffd0;
+  background: #071610;
+  border: 1px solid #14472a;
+}
+
+.ticker-runtime-racing-state-pill-final {
+  color: #9bbcd8;
+  background: #080e18;
+  border: 1px solid #1a2840;
+}
+
+.ticker-runtime-racing-state-pill-grid {
+  color: #ffe080;
+  background: #100d00;
+  border: 1px solid #3e2e00;
+}
+
+.ticker-runtime-racing-tv-pill {
+  padding: 0.1rem 0.42rem;
+  border-radius: 0.18rem;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  color: #9dffcc;
+  background: #071410;
+  border: 1px solid #143824;
+}
+
+/* Racing — driver card strip */
+.ticker-runtime-racing-strip {
+  display: flex;
+  flex-direction: row;
+  gap: 0.28rem;
+  flex: 1;
+  min-height: 0;
+  align-items: center;
+}
+
+.ticker-runtime-racing-driver-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  min-width: 6.6rem;
+  height: 65%;
+  padding: 0.35rem 0.3rem;
+  border-radius: 0.45rem;
+  background: linear-gradient(170deg, #10161f, #0b0e16);
+  border: 1px solid #1b2335;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Subtle accent line at top of every card */
+.ticker-runtime-racing-driver-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 12%;
+  right: 12%;
+  height: 2px;
+  border-radius: 0 0 3px 3px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 55%, transparent), transparent);
+}
+
+/* Podium cards — gold / silver / bronze */
+.ticker-runtime-racing-driver-card-p1 {
+  background: linear-gradient(170deg, #18140a, #0e0b06);
+  border-color: #332800;
+}
+.ticker-runtime-racing-driver-card-p1::before {
+  background: linear-gradient(90deg, transparent, #e8c000, transparent);
+}
+
+.ticker-runtime-racing-driver-card-p2 {
+  background: linear-gradient(170deg, #131820, #0c1018);
+  border-color: #243040;
+}
+.ticker-runtime-racing-driver-card-p2::before {
+  background: linear-gradient(90deg, transparent, #90a8c0, transparent);
+}
+
+.ticker-runtime-racing-driver-card-p3 {
+  background: linear-gradient(170deg, #170f08, #0e0a06);
+  border-color: #2e1808;
+}
+.ticker-runtime-racing-driver-card-p3::before {
+  background: linear-gradient(90deg, transparent, #b07040, transparent);
+}
+
+/* Position number */
+.ticker-runtime-racing-card-pos {
+  font-size: clamp(1.6rem, 2.8vw, 2.2rem);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  color: #3a6898;
+  line-height: 1;
+}
+
+.ticker-runtime-racing-driver-card-p1 .ticker-runtime-racing-card-pos { color: #e8c000; }
+.ticker-runtime-racing-driver-card-p2 .ticker-runtime-racing-card-pos { color: #8aaac4; }
+.ticker-runtime-racing-driver-card-p3 .ticker-runtime-racing-card-pos { color: #a86830; }
+
+.ticker-runtime-racing-card-flag {
+  width: 2.2rem;
+  height: 1.46rem;
+  object-fit: cover;
+  border-radius: 0.14rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55);
+}
+
+.ticker-runtime-racing-card-flag-placeholder {
+  width: 2.2rem;
+  height: 1.46rem;
+}
+
+.ticker-runtime-racing-card-name-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.08rem;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.ticker-runtime-racing-card-name {
+  font-size: clamp(0.95rem, 1.5vw, 1.2rem);
+  font-weight: 800;
+  color: #ddeeff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  text-align: center;
+  line-height: 1.1;
+}
+
+.ticker-runtime-racing-card-team {
+  font-size: clamp(0.68rem, 0.95vw, 0.8rem);
+  font-weight: 600;
+  color: #4e7098;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  text-align: center;
+}
+
+.ticker-runtime-racing-card-stat {
+  font-size: clamp(0.74rem, 1.05vw, 0.88rem);
+  font-weight: 700;
+  color: #6898bc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  text-align: center;
+}
+
+.ticker-runtime-racing-series {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  color: color-mix(in srgb, var(--accent) 72%, #ffffff);
+}
+
+.ticker-runtime-racing-next-bar {
+  margin: 0.14rem 0 0;
+  padding: 0.1rem 0.24rem;
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+  border-radius: 0.28rem;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 16%, #0d1018), #0a0d14);
+  color: #eef5ff;
+}
+
+.ticker-runtime-racing-next-label {
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  color: #8fd7ff;
+  text-transform: uppercase;
+}
+
+.ticker-runtime-racing-next-text {
+  min-width: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Racing — pre-race upcoming card */
+.ticker-runtime-racing-pre {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 100%;
+  padding: 0.3rem 0.1rem;
+}
+
+.ticker-runtime-racing-pre-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.ticker-runtime-racing-pre-tv {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #cfffe1;
+  white-space: nowrap;
+}
+
+.ticker-runtime-racing-pre-title {
+  font-size: clamp(1.2rem, 2.4vw, 1.9rem);
+  font-weight: 900;
+  line-height: 1.1;
+  color: #f5f7fb;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.ticker-runtime-racing-pre-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.18rem 0.6rem;
+  align-items: center;
+}
+
+.ticker-runtime-racing-pre-footer span {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: color-mix(in srgb, #c8deff 80%, var(--accent));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ticker-runtime-racing-pre-footer span + span::before {
+  content: '·';
+  margin-right: 0.6rem;
+  opacity: 0.5;
+}
+
+.ticker-runtime-empty {
+  margin: 0;
+  display: grid;
+  place-items: center;
+  border: 1px dashed color-mix(in srgb, var(--accent) 45%, var(--panel-border));
+  border-radius: 0.7rem;
+  height: 100%;
+  font-size: clamp(0.8rem, 2vw, 1rem);
+  color: color-mix(in srgb, var(--ticker-text) 80%, var(--accent));
+}
+
+/* ── Broadcast lower-third insert ─────────────────────────────────────────
+   Trapezoid: accent logo panel left (diagonal right edge), dark clock panel right.
+   filter: drop-shadow follows the clip-path shape. */
+.ticker-runtime-lower {
+  position: absolute;
+  bottom: 0.6rem;
+  left: 0;
+  display: inline-flex;
+  align-items: stretch;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 3rem) 100%, 0 100%);
+  filter:
+    drop-shadow(0 10px 28px rgba(0, 0, 0, 0.88))
+    drop-shadow(0 2px 5px rgba(0, 0, 0, 0.55));
+  z-index: 10;
+}
+
+/* Thin accent highlight bar along the top edge */
+.ticker-runtime-lower::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent) 90%, white 10%) 0%,
+    color-mix(in srgb, var(--accent) 35%, transparent) 65%,
+    transparent 100%
+  );
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Logo panel — accent color with dot texture, diagonal right edge */
+.ticker-runtime-lower-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 2.4rem 0.55rem 0.9rem;
+  flex-shrink: 0;
+  background-color: color-mix(in srgb, var(--accent) 90%, #030406);
+  background-image:
+    radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px),
+    linear-gradient(160deg, color-mix(in srgb, var(--accent) 100%, white 18%) 0%, color-mix(in srgb, var(--accent) 74%, #020304) 100%);
+  background-size: 7px 7px, auto;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 1.8rem) 100%, 0 100%);
+}
+
+.ticker-runtime-lower-brand img {
+  display: block;
+  height: 4.4rem;
+  width: auto;
+  max-width: 6.5rem;
+  object-fit: contain;
+  filter: brightness(1.2) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.65));
+}
+
+.ticker-runtime-lower-brand-fallback {
+  font-size: 1.3rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.95);
+  white-space: nowrap;
+}
+
+/* Clock panel — dark with accent gradient, glowing monospace time.
+   Slides 1.8rem behind the brand panel's diagonal clip edge. */
+.ticker-runtime-lower-clock {
+  display: flex;
+  align-items: center;
+  margin-left: -1.8rem;
+  padding: 0.55rem 4rem 0.55rem 2.9rem;
+  background-color: #07080e;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 10px,
+      rgba(255, 255, 255, 0.04) 10px,
+      rgba(255, 255, 255, 0.04) 12px
+    ),
+    linear-gradient(105deg, color-mix(in srgb, var(--accent) 18%, #0d0f1e) 0%, #07080e 52%);
+  font-family: 'Courier New', 'Liberation Mono', 'DejaVu Sans Mono', monospace;
+  font-size: clamp(2.1rem, 3.5vw, 3.1rem);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #e8eeff;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-shadow:
+    0 0 30px color-mix(in srgb, var(--accent) 75%, transparent),
+    0 0 10px color-mix(in srgb, var(--accent) 40%, transparent),
+    0 1px 3px rgba(0, 0, 0, 0.95);
+}
+
+.ticker-runtime-card-live:not(.ticker-runtime-card-racing) {
+  border-color: color-mix(in srgb, #00ff4c 55%, var(--panel-border));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, #00ff4c 34%, transparent),
+    0 0 24px color-mix(in srgb, #00ff4c 20%, transparent);
+  overflow: hidden;
+}
+
+.ticker-runtime-card-live-baseball .ticker-runtime-baseball-live {
+  margin-top: 0.14rem;
+  padding: 0.22rem 0.32rem;
+}
+
+.ticker-runtime-baseball-live-inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.3rem;
+}
+
+.ticker-runtime-baseball-live-inline .ticker-runtime-baseball-live-text,
+.ticker-runtime-baseball-live-inline .ticker-runtime-baseball-diamond {
+  flex: 0 0 auto;
+}
+
+.ticker-runtime-baseball-live-inline .ticker-runtime-baseball-live-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.ticker-runtime-baseball-live-inline .ticker-runtime-baseball-diamond {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.ticker-runtime-card-live-baseball .ticker-runtime-baseball-diamond {
+  width: 2.15rem;
+  height: 2.15rem;
+}
+
+.ticker-runtime-card-live-baseball .ticker-runtime-base {
+  width: 0.58rem;
+  height: 0.58rem;
+  border-width: 2px;
+}
+
+.ticker-runtime-card-live-baseball .ticker-runtime-baseball-live-text p {
+  font-size: clamp(0.6rem, 0.9vw, 0.72rem);
+}
+
+.ticker-runtime-card-live-baseball .ticker-runtime-team {
+  align-items: flex-start;
+}
+
+.ticker-runtime-card-live-baseball .ticker-runtime-team-name-block {
+  flex: 1 1 auto;
+}
+
+.ticker-runtime-card-live-baseball .ticker-runtime-team-meta-row {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.28rem;
+}
+
+.ticker-runtime-card-live-baseball .ticker-runtime-team-record {
+  color: color-mix(in srgb, #f2fff3 82%, var(--card-accent));
+}
+
+.ticker-runtime-baseball-situation-right {
+  margin-top: 0.18rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  width: 100%;
+}
+
+.ticker-runtime-baseball-situation-right .ticker-runtime-baseball-live-text {
+  text-align: right;
+}
+
+.ticker-runtime-baseball-situation-right .ticker-runtime-baseball-live-text p {
+  white-space: nowrap;
+}
+
+.ticker-runtime-baseball-diamond-score {
+  flex: 0 0 auto;
+  width: 1.45rem;
+  height: 1.45rem;
+}
+
+.ticker-runtime-baseball-diamond-score .ticker-runtime-base {
+  width: 0.42rem;
+  height: 0.42rem;
+}
+
+.ticker-runtime-baseball-situation-right .ticker-runtime-baseball-diamond {
+  width: 1.8rem;
+  height: 1.8rem;
+}
+
+.ticker-runtime-card-solo:not(.ticker-runtime-card-racing) .ticker-runtime-game-date {
+  margin-top: 0.08rem;
+  font-size: clamp(0.66rem, 1vw, 0.8rem);
+}
+
+.ticker-runtime-card-solo:not(.ticker-runtime-card-racing) .ticker-runtime-stats {
+  gap: 0.04rem;
+}
+
+.ticker-runtime-card-solo:not(.ticker-runtime-card-racing) .ticker-runtime-stat-item {
+  font-size: clamp(0.58rem, 0.86vw, 0.72rem);
+}
+
+.ticker-runtime-card-solo:not(.ticker-runtime-card-racing) .ticker-runtime-meta {
+  font-size: clamp(0.56rem, 0.84vw, 0.68rem);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ticker-runtime-card-solo:not(.ticker-runtime-card-racing) .ticker-runtime-baseball-live-inline {
+  min-height: 2rem;
+}
+
+.ticker-runtime-card-live-baseball.ticker-runtime-card-solo:not(.ticker-runtime-card-racing) {
+  min-height: 12.8rem;
+  max-height: none;
+}
+
+.ticker-runtime-card-solo:not(.ticker-runtime-card-racing) .ticker-runtime-baseball-live-text p {
+  font-size: 0.62rem;
+  white-space: nowrap;
+}
+
+.ticker-runtime-team-name-block {
+  min-width: 0;
+  display: grid;
+  gap: 0.03rem;
+}
+
+.ticker-runtime-team-meta-row {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 0.28rem;
+}
+
+.ticker-runtime-team-meta-row .ticker-runtime-team-name {
+  flex: 1 1 auto;
+}
+
+.ticker-runtime-team-name {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ticker-runtime-team-record {
+  flex: 0 0 auto;
+  font-size: 0.6rem;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  font-weight: 800;
+  color: color-mix(in srgb, #d8f6ff 72%, var(--card-accent));
+  text-transform: uppercase;
+}
+
+.ticker-runtime-card-solo:not(.ticker-runtime-card-racing) .ticker-runtime-team-record {
+  font-size: 0.56rem;
+}
+
+.ticker-runtime-card-live-football {
+  border-color: color-mix(in srgb, #66f1ff 55%, var(--panel-border));
+}
+
+.ticker-runtime-card-live-baseball {
+  border-color: color-mix(in srgb, #f0ff66 55%, var(--panel-border));
+}
+
+.ticker-runtime-card-live-basketball {
+  border-color: color-mix(in srgb, #ff9e44 55%, var(--panel-border));
+}
+
+.ticker-runtime-card-live-hockey {
+  border-color: color-mix(in srgb, #7ca8ff 55%, var(--panel-border));
+}
+
+.ticker-runtime-live-flag {
+  margin: 0 0 0.18rem;
+  display: inline-block;
+  padding: 0.08rem 0.38rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  font-weight: 800;
+  color: #02120a;
+  background: linear-gradient(135deg, #35ff72, #84ff4b);
+}

@@ -1,11 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import './TickerRuntime.css'
 import RacingCard from './RacingCard.jsx'
 import BaseballCard from './BaseballCard.jsx'
 import FootballCard from './FootballCard.jsx'
 import BasketballCard from './BasketballCard.jsx'
 import HockeyCard from './HockeyCard.jsx'
 import GameCard from './GameCard.jsx'
-import { sanitizeHexColor, hexToRgb, rgbaFromHex } from './cardHelpers.js'
+import { sanitizeHexColor, rgbaFromHex } from './cardHelpers.js'
 
 // ── TickerRuntime-only helpers ───────────────────────────────────────────────
 
@@ -78,7 +79,6 @@ export default function TickerRuntime({
 }) {
   // ── Internal state ──────────────────────────────────────────────────────
   const [scrollReady, setScrollReady] = useState(false)
-  const [scrollSeconds, setScrollSeconds] = useState(45)
   const [trackWidth, setTrackWidth] = useState(0)
   const [windowWidth, setWindowWidth] = useState(0)
   const [watermarkSize, setWatermarkSize] = useState('82%')
@@ -92,18 +92,17 @@ export default function TickerRuntime({
   const windowRef = useRef(null)
   const firstCardRef = useRef(null)
 
-  // ── rAF / marquee refs ──────────────────────────────────────────────────
-  const rafRef = useRef(null)
-  const offsetRef = useRef(0)
-  const lastTimeRef = useRef(0)
+  // ── Animation refs ──────────────────────────────────────────────────────
+  // Web Animation object — holds the running element.animate() instance.
+  // element.animate() runs on the GPU compositor thread with no per-frame JS.
+  const animRef = useRef(null)
+  const advanceTimerRef = useRef(null) // backup setTimeout in case onfinish doesn't fire
   const trackWidthRef = useRef(0)
   const windowWidthRef = useRef(0)
-  const speedRef = useRef(110) // px per second
 
   // ── Slot-tracking refs ──────────────────────────────────────────────────
   const didInitialLateMeasureRef = useRef(false)
   const slotDurationRef = useRef(30000)
-  const slotIsK1Ref = useRef(true)
   const hasStartedRef = useRef(false)
 
   // ── Stable callback refs ─────────────────────────────────────────────────
@@ -112,30 +111,86 @@ export default function TickerRuntime({
   const onHandoffCheckRef = useRef(onHandoffCheck)
   useEffect(() => { onHandoffCheckRef.current = onHandoffCheck }, [onHandoffCheck])
 
+  // ── Animation functions ───────────────────────────────────────────────────
+
+  function stopCSSAnimation() {
+    if (advanceTimerRef.current) {
+      clearTimeout(advanceTimerRef.current)
+      advanceTimerRef.current = null
+    }
+    if (animRef.current) {
+      try { animRef.current.cancel() } catch (_) {}
+      animRef.current = null
+    }
+  }
+
+  // Called when the animation ends (by onfinish or backup timer).
+  // expectedLeagueId guards against stale closures from a prior slot.
+  function triggerAdvance(expectedLeagueId, oneCopy) {
+    if (currentSlotLeagueIdRef.current !== expectedLeagueId) return
+    const liveTrack = trackRef.current
+    if (liveTrack) liveTrack.style.opacity = '0'
+    stopCSSAnimation()
+    scrolledThisSlotRef.current = oneCopy
+    setScrollReady(false)
+    setTimeout(() => {
+      onAdvanceRef.current()
+      scrolledThisSlotRef.current = 0
+      leagueSlotStartTimeRef.current = 0
+      currentSlotLeagueIdRef.current = ''
+      handoffGraceRef.current = Date.now() + 800
+      setTimeout(() => onHandoffCheckRef.current(), 900)
+    }, 100)
+  }
+
+  // Start a compositor-threaded animation via element.animate().
+  // JS only touches the DOM once here; all per-frame movement is GPU-side.
+  function startCSSAnimation(track, winW, scrollEndPx, dur, oneCopy, leagueId) {
+    stopCSSAnimation()
+
+    const anim = track.animate([
+      { transform: `translateX(${winW}px) translateZ(0)` },
+      { transform: `translateX(${scrollEndPx}px) translateZ(0)` },
+    ], {
+      duration: dur,
+      easing: 'linear',
+      fill: 'forwards', // hold end position until we cancel
+    })
+    animRef.current = anim
+
+    anim.onfinish = () => triggerAdvance(leagueId, oneCopy)
+
+    // Backup: if onfinish doesn't fire (tab hidden, suspended, etc.) force advance
+    advanceTimerRef.current = setTimeout(
+      () => triggerAdvance(leagueId, oneCopy),
+      dur + 800
+    )
+  }
+
   // ── Session reset: new ticker session or league-set change ──────────────
   useEffect(() => {
     didInitialLateMeasureRef.current = false
     setScrollReady(false)
+    stopCSSAnimation()
     setTrackWidth(0)
     setWindowWidth(0)
     setSlotDuration(((sportsBoard?.rotateSeconds) || 30) * 1000)
     trackWidthRef.current = 0
     windowWidthRef.current = 0
-    offsetRef.current = boardWidth
   }, [sessionKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Stop marquee on league change (cleanup) ─────────────────────────────
+  // ── Stop animation on league change (cleanup) ───────────────────────────
   useEffect(() => {
-    if (!scrollReady) stopMarqueeAnimation()
-    return () => stopMarqueeAnimation()
+    if (!scrollReady) stopCSSAnimation()
+    return () => stopCSSAnimation()
   }, [displayLeague?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── League-change reset (pre-paint, synchronous with React commit) ───────
   useLayoutEffect(() => {
     if (!displayLeague) return
+    stopCSSAnimation()
     setScrollReady(false)
     hasStartedRef.current = false
-    offsetRef.current = boardWidth
     windowWidthRef.current = boardWidth
     if (trackRef.current) {
       trackRef.current.style.transform = `translateX(${boardWidth}px) translateZ(0)`
@@ -147,7 +202,7 @@ export default function TickerRuntime({
     setTimeout(() => onHandoffCheckRef.current(), 500)
   }, [displayLeague?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Measurement: measure DOM, compute widths, start rAF scroller ─────────
+  // ── Measurement: measure DOM, compute widths, start animation ────────────
   useEffect(() => {
     if (!displayLeague || games.length === 0) return
     if (hasStartedRef.current) return
@@ -178,32 +233,36 @@ export default function TickerRuntime({
       setWindowWidth(winW)
 
       const pxPerSec = 110
-      const secs = Math.max(10, Math.round((oneCopy / pxPerSec) * 10) / 10)
-      setScrollSeconds(secs)
-      setScrollReady(true)
-
       const baseDur = ((sportsBoard?.rotateSeconds) || 30) * 1000
-      let dur = baseDur
-      const exitMarginMs = 2000
-      if (k <= 1) {
-        const onePassMs = Math.round((oneCopy || winW) / pxPerSec * 1000)
-        dur = Math.max(8000, onePassMs + exitMarginMs)
-      } else {
-        const fullExitMs = Math.round((winW + (oneCopy || winW)) / pxPerSec * 1000)
-        dur = Math.max(baseDur, fullExitMs + exitMarginMs)
-      }
-      setSlotDuration(dur)
-      slotIsK1Ref.current = (k <= 1)
 
-      offsetRef.current = winW
-      track.style.transform = `translateX(${winW}px) translateZ(0)`
-      currentSlotLeagueIdRef.current = displayLeague?.id || ''
+      // Compute end position and duration to match exact advance conditions:
+      //   k=1:  advance when scrolled >= oneCopy + 150 (card fully off left)
+      //   k>1:  advance when offset + oneCopy <= 0     (track fully off left)
+      let scrollEndPx, dur
+      if (k <= 1) {
+        const scrollDist = oneCopy + 150
+        scrollEndPx = winW - scrollDist
+        dur = Math.max(8000, Math.round(scrollDist / pxPerSec * 1000))
+      } else {
+        scrollEndPx = -oneCopy
+        const scrollDist = winW + oneCopy
+        dur = Math.max(baseDur, Math.round(scrollDist / pxPerSec * 1000) + 2000)
+      }
+
+      const leagueId = displayLeague?.id || ''
+      currentSlotLeagueIdRef.current = leagueId
       hasStartedRef.current = true
-      startMarqueeAnimation()
 
       leagueSlotStartTimeRef.current = performance.now()
       slotDurationRef.current = dur
       scrolledThisSlotRef.current = 0
+      setSlotDuration(dur)
+
+      // Start GPU compositor animation — no per-frame JS from here
+      startCSSAnimation(track, winW, scrollEndPx, dur, oneCopy, leagueId)
+
+      track.style.opacity = '1'
+      setScrollReady(true)
     }
 
     const raf1 = window.requestAnimationFrame(() => window.requestAnimationFrame(runMeasure))
@@ -245,122 +304,11 @@ export default function TickerRuntime({
     return () => clearInterval(id)
   }, [])
 
-  // ── Animation functions ───────────────────────────────────────────────────
-
-  function stopMarqueeAnimation() {
-    if (rafRef.current) {
-      window.cancelAnimationFrame(rafRef.current)
-      rafRef.current = null
-    }
-    lastTimeRef.current = 0
-  }
-
-  function startMarqueeAnimation() {
-    stopMarqueeAnimation()
-    const W = trackWidthRef.current
-    if (!W) return
-    lastTimeRef.current = 0
-
-    const track = trackRef.current
-    if (track) {
-      const initial = offsetRef.current || 0
-      track.style.transform = `translateX(${initial}px) translateZ(0)`
-      track.style.willChange = 'transform'
-    }
-
-    const tick = (ts) => {
-      if (currentSlotLeagueIdRef.current && displayLeague?.id &&
-          currentSlotLeagueIdRef.current !== displayLeague.id) {
-        return
-      }
-      if (!lastTimeRef.current) lastTimeRef.current = ts
-      const dt = Math.min((ts - lastTimeRef.current) / 1000, 0.1)
-      lastTimeRef.current = ts
-
-      let offset = offsetRef.current - speedRef.current * dt
-      const startX = windowWidthRef.current || 0
-      const minX = -(W + startX)
-
-      if (leagueSlotStartTimeRef.current > 0) {
-        scrolledThisSlotRef.current += speedRef.current * dt
-      }
-
-      const oneCopy = W
-
-      const triggerAdvance = () => {
-        const cleared = minX - 800
-        offsetRef.current = cleared
-        const liveTrack = trackRef.current
-        if (liveTrack) {
-          liveTrack.style.transform = `translateX(${cleared}px) translateZ(0)`
-          liveTrack.style.opacity = '0'
-        }
-        stopMarqueeAnimation()
-        setScrollReady(false)
-        setTimeout(() => {
-          onAdvanceRef.current()
-          scrolledThisSlotRef.current = 0
-          leagueSlotStartTimeRef.current = 0
-          currentSlotLeagueIdRef.current = ''
-          handoffGraceRef.current = Date.now() + 800
-          setTimeout(() => onHandoffCheckRef.current(), 900)
-        }, 100)
-      }
-
-      if (slotIsK1Ref.current && scrolledThisSlotRef.current >= oneCopy + 150) {
-        triggerAdvance()
-        return
-      }
-      if (!slotIsK1Ref.current && offset + W <= 0) {
-        triggerAdvance()
-        return
-      }
-
-      offsetRef.current = offset
-      const liveTrack = trackRef.current
-      if (liveTrack) {
-        liveTrack.style.transform = `translateX(${offset}px) translateZ(0)`
-      }
-
-      if (leagueSlotStartTimeRef.current > 0) {
-        const elapsed = (ts - leagueSlotStartTimeRef.current) / 1000
-        const target = (slotDurationRef.current || 30000) / 1000
-        if (elapsed >= target) {
-          const cleared = minX - 700
-          offsetRef.current = cleared
-          const liveTrack2 = trackRef.current
-          if (liveTrack2) {
-            liveTrack2.style.transform = `translateX(${cleared}px) translateZ(0)`
-            liveTrack2.style.opacity = '0'
-          }
-          stopMarqueeAnimation()
-          setScrollReady(false)
-          setTimeout(() => {
-            onAdvanceRef.current()
-            scrolledThisSlotRef.current = 0
-            leagueSlotStartTimeRef.current = 0
-            currentSlotLeagueIdRef.current = ''
-            handoffGraceRef.current = Date.now() + 800
-          }, 100)
-          return
-        }
-      }
-
-      rafRef.current = window.requestAnimationFrame(tick)
-    }
-
-    rafRef.current = window.requestAnimationFrame(tick)
-  }
-
   // ── Render ────────────────────────────────────────────────────────────────
 
   const seamlessGames = games.length > 0 ? [...games] : games
   const hasEnabledLeagues = leagues.length > 0
-  const boardHeight = Math.max(120, Number(config?.monitor?.height) || 380)
 
-  if (offsetRef.current === 0 || (offsetRef.current < 0 && !scrollReady)) {
-    offsetRef.current = boardWidth
-  }
   if (!windowWidthRef.current) {
     windowWidthRef.current = boardWidth
   }

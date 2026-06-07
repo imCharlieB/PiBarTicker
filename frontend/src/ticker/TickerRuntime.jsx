@@ -83,6 +83,9 @@ export default function TickerRuntime({
   const [windowWidth, setWindowWidth] = useState(0)
   const [watermarkSize, setWatermarkSize] = useState('82%')
   const [slotDuration, setSlotDuration] = useState(30000)
+  const [currentTime, setCurrentTime] = useState(() =>
+    new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  )
 
   // ── DOM refs ────────────────────────────────────────────────────────────
   const trackRef = useRef(null)
@@ -135,7 +138,7 @@ export default function TickerRuntime({
     offsetRef.current = boardWidth
     windowWidthRef.current = boardWidth
     if (trackRef.current) {
-      trackRef.current.style.setProperty('--marquee-offset', `${boardWidth}px`)
+      trackRef.current.style.transform = `translateX(${boardWidth}px) translateZ(0)`
     }
     leagueSlotStartTimeRef.current = 0
     scrolledThisSlotRef.current = 0
@@ -193,7 +196,7 @@ export default function TickerRuntime({
       slotIsK1Ref.current = (k <= 1)
 
       offsetRef.current = winW
-      track.style.setProperty('--marquee-offset', `${winW}px`)
+      track.style.transform = `translateX(${winW}px) translateZ(0)`
       currentSlotLeagueIdRef.current = displayLeague?.id || ''
       hasStartedRef.current = true
       startMarqueeAnimation()
@@ -234,6 +237,14 @@ export default function TickerRuntime({
     img.src = watermarkUrl
   }, [watermarkUrl, config?.monitor?.height])
 
+  // ── Clock ────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const id = setInterval(() => {
+      setCurrentTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
+    }, 1000)
+    return () => clearInterval(id)
+  }, [])
+
   // ── Animation functions ───────────────────────────────────────────────────
 
   function stopMarqueeAnimation() {
@@ -253,7 +264,7 @@ export default function TickerRuntime({
     const track = trackRef.current
     if (track) {
       const initial = offsetRef.current || 0
-      track.style.setProperty('--marquee-offset', `${initial}px`)
+      track.style.transform = `translateX(${initial}px) translateZ(0)`
       track.style.willChange = 'transform'
     }
 
@@ -281,7 +292,7 @@ export default function TickerRuntime({
         offsetRef.current = cleared
         const liveTrack = trackRef.current
         if (liveTrack) {
-          liveTrack.style.setProperty('--marquee-offset', `${cleared}px`)
+          liveTrack.style.transform = `translateX(${cleared}px) translateZ(0)`
           liveTrack.style.opacity = '0'
         }
         stopMarqueeAnimation()
@@ -308,7 +319,7 @@ export default function TickerRuntime({
       offsetRef.current = offset
       const liveTrack = trackRef.current
       if (liveTrack) {
-        liveTrack.style.setProperty('--marquee-offset', `${offset}px`)
+        liveTrack.style.transform = `translateX(${offset}px) translateZ(0)`
       }
 
       if (leagueSlotStartTimeRef.current > 0) {
@@ -319,7 +330,7 @@ export default function TickerRuntime({
           offsetRef.current = cleared
           const liveTrack2 = trackRef.current
           if (liveTrack2) {
-            liveTrack2.style.setProperty('--marquee-offset', `${cleared}px`)
+            liveTrack2.style.transform = `translateX(${cleared}px) translateZ(0)`
             liveTrack2.style.opacity = '0'
           }
           stopMarqueeAnimation()
@@ -353,6 +364,8 @@ export default function TickerRuntime({
   if (!windowWidthRef.current) {
     windowWidthRef.current = boardWidth
   }
+
+  const brandLogoUrl = resolveLeagueLogo(brandLeague, payloadByLeagueId[brandLeague?.id])
 
   let watermarkPositions = 'center'
   let watermarkImages = 'none'
@@ -393,13 +406,7 @@ export default function TickerRuntime({
               role="list"
               aria-label="Ticker games"
               style={{
-                '--marquee-offset': `${offsetRef.current || boardWidth}px`,
                 opacity: scrollReady ? 1 : 0,
-                ...(scrollReady ? {
-                  '--runtime-scroll-seconds': `${scrollSeconds}s`,
-                  '--runtime-track-width': `${Math.max(1, trackWidth)}px`,
-                  '--runtime-window-width': `${Math.max(1, windowWidth)}px`,
-                } : {}),
               }}
             >
               {seamlessGames.map((item, index) => {
@@ -459,23 +466,16 @@ export default function TickerRuntime({
             </div>
           </div>
 
-          <footer className="ticker-runtime-lower" aria-label="Lower third">
+          <footer className="ticker-runtime-lower">
             <div className="ticker-runtime-lower-brand">
-              {resolveLeagueLogo(brandLeague, payloadByLeagueId[brandLeague?.id]) ? (
-                <img
-                  src={resolveLeagueLogo(brandLeague, payloadByLeagueId[brandLeague?.id])}
-                  alt={brandLeague?.name || 'Ticker'}
-                />
+              {brandLogoUrl ? (
+                <img src={brandLogoUrl} alt={brandLeague?.name || 'Ticker'} />
               ) : (
-                brandLeague?.name || 'Ticker'
+                <span className="ticker-runtime-lower-brand-fallback">{brandLeague?.name || ''}</span>
               )}
             </div>
-            <div className="ticker-runtime-lower-scroll">
-              <div className="ticker-runtime-lower-item">
-                {(homeAssistantBoard?.haSensors || []).length
-                  ? homeAssistantBoard.haSensors.slice(0, 6).join('  •  ')
-                  : 'Home Assistant sensors not configured'}
-              </div>
+            <div className="ticker-runtime-lower-clock">
+              {currentTime}
             </div>
           </footer>
         </section>

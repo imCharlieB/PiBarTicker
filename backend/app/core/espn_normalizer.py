@@ -214,6 +214,21 @@ def _map_live_state(
     }
 
 
+def _pick_best_competition(competitions: list[dict[str, Any]]) -> dict[str, Any]:
+    if not isinstance(competitions, list) or not competitions:
+        return {}
+    # Prefer the live competition, then most recent by date, then first.
+    live = next(
+        (c for c in competitions if _normalized((c.get("status") or {}).get("type", {}).get("state")) == "in"),
+        None,
+    )
+    if live is not None:
+        return live
+    def _comp_date(c: dict[str, Any]) -> str:
+        return str(c.get("date") or "")
+    return max(competitions, key=_comp_date, default=competitions[0]) or {}
+
+
 def normalize_scoreboard_events(
     *,
     entry: EspnLeagueRegistryEntry,
@@ -225,10 +240,13 @@ def normalize_scoreboard_events(
 
     for event in events:
         competitions = event.get("competitions") or []
-        competition = (competitions[0] or {}) if isinstance(competitions, list) and competitions else {}
-        status = (event.get("status") or {}).get("type") or {}
-        status_block = event.get("status") or {}
-        start_time = _parse_event_datetime(event.get("date"))
+        competition = _pick_best_competition(competitions)
+        # Prefer competition-level status (updated per-session) over event-level status.
+        comp_status_type = (competition.get("status") or {}).get("type") or {}
+        status = comp_status_type if comp_status_type else ((event.get("status") or {}).get("type") or {})
+        comp_status_block = competition.get("status") or {}
+        status_block = comp_status_block if comp_status_block else (event.get("status") or {})
+        start_time = _parse_event_datetime(competition.get("date") or event.get("date"))
 
         home_comp, away_comp = _extract_competitors(event)
         home_team = _team_model(home_comp)
@@ -289,6 +307,7 @@ def normalize_scoreboard_events(
                 "odds": {
                     "details": odds_detail,
                 },
+                "sessionLabel": str((competition.get("type") or {}).get("abbreviation") or "").strip() if entry.sport == "racing" else "",
                 "racingEntries": _racing_entries(competition if isinstance(competition, dict) else {}) if entry.sport == "racing" else [],
                 "liveState": _map_live_state(
                     sport=entry.sport,

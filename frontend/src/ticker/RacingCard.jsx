@@ -29,8 +29,10 @@ function DriverBox({ entry, index, gameId }) {
       ) : (
         <span className="ticker-runtime-racing-card-flag-placeholder" />
       )}
-      <span className="ticker-runtime-racing-card-name">{entry.shortName || entry.name || 'Driver'}</span>
-      {entry.team ? <span className="ticker-runtime-racing-card-team">{entry.team}</span> : null}
+      <div className="ticker-runtime-racing-card-name-group">
+        <span className="ticker-runtime-racing-card-name">{entry.shortName || entry.name || 'Driver'}</span>
+        {entry.team ? <span className="ticker-runtime-racing-card-team">{entry.team}</span> : null}
+      </div>
       {stat ? <span className="ticker-runtime-racing-card-stat">{stat}</span> : null}
     </div>
   )
@@ -93,7 +95,10 @@ export default function RacingCard({ game, isSoloSlate, renderLeague }) {
       <div className="ticker-runtime-racing-bar">
         <div className="ticker-runtime-racing-bar-left">
           <span className="ticker-runtime-racing-series">{seriesName}</span>
-          <strong className="ticker-runtime-racing-bar-title">{title}</strong>
+          <div className="ticker-runtime-racing-bar-title-row">
+            <strong className="ticker-runtime-racing-bar-title">{title}</strong>
+            {game?.sessionLabel ? <span className="ticker-runtime-racing-session-label">{game.sessionLabel}</span> : null}
+          </div>
         </div>
         <div className="ticker-runtime-racing-bar-right">
           {statePill}

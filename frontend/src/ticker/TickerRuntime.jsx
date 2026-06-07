@@ -50,6 +50,19 @@ function pickCardComponent(game) {
   return GameCard
 }
 
+function LiveClock() {
+  const [time, setTime] = useState(() =>
+    new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  )
+  useEffect(() => {
+    const id = setInterval(() => {
+      setTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
+    }, 1000)
+    return () => clearInterval(id)
+  }, [])
+  return <>{time}</>
+}
+
 // ── TickerRuntime ────────────────────────────────────────────────────────────
 
 export default function TickerRuntime({
@@ -83,10 +96,6 @@ export default function TickerRuntime({
   const [windowWidth, setWindowWidth] = useState(0)
   const [watermarkSize, setWatermarkSize] = useState('82%')
   const [slotDuration, setSlotDuration] = useState(30000)
-  const [currentTime, setCurrentTime] = useState(() =>
-    new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  )
-
   // ── DOM refs ────────────────────────────────────────────────────────────
   const trackRef = useRef(null)
   const windowRef = useRef(null)
@@ -296,14 +305,6 @@ export default function TickerRuntime({
     img.src = watermarkUrl
   }, [watermarkUrl, config?.monitor?.height])
 
-  // ── Clock ────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    const id = setInterval(() => {
-      setCurrentTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
-    }, 1000)
-    return () => clearInterval(id)
-  }, [])
-
   // ── Render ────────────────────────────────────────────────────────────────
 
   const seamlessGames = games.length > 0 ? [...games] : games
@@ -423,7 +424,7 @@ export default function TickerRuntime({
               )}
             </div>
             <div className="ticker-runtime-lower-clock">
-              {currentTime}
+              <LiveClock />
             </div>
           </footer>
         </section>

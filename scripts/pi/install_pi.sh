@@ -218,9 +218,12 @@ ${APP_DIR}/scripts/pi/launch-kiosk.sh &
 LABWC_EOF
 chmod +x "${LABWC_AUTOSTART}"
 
-# Configure labwc to hide the cursor (size 0) — unclutter is X11-only and won't work
-# under Wayland/Labwc. Only write rc.xml if it doesn't already exist so we don't clobber
-# any existing labwc configuration the user may have set up.
+# Hide the cursor for kiosk mode.
+# Two layers:
+#  1. rc.xml  — sets labwc cursor size to 0 (compositor-level, hides the wlroots HW cursor)
+#  2. environment file — sets XCURSOR_SIZE=0 so every Wayland client (including Chromium)
+#     also requests a 0-size cursor, which wlroots renders as invisible.
+# unclutter is X11-only and doesn't work under pure Wayland/Labwc.
 LABWC_RC="${APP_HOME}/.config/labwc/rc.xml"
 if [[ ! -f "${LABWC_RC}" ]]; then
   cat > "${LABWC_RC}" <<'LABWC_RC_EOF'
@@ -233,9 +236,16 @@ if [[ ! -f "${LABWC_RC}" ]]; then
   </theme>
 </openbox_config>
 LABWC_RC_EOF
-  echo "Created labwc rc.xml with cursor size 0 (hides cursor in kiosk mode)."
+  echo "Created labwc rc.xml with cursor size 0."
 else
-  echo "labwc rc.xml already exists; skipping cursor config. Add <cursor><size>0</size></cursor> under <theme> to hide the cursor."
+  echo "labwc rc.xml already exists; skipping (add <cursor><size>0</size></cursor> under <theme> manually if cursor is visible)."
+fi
+
+LABWC_ENV="${APP_HOME}/.config/labwc/environment"
+touch "${LABWC_ENV}"
+if ! grep -q "XCURSOR_SIZE" "${LABWC_ENV}"; then
+  echo "XCURSOR_SIZE=0" >> "${LABWC_ENV}"
+  echo "Set XCURSOR_SIZE=0 in labwc environment (hides cursor on Wayland)."
 fi
 
 chown -R "${APP_USER}:${APP_USER}" "${APP_HOME}/.config"
@@ -391,80 +401,53 @@ setup_custom_splash() {
     return 0
   fi
 
-  # Install only the tools we need for this step (keeps the main package list unchanged)
-  echo "Installing conversion tools (librsvg2-bin, imagemagick) for splash generation..."
-  if ! apt-get install -y --no-install-recommends librsvg2-bin imagemagick; then
-    echo "WARNING: Could not install image tools. Skipping custom boot splash."
+  # Use Python Pillow for image generation — python3-pil is available on all Pi OS Bookworm
+  # variants including arm64 (Pi 5), unlike imagemagick/librsvg2-bin which are absent there.
+  echo "Installing python3-pil for splash image generation..."
+  if ! apt-get install -y --no-install-recommends python3-pil; then
+    echo "WARNING: Could not install python3-pil. Skipping custom boot splash."
     return 0
   fi
 
-  local logo_svg="${APP_DIR}/frontend/public/pibarticker-logo.svg"
-  if [[ ! -f "${logo_svg}" ]]; then
-    echo "WARNING: ${logo_svg} not present after file sync. Skipping splash."
+  local logo_png="${APP_DIR}/frontend/public/pibarticker-logo-transparent.png"
+  if [[ ! -f "${logo_png}" ]]; then
+    echo "WARNING: ${logo_png} not present after file sync. Skipping splash."
     return 0
   fi
 
-  echo "Creating custom PiBarTicker boot splash from SVG..."
-
-  local tmp_dir
-  tmp_dir="$(mktemp -d)"
-  # Copy SVG + the PNG it references (href is relative) so rasterizer resolves assets reliably
-  cp "${logo_svg}" "${tmp_dir}/pibarticker-logo.svg" 2>/dev/null || true
-  local src_dir
-  src_dir="$(dirname "${logo_svg}")"
-  if [[ -f "${src_dir}/pibarticker-logo-transparent.png" ]]; then
-    cp "${src_dir}/pibarticker-logo-transparent.png" "${tmp_dir}/" 2>/dev/null || true
-  fi
-
-  local raster_png="${tmp_dir}/logo-raster.png"
-  local splash_png="${tmp_dir}/pibarticker-splash.png"
-
-  # Pick logo render size (example of using Pi4/Pi5 detection for future tuning)
   local logo_w=880
   if [[ ${is_pi5} -eq 1 ]]; then
     logo_w=960
   fi
 
-  local raster_ok=0
+  local tmp_dir
+  tmp_dir="$(mktemp -d)"
+  local splash_png="${tmp_dir}/pibarticker-splash.png"
 
-  # Try 1: use the pre-rendered PNG directly — avoids SVG parsing entirely and
-  # sidesteps the ImageMagick Bookworm security policy that blocks SVG by default.
-  local src_png="${src_dir}/pibarticker-logo-transparent.png"
-  if [[ -f "${src_png}" ]]; then
-    echo "Attempting logo raster from pre-rendered PNG..."
-    if convert "${src_png}" -resize ${logo_w}x -background none "${raster_png}" 2>&1; then
-      raster_ok=1
-      echo "Logo rasterized from PNG."
-    else
-      echo "PNG resize failed; will try SVG converters."
-    fi
-  fi
+  echo "Generating boot splash with Python Pillow (${splash_w}x${splash_h}, logo max-width ${logo_w}px)..."
+  if ! python3 - "${logo_png}" "${splash_png}" "${logo_w}" "${splash_w}" "${splash_h}" <<'PY'; then
+import sys
+from PIL import Image
 
-  # Try 2: rsvg-convert from SVG (no ImageMagick policy issues)
-  if [[ ${raster_ok} -eq 0 ]]; then
-    echo "Attempting SVG rasterization via rsvg-convert..."
-    if ( cd "${tmp_dir}" && rsvg-convert --width=${logo_w} --keep-aspect-ratio pibarticker-logo.svg -o logo-raster.png 2>&1 ); then
-      raster_ok=1
-      echo "Logo rasterized via rsvg-convert."
-    else
-      echo "rsvg-convert did not succeed; trying ImageMagick convert fallback..."
-      if convert "${tmp_dir}/pibarticker-logo.svg" -resize ${logo_w}x -background none "${raster_png}" 2>&1; then
-        raster_ok=1
-      fi
-    fi
-  fi
+logo_path, out_path = sys.argv[1], sys.argv[2]
+logo_max_w, canvas_w, canvas_h = int(sys.argv[3]), int(sys.argv[4]), int(sys.argv[5])
 
-  if [[ ${raster_ok} -eq 0 ]]; then
-    echo "WARNING: All logo-to-PNG conversion methods failed. Skipping custom boot splash."
+logo = Image.open(logo_path).convert("RGBA")
+logo.thumbnail((logo_max_w, logo_max_w * 4), Image.LANCZOS)
+canvas = Image.new("RGB", (canvas_w, canvas_h), (0, 0, 0))
+x = (canvas_w - logo.width) // 2
+y = (canvas_h - logo.height) // 2
+canvas.paste(logo, (x, y), logo)
+canvas.save(out_path, "PNG")
+print(f"Splash created: {canvas_w}x{canvas_h}, logo at ({x},{y}) size {logo.width}x{logo.height}")
+PY
+    echo "WARNING: Pillow splash generation failed. Skipping."
     rm -rf "${tmp_dir}" 2>/dev/null || true
     return 0
   fi
 
-  # Black canvas + centered logo (no text, clean branding)
-  if ! convert -size ${splash_w}x${splash_h} xc:#000000 \
-       "${raster_png}" -gravity center -composite \
-       "${splash_png}" 2>&1; then
-    echo "WARNING: Failed to create final splash composite."
+  if [[ ! -f "${splash_png}" ]]; then
+    echo "WARNING: Splash PNG not produced. Skipping."
     rm -rf "${tmp_dir}" 2>/dev/null || true
     return 0
   fi

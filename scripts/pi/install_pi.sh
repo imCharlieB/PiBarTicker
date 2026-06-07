@@ -325,22 +325,33 @@ echo "Disabling display-setup-script to stop LightDM/Labwc flashing..."
 sudo sed -i 's|^display-setup-script=.*|#display-setup-script=/usr/share/dispsetup.sh|' /etc/lightdm/lightdm.conf || true
 
 # --- Suppress gnome-keyring prompts for kiosk autologin ---
-# Deleting login.keyring just causes gnome-keyring to pop up "create new keyring?" on
-# the next boot. Instead, disable the gnome-keyring daemon autostart for this user by
-# writing Hidden=true overrides in ~/.config/autostart/ — the package stays installed
-# (removing it breaks desktop components) but the daemon won't start, so no prompts.
-echo "Disabling gnome-keyring daemon autostart (suppresses keyring prompts on autologin)..."
+# On Pi OS Desktop, gnome-keyring-daemon is started by pam_gnome_keyring.so in
+# /etc/pam.d/lightdm-autologin before the desktop session even starts — that is the
+# primary trigger, not XDG autostart. lxsession does not run under bare labwc so the
+# ~/.config/autostart Hidden=true overrides we write below are never read.
+# Removing pam_gnome_keyring from the autologin PAM config is the only reliable fix.
+echo "Suppressing gnome-keyring keyring prompts on autologin..."
 
+# (a) PAM — primary trigger on Pi OS Desktop with autologin
+PAM_AUTOLOGIN="/etc/pam.d/lightdm-autologin"
+if [[ -f "${PAM_AUTOLOGIN}" ]] && grep -q pam_gnome_keyring "${PAM_AUTOLOGIN}"; then
+  cp "${PAM_AUTOLOGIN}" "${PAM_AUTOLOGIN}.pibarticker-backup" 2>/dev/null || true
+  sed -i '/pam_gnome_keyring/d' "${PAM_AUTOLOGIN}"
+  echo "  Removed pam_gnome_keyring from ${PAM_AUTOLOGIN}."
+else
+  echo "  pam_gnome_keyring not present in ${PAM_AUTOLOGIN:-/etc/pam.d/lightdm-autologin (not found)} — skipping."
+fi
+
+# (b) XDG autostart overrides — belt-and-suspenders if a session manager ever runs
 AUTOSTART_DIR="${APP_HOME}/.config/autostart"
 mkdir -p "${AUTOSTART_DIR}"
 for _gk_desktop in /etc/xdg/autostart/gnome-keyring-*.desktop; do
   [[ -f "${_gk_desktop}" ]] || continue
   _gk_fname="$(basename "${_gk_desktop}")"
   printf '[Desktop Entry]\nType=Application\nHidden=true\n' > "${AUTOSTART_DIR}/${_gk_fname}"
-  echo "  Disabled autostart: ${_gk_fname}"
 done
 chown -R "${APP_USER}:${APP_USER}" "${AUTOSTART_DIR}"
-echo "gnome-keyring autostart disabled for user ${APP_USER}."
+echo "gnome-keyring suppression complete."
 
 if [[ "${LAUNCH_NOW}" == "1" ]]; then
   echo "Attempting immediate kiosk launch (no reboot needed for first run)..."

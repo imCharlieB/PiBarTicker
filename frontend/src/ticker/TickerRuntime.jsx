@@ -275,8 +275,10 @@ export default function TickerRuntime({
     let tLate = null
     if (!didInitialLateMeasureRef.current) {
       didInitialLateMeasureRef.current = true
+      // Fallback: only fires if the double-rAF didn't complete measurement in time.
+      // Guard with hasStartedRef so we never cancel a running animation.
       tLate = window.setTimeout(() => {
-        if (trackRef.current) runMeasure()
+        if (trackRef.current && !hasStartedRef.current) runMeasure()
       }, 350)
     }
     return () => {

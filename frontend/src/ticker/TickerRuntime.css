@@ -63,6 +63,11 @@
   will-change: transform;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
+  /* Force consistent grayscale antialiasing for all text in this compositor layer.
+     Without this, text alignment to pixel boundaries changes as the layer moves,
+     causing the text-flicker ("dancing" driver names, team abbreviations). */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .ticker-runtime-card {

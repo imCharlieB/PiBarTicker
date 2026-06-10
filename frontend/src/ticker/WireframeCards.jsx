@@ -280,6 +280,10 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
   const hasEntries = displayEntries.length > 0
   const title = racingCardTitle(game, renderLeague)
   const seriesName = String(renderLeague?.name || renderLeague?.id || 'Race').trim()
+  const cs = game?.cardStyle
+  const dirClass = cs && cs !== 'standard' && cs !== 'large-logo'
+    ? `d-${cs === 'marquee' ? 'marq' : cs}`
+    : 'd-slab'
 
   // Pre-race with no grid entries → simple upcoming card
   if (state === 'pre' && !hasEntries) {
@@ -287,7 +291,7 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
       || formatRuntimeDate(game)
       || String(game?.status?.shortDetail || '').trim()
     return (
-      <div className="card d-board board-pre">
+      <div className={`card d-board ${dirClass} board-pre`}>
         <div className="board-head">
           <div className="board-titles">
             <span className="board-title">{title}</span>
@@ -316,14 +320,14 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
     pos: entry.position ?? i + 1,
     name: entry.shortName || entry.name || 'Driver',
     detail: racingEntrySummary(entry) || String(entry?.score || ''),
-    color: '',
+    color: entry.teamColor ? `#${entry.teamColor.replace(/^#/, '')}` : '',
   }))
 
   const many = rows.length > 6
   const perCol = Math.ceil(rows.length / 2)
 
   return (
-    <div className={`card d-board ${many ? 'board-wide' : ''}`}>
+    <div className={`card d-board ${dirClass} ${many ? 'board-wide' : ''}`}>
       <div className="board-head">
         <div className="board-titles">
           <span className="board-title">{title}</span>
@@ -336,8 +340,9 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
         style={many ? { gridTemplateRows: `repeat(${perCol}, 1fr)` } : undefined}
       >
         {rows.map((r, i) => (
-          <div key={i} className={`board-row ${i === 0 ? 'leader' : ''}`}>
+          <div key={i} className={`board-row ${i === 0 ? 'leader' : ''}`} style={r.color ? { '--rc': r.color } : undefined}>
             <span className="board-pos">{r.pos}</span>
+            {r.color ? <span className="board-dot" style={{ background: r.color }} /> : null}
             <span className="board-name">{r.name}</span>
             <span className="board-detail">{r.detail}</span>
           </div>

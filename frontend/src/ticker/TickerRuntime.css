@@ -8,10 +8,7 @@
   padding: 0.25rem 0 0;
   overflow: hidden;
   color: var(--ticker-text);
-  background:
-    radial-gradient(circle at 20% 15%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 55%),
-    radial-gradient(circle at 85% 20%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 52%),
-    var(--ticker-bg);
+  background: var(--ticker-bg, #0c0e12);
 }
 
 .ticker-runtime-board {
@@ -71,38 +68,26 @@
 }
 
 .ticker-runtime-card {
-  --card-accent: var(--accent);
-  --card-accent-soft: color-mix(in srgb, var(--card-accent) 24%, transparent);
-  --card-accent-glow: color-mix(in srgb, var(--card-accent) 34%, transparent);
+  --card-accent: transparent;
   position: relative;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  border: 1px solid color-mix(in srgb, var(--card-accent) 32%, #1f232e);
+  border: 1px solid var(--ticker-card-border, #232833);
   border-radius: 0.85rem;
   padding: 0.42rem 0.58rem;
   width: min(36vw, 560px);
   min-width: 330px;
   min-height: 10.6rem;
   height: 100%;
-  background:
-    radial-gradient(circle at 14% 38%, var(--card-accent-soft), transparent 62%),
-    linear-gradient(150deg, var(--card-gradient-start, color-mix(in srgb, #0f1320 72%, var(--card-accent))), #070a12 58%, #090c15);
-  box-shadow:
-    0 12px 36px color-mix(in srgb, #000 58%, transparent),
-    inset 0 0 0 1px color-mix(in srgb, #ffffff 6%, transparent);
+  background: var(--ticker-card-bg, #13161c);
+  box-shadow: 0 12px 30px rgba(0,0,0,.5);
   overflow: hidden;
 }
 
-.ticker-runtime-card::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 2.5px;
-  border-radius: 0.85rem 0.85rem 0 0;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--card-accent) 92%, #7ae8ff), transparent 70%);
-  opacity: 0.9;
-  pointer-events: none;
+.ticker-runtime-card-use-team-colors {
+  background: color-mix(in srgb, var(--card-accent) 18%, var(--ticker-card-bg, #13161c));
+  border-color: color-mix(in srgb, var(--card-accent) 35%, var(--ticker-card-border, #232833));
 }
 
 .ticker-runtime-card-solo {
@@ -130,9 +115,8 @@
 
 .ticker-runtime-card-racing {
   width: max-content;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--accent) 18%, transparent), transparent 42%),
-    linear-gradient(180deg, #0c1015, #14181f 46%, #10141a);
+  background: var(--ticker-card-bg, #101319);
+  border-color: var(--ticker-card-border, #232a36);
 }
 
 .ticker-runtime-card-racing.ticker-runtime-card-solo {
@@ -982,21 +966,21 @@
 }
 
 .ticker-runtime-racing-state-pill-live {
-  color: #a8ffd0;
-  background: #071610;
-  border: 1px solid #14472a;
+  color: #0c120e;
+  background: #7cf29b;
+  border: none;
 }
 
 .ticker-runtime-racing-state-pill-final {
-  color: #9bbcd8;
-  background: #080e18;
-  border: 1px solid #1a2840;
+  color: #cdd6e4;
+  background: #2a3142;
+  border: none;
 }
 
 .ticker-runtime-racing-state-pill-grid {
-  color: #ffe080;
-  background: #100d00;
-  border: 1px solid #3e2e00;
+  color: #0b0e14;
+  background: #f2c94c;
+  border: none;
 }
 
 .ticker-runtime-racing-tv-pill {

@@ -1,11 +1,11 @@
 export const DARK_PRESET = {
-  background: '#0d1117',
-  accent: '#1274cf',
+  background: '#0a0b0e',
+  accent: '#7cf29b',
 }
 
 export const LIGHT_PRESET = {
-  background: '#ffffff',
-  accent: '#1274cf',
+  background: '#f2f4f7',
+  accent: '#7cf29b',
 }
 
 const TEAM_PRESETS = {
@@ -184,13 +184,13 @@ function findTeamStyle(theme, sportsBoard, logoMetaById = {}) {
 function resolveTeamPalette(theme, sportsBoard, logoMetaById = {}) {
   const configured = findTeamStyle(theme, sportsBoard, logoMetaById)
   const code = String(theme?.teamTheme?.team || '').trim().toUpperCase()
-  const preset = TEAM_PRESETS[code] || { accent: '#1274cf', background: '#1a1a1c' }
+  const preset = TEAM_PRESETS[code] || { accent: '#7cf29b', background: '#13161c' }
 
   const configuredPrimary = sanitizeHexColor(configured?.color)
   const configuredAlternate = sanitizeHexColor(configured?.alternateColor)
 
   const accent = configuredPrimary || sanitizeHexColor(preset.accent) || DARK_PRESET.accent
-  const background = configuredAlternate || configuredPrimary || sanitizeHexColor(preset.background) || '#1a1a1c'
+  const background = configuredAlternate || configuredPrimary || sanitizeHexColor(preset.background) || '#13161c'
 
   return {
     accent,
@@ -244,19 +244,21 @@ export function deriveThemeTokens(theme, options = {}) {
 
   if (theme?.mode === 'light' && !teamThemeEnabled) {
     return finalizeTokens({
-      pageBg: '#f8f8f8',
-      pageGradient: 'linear-gradient(180deg, #ffffff 0%, #f8f8f8 100%)',
+      pageBg: '#f2f4f7',
+      pageGradient: 'linear-gradient(180deg, #ffffff 0%, #f2f4f7 100%)',
       panelBg: '#ffffff',
       panelBorder: 'rgba(36, 36, 36, 0.12)',
-      textMain: '#242424',
+      textMain: '#1a1d23',
       textMuted: '#626264',
-      tickerBg: '#ffffff',
-      tickerText: '#242424',
-      lowerBg: '#f8f8f8',
-      lowerText: '#242424',
+      tickerBg: '#f0f3f7',
+      tickerText: '#1a1d23',
+      tickerCardBg: '#13161c',
+      tickerCardBorder: '#232833',
+      lowerBg: '#f2f4f7',
+      lowerText: '#1a1d23',
       accent: resolvedAccentOverride || LIGHT_PRESET.accent,
-      heroEyebrow: '#1274cf',
-      buttonText: '#ffffff',
+      heroEyebrow: '#1a7a35',
+      buttonText: '#0c120e',
       modeClass: 'mode-light',
     })
   }
@@ -265,18 +267,21 @@ export function deriveThemeTokens(theme, options = {}) {
     const palette = resolveTeamPalette(theme, options.sportsBoard, options.leagueLogoMetaById)
     const background = resolvedBackgroundOverride || palette.background
     const accent = resolvedAccentOverride || palette.accent
-    const panelBg = blendHex(background, '#101418', 0.36)
-    const tickerBg = blendHex(background, '#0c1119', 0.56)
+    const panelBg = blendHex(background, '#0c0e12', 0.36)
+    const tickerBg = blendHex(background, '#0a0b0e', 0.56)
+    const tickerCardBg = blendHex(background, '#0c0e12', 0.52)
 
     return finalizeTokens({
       pageBg: background,
-      pageGradient: `linear-gradient(180deg, ${background} 0%, ${blendHex(background, '#0d1117', 0.62)} 100%)`,
+      pageGradient: `linear-gradient(180deg, ${background} 0%, ${blendHex(background, '#0c0e12', 0.62)} 100%)`,
       panelBg,
       panelBorder: hexToRgba(blendHex(background, '#ffffff', 0.7), 0.22),
       textMain: readableTextFor(panelBg),
       textMuted: blendHex(readableTextFor(panelBg), panelBg, 0.42),
       tickerBg,
       tickerText: readableTextFor(tickerBg),
+      tickerCardBg,
+      tickerCardBorder: hexToRgba(blendHex(background, '#ffffff', 0.7), 0.28),
       lowerBg: panelBg,
       lowerText: readableTextFor(panelBg),
       accent,
@@ -287,19 +292,21 @@ export function deriveThemeTokens(theme, options = {}) {
   }
 
   return finalizeTokens({
-    pageBg: '#0d1117',
-    pageGradient: 'linear-gradient(180deg, #1a1a1c 0%, #0d1117 100%)',
-    panelBg: '#2b2b2e',
-    panelBorder: 'rgba(230, 230, 230, 0.12)',
+    pageBg: '#0a0b0e',
+    pageGradient: 'linear-gradient(180deg, #13161c 0%, #0c0e12 100%)',
+    panelBg: '#13161c',
+    panelBorder: '#232833',
     textMain: '#ffffff',
-    textMuted: '#949497',
-    tickerBg: '#1a1a1c',
-    tickerText: '#e6e6e6',
-    lowerBg: '#2b2b2e',
-    lowerText: '#e6e6e6',
+    textMuted: '#9aa3b1',
+    tickerBg: '#0c0e12',
+    tickerText: '#e7ebf2',
+    tickerCardBg: '#13161c',
+    tickerCardBorder: '#232833',
+    lowerBg: '#13161c',
+    lowerText: '#e7ebf2',
     accent: resolvedAccentOverride || DARK_PRESET.accent,
-    heroEyebrow: '#846bda',
-    buttonText: '#ffffff',
+    heroEyebrow: '#7cf29b',
+    buttonText: '#0c120e',
     modeClass: 'mode-dark',
   })
 }

@@ -121,6 +121,8 @@ function App() {
     '--accent': themeTokens?.accent,
     '--ticker-bg': themeTokens?.tickerBg,
     '--ticker-text': themeTokens?.tickerText,
+    '--ticker-card-bg': themeTokens?.tickerCardBg,
+    '--ticker-card-border': themeTokens?.tickerCardBorder,
     '--lower-bg': themeTokens?.lowerBg,
     '--lower-text': themeTokens?.lowerText,
     '--hero-eyebrow': themeTokens?.heroEyebrow,

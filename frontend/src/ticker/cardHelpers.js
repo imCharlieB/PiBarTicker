@@ -532,6 +532,15 @@ export function prepareDisplayGames(games, rawEventsById, displayLeague, leagueL
       cardInfo: finalInfoParts.join(' • '),
       cardStyle: displayLeague?.cardStyle || 'standard',
       slateOrder: index,
+      broadcastText: displayLeague?.showTV ? broadcastText : '',
+      venueText,
+      oddsText,
+      density: displayLeague?.density || 'bal',
+      colorMode: displayLeague?.colorMode || 'full',
+      situationText: String(
+        game?.liveState?.downDistanceText || game?.liveState?.detail || ''
+      ).trim(),
+      leagueName: String(displayLeague?.name || displayLeague?.id || '').toUpperCase(),
     }
   })
   .sort((left, right) => {

@@ -72,7 +72,7 @@ export default function LeagueDetail({
               <span className="league-card-control-label">Card style</span>
               <div className="league-card-control-item">
                 <div className="league-seg">
-                  {[['standard', 'Standard'], ['large-logo', 'Large Logo']].map(([val, label]) => (
+                  {[['standard', 'Standard'], ['large-logo', 'Large Logo'], ['slab', 'Slab'], ['spine', 'Spine'], ['digits', 'Digits'], ['marquee', 'Marquee']].map(([val, label]) => (
                     <button
                       key={val}
                       type="button"
@@ -110,14 +110,6 @@ export default function LeagueDetail({
                 <label className="field field-checkbox">
                   <span>League enabled</span>
                   <input type="checkbox" checked={selectedTickerLeague.enabled} onChange={(event) => updateLeague(selectedTickerLeagueIndex, 'enabled', event.target.checked)} />
-                </label>
-                <label className="field field-checkbox">
-                  <span>Show TV</span>
-                  <input type="checkbox" checked={selectedTickerLeague.showTV} onChange={(event) => updateLeague(selectedTickerLeagueIndex, 'showTV', event.target.checked)} />
-                </label>
-                <label className="field field-checkbox">
-                  <span>Show location</span>
-                  <input type="checkbox" checked={Boolean(selectedTickerLeague.showNews)} onChange={(event) => updateLeague(selectedTickerLeagueIndex, 'showNews', event.target.checked)} />
                 </label>
                 <label className="field field-checkbox">
                   <span>Live game mode</span>

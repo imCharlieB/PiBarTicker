@@ -119,6 +119,23 @@
   border-color: var(--ticker-card-border, #232a36);
 }
 
+/* Wireframe card styles — article is a transparent pass-through wrapper;
+   all sizing, padding, background, border-radius come from the inner .card div.
+   Two-class selectors (specificity 020) to beat the sport-specific gradient rules below. */
+.ticker-runtime-card.ticker-runtime-card-style-slab,
+.ticker-runtime-card.ticker-runtime-card-style-spine,
+.ticker-runtime-card.ticker-runtime-card-style-digits,
+.ticker-runtime-card.ticker-runtime-card-style-marquee {
+  padding: 0;
+  width: max-content;
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
 .ticker-runtime-card-racing.ticker-runtime-card-solo {
   width: max-content;
   min-width: 360px;
@@ -874,25 +891,25 @@
   background: color-mix(in srgb, #1b1a14 56%, #111826);
 }
 
-.ticker-runtime-card-sport-football:not(.ticker-runtime-card-use-team-colors) {
+.ticker-runtime-card-sport-football:not(.ticker-runtime-card-use-team-colors):not(.ticker-runtime-card-style-slab):not(.ticker-runtime-card-style-spine):not(.ticker-runtime-card-style-digits):not(.ticker-runtime-card-style-marquee) {
   background:
     radial-gradient(circle at 14% 30%, color-mix(in srgb, #39dcff 30%, transparent), transparent 60%),
     linear-gradient(145deg, #0b1320, #090d16 58%, #0d1018);
 }
 
-.ticker-runtime-card-sport-basketball:not(.ticker-runtime-card-use-team-colors) {
+.ticker-runtime-card-sport-basketball:not(.ticker-runtime-card-use-team-colors):not(.ticker-runtime-card-style-slab):not(.ticker-runtime-card-style-spine):not(.ticker-runtime-card-style-digits):not(.ticker-runtime-card-style-marquee) {
   background:
     radial-gradient(circle at 12% 34%, color-mix(in srgb, #ff9a3c 26%, transparent), transparent 58%),
     linear-gradient(145deg, #1a1310, #0e1017 62%, #141015);
 }
 
-.ticker-runtime-card-sport-baseball:not(.ticker-runtime-card-use-team-colors) {
+.ticker-runtime-card-sport-baseball:not(.ticker-runtime-card-use-team-colors):not(.ticker-runtime-card-style-slab):not(.ticker-runtime-card-style-spine):not(.ticker-runtime-card-style-digits):not(.ticker-runtime-card-style-marquee) {
   background:
     radial-gradient(circle at 10% 36%, color-mix(in srgb, #d6ff62 24%, transparent), transparent 58%),
     linear-gradient(145deg, #101614, #0d1017 64%, #121614);
 }
 
-.ticker-runtime-card-sport-hockey:not(.ticker-runtime-card-use-team-colors) {
+.ticker-runtime-card-sport-hockey:not(.ticker-runtime-card-use-team-colors):not(.ticker-runtime-card-style-slab):not(.ticker-runtime-card-style-spine):not(.ticker-runtime-card-style-digits):not(.ticker-runtime-card-style-marquee) {
   background:
     radial-gradient(circle at 12% 32%, color-mix(in srgb, #79adff 26%, transparent), transparent 56%),
     linear-gradient(145deg, #0f1420, #0a0f18 62%, #111522);

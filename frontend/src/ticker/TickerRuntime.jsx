@@ -1,10 +1,8 @@
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import './TickerRuntime.css'
-import RacingCard from './RacingCard.jsx'
+import './TickerCards.css'
+import WireframeCard, { BoardCard } from './WireframeCards.jsx'
 import BaseballCard from './BaseballCard.jsx'
-import FootballCard from './FootballCard.jsx'
-import BasketballCard from './BasketballCard.jsx'
-import HockeyCard from './HockeyCard.jsx'
 import GameCard from './GameCard.jsx'
 import { sanitizeHexColor, rgbaFromHex, hexToRgb } from './cardHelpers.js'
 
@@ -19,22 +17,63 @@ function cssToken(value, fallback = 'unknown') {
   return token || fallback
 }
 
-function runtimeCardStyle(game, useTeamCardColors = false) {
-  if (game?.isRacing || !useTeamCardColors) return undefined
-  const homePrimary = sanitizeHexColor(game?.teams?.home?.palette?.primary || game?.teams?.home?.color)
-  if (!homePrimary) return undefined
-  const rgb = hexToRgb(homePrimary)
-  // Pre-compute color-mix(in srgb, #0f1320 72%, card-accent) in JS so the GPU rasterizer
-  // never has to evaluate it — eliminates a repaint trigger on every Pi compositor tile.
-  const gradStart = rgb
-    ? `rgb(${Math.round(0x0f * 0.72 + rgb.r * 0.28)}, ${Math.round(0x13 * 0.72 + rgb.g * 0.28)}, ${Math.round(0x20 * 0.72 + rgb.b * 0.28)})`
-    : null
-  return {
-    '--card-accent': homePrimary,
-    '--card-accent-soft': rgbaFromHex(homePrimary, 0.24),
-    '--card-accent-glow': rgbaFromHex(homePrimary, 0.34),
-    ...(gradStart ? { '--card-gradient-start': gradStart } : {}),
+const WIREFRAME_STYLES = new Set(['slab', 'spine', 'digits', 'marquee'])
+const DARK_BASE = '#0e1014'
+
+function tintFor(hex, mode) {
+  if (mode === 'neutral') {
+    return { wash: 'linear-gradient(160deg,#1b1e25,#101218)', bar: '#39404c', dot: hex || '#5b6473', text: '#e9ebef' }
   }
+  if (mode === 'accent') {
+    return { wash: 'linear-gradient(160deg,#171a21,#0f1115)', bar: hex || '#5b6473', dot: hex || '#5b6473', text: '#f3f4f7' }
+  }
+  // full — team color drives wash
+  const A = hexToRgb(hex), D = hexToRgb(DARK_BASE)
+  const mix = (av, dv, k) => Math.round(av * k + dv * (1 - k))
+  const m84 = A && D ? `rgb(${mix(A.r, D.r, 0.84)},${mix(A.g, D.g, 0.84)},${mix(A.b, D.b, 0.84)})` : DARK_BASE
+  const m46 = A && D ? `rgb(${mix(A.r, D.r, 0.46)},${mix(A.g, D.g, 0.46)},${mix(A.b, D.b, 0.46)})` : DARK_BASE
+  return { wash: `linear-gradient(160deg,${m84},${m46})`, bar: hex, dot: hex, text: '#ffffff' }
+}
+
+function cardColorVars(game) {
+  const mode = game?.colorMode || 'full'
+  const aHex = sanitizeHexColor(game?.teams?.away?.palette?.primary) || ''
+  const hHex = sanitizeHexColor(game?.teams?.home?.palette?.primary) || ''
+  const ta = tintFor(aHex, mode)
+  const th = tintFor(hHex, mode)
+  return {
+    '--wash-a': ta.wash, '--wash-h': th.wash,
+    '--bar-a': ta.bar,  '--bar-h': th.bar,
+    '--dot-a': ta.dot,  '--dot-h': th.dot,
+    '--txt-a': ta.text, '--txt-h': th.text,
+    '--ca': aHex || '#5b6473', '--ch': hHex || '#5b6473',
+  }
+}
+
+function runtimeCardStyle(game, useTeamCardColors = false) {
+  const isWireframe = WIREFRAME_STYLES.has(game?.cardStyle) || game?.isRacing
+
+  // Standard/large-logo team accent vars (used by TickerRuntime.css rules)
+  let teamVars = null
+  if (useTeamCardColors && !game?.isRacing) {
+    const homePrimary = sanitizeHexColor(game?.teams?.home?.palette?.primary || game?.teams?.home?.color)
+    if (homePrimary) {
+      const rgb = hexToRgb(homePrimary)
+      // Pre-compute color-mix so the GPU rasterizer never has to evaluate it per tile.
+      const gradStart = rgb
+        ? `rgb(${Math.round(0x0f * 0.72 + rgb.r * 0.28)},${Math.round(0x13 * 0.72 + rgb.g * 0.28)},${Math.round(0x20 * 0.72 + rgb.b * 0.28)})`
+        : null
+      teamVars = {
+        '--card-accent': homePrimary,
+        '--card-accent-soft': rgbaFromHex(homePrimary, 0.24),
+        '--card-accent-glow': rgbaFromHex(homePrimary, 0.34),
+        ...(gradStart ? { '--card-gradient-start': gradStart } : {}),
+      }
+    }
+  }
+
+  if (!isWireframe) return teamVars || undefined
+  return { ...teamVars, ...cardColorVars(game) }
 }
 
 function resolveLeagueLogo(league, payload) {
@@ -47,13 +86,10 @@ function resolveLeagueLogo(league, payload) {
   return `https://a.espncdn.com/i/teamlogos/leagues/500/${leagueId}.png`
 }
 
+// Only used for standard / large-logo cardStyles — wireframe styles dispatch in MemoizedCard.
 function pickCardComponent(game) {
-  if (game?.isRacing) return null // handled separately (needs extra props)
   const sport = String(game?.sport || '').toLowerCase()
   if (sport === 'baseball') return BaseballCard
-  if (sport === 'football') return FootballCard
-  if (sport === 'basketball') return BasketballCard
-  if (sport === 'hockey') return HockeyCard
   return GameCard
 }
 
@@ -81,6 +117,9 @@ const MemoizedCard = memo(function MemoizedCard({
 }) {
   const sportToken = cssToken(game?.sport, 'generic')
   const stateToken = cssToken(game?.state, 'unknown')
+  const cardStyle = game?.cardStyle || 'standard'
+  const isWireframe = WIREFRAME_STYLES.has(cardStyle)
+  const colorMode = game?.colorMode || 'full'
   return (
     <article
       ref={isFirstCardForMeasure ? firstCardRef : null}
@@ -88,27 +127,32 @@ const MemoizedCard = memo(function MemoizedCard({
         'ticker-runtime-card',
         `ticker-runtime-card-sport-${sportToken}`,
         `ticker-runtime-card-state-${stateToken}`,
-        `ticker-runtime-card-style-${game.cardStyle || 'standard'}`,
+        `ticker-runtime-card-style-${cardStyle}`,
         isSoloSlate ? 'ticker-runtime-card-solo' : '',
         isDuoSlate ? 'ticker-runtime-card-duo' : '',
         game?.isRacing ? 'ticker-runtime-card-racing' : '',
         game?.isRacing && isSoloSlate ? 'ticker-runtime-card-racing-solo' : '',
-        game?.isLiveFeatured ? `ticker-runtime-card-live ticker-runtime-card-live-${game.liveTheme || 'generic'}` : '',
-        game?.useTeamCardColors ? 'ticker-runtime-card-use-team-colors' : '',
+        game?.isLiveFeatured && !isWireframe ? `ticker-runtime-card-live ticker-runtime-card-live-${game.liveTheme || 'generic'}` : '',
+        game?.useTeamCardColors && !isWireframe ? 'ticker-runtime-card-use-team-colors' : '',
+        (isWireframe || game?.isRacing) ? `cm-${colorMode}` : '',
       ].filter(Boolean).join(' ')}
       style={runtimeCardStyle(game, game?.useTeamCardColors)}
       role="listitem"
-      data-card-style={game.cardStyle || 'standard'}
+      data-card-style={cardStyle}
     >
-      {game?.isLiveFeatured ? (
+      {game?.isLiveFeatured && !isWireframe ? (
         <p className="ticker-runtime-live-flag">LIVE</p>
       ) : null}
       {game?.isRacing ? (
-        <RacingCard game={game} isSoloSlate={isSoloSlate} renderLeague={renderLeague} />
+        <BoardCard game={game} isSoloSlate={isSoloSlate} renderLeague={renderLeague} />
+      ) : isWireframe ? (
+        <WireframeCard game={game} />
       ) : (
         <CardComponent game={game} />
       )}
-      <p className="ticker-runtime-meta">{game.cardInfo}</p>
+      {!isWireframe && !game?.isRacing ? (
+        <p className="ticker-runtime-meta">{game.cardInfo}</p>
+      ) : null}
     </article>
   )
 })
@@ -468,9 +512,11 @@ function TickerRuntime({
                 const isSoloSlate = games.length === 1
                 const isDuoSlate = games.length === 2
                 const isFirstCardForMeasure = index === 0
-                const CardComponent = pickCardComponent(game)
+                // Only needed for standard/large-logo paths; wireframe and racing dispatch internally.
+                const CardComponent = (game?.isRacing || WIREFRAME_STYLES.has(game?.cardStyle))
+                  ? null
+                  : pickCardComponent(game)
                 // Stable key without -${index}: prevents DOM destruction when array order changes.
-                // Any reorder would flip the index suffix, destroying <img> nodes and forcing re-decode.
                 const cardKey = game.id || `${game?.teams?.away?.id || ''}-${game?.teams?.home?.id || ''}-${game?.startTimeUtc || ''}`
 
                 return (

@@ -140,10 +140,16 @@ export function formatRuntimeDate(game) {
   }).format(date)
 }
 
-export function leagueStatToggleEnabled(league, field, fallback = true) {
-  if (!league || typeof league !== 'object') return fallback
-  if (typeof league[field] === 'boolean') return league[field]
-  return fallback
+export function densityFlags(league) {
+  const d = league?.density || 'bal'
+  return {
+    records: d !== 'min',
+    clock: d !== 'min',
+    situation: d !== 'min',
+    tv: d !== 'min',
+    venue: d === 'max',
+    odds: d === 'max',
+  }
 }
 
 export function hasLiveGameMode(league) {
@@ -163,8 +169,9 @@ export function buildRuntimeDetailStats({ rawEvent, game, league, baseballSituat
   const stats = []
   const state = String(game?.state || '').toLowerCase()
   const hasLiveMode = hasLiveGameMode(league)
+  const flags = densityFlags(league)
 
-  if (hasLiveMode && leagueStatToggleEnabled(league, 'showStatClock', true)) {
+  if (hasLiveMode && flags.clock) {
     const isLive = state === 'in'
     if (isLive) {
       const period = Number.isInteger(Number(game?.status?.period)) ? Number(game.status.period) : null
@@ -176,7 +183,7 @@ export function buildRuntimeDetailStats({ rawEvent, game, league, baseballSituat
     }
   }
 
-  if (hasLiveMode && leagueStatToggleEnabled(league, 'showStatSituation', true)) {
+  if (hasLiveMode && flags.situation) {
     if (!hasBaseballLivePanel) {
       const downDistance = String(game?.liveState?.downDistanceText || '').trim()
       const liveDetail = String(game?.liveState?.detail || '').trim()
@@ -185,13 +192,13 @@ export function buildRuntimeDetailStats({ rawEvent, game, league, baseballSituat
     }
   }
 
-  if (leagueStatToggleEnabled(league, 'showStatVenue', false)) {
+  if (flags.venue) {
     const venue = venueText
       || [game?.venue?.name, game?.venue?.city, game?.venue?.state].filter(Boolean).join(', ')
     if (venue) stats.push({ label: 'Venue', value: venue })
   }
 
-  if (leagueStatToggleEnabled(league, 'showStatOdds', false)) {
+  if (flags.odds) {
     const oddsRaw = extractEventOdds(rawEvent) || String(game?.odds?.details || '').trim()
     if (oddsRaw) stats.push({ label: 'Odds', value: oddsRaw })
   }
@@ -435,7 +442,8 @@ export function prepareDisplayGames(games, rawEventsById, displayLeague, leagueL
       : ''
     const venueText = String(game?.venue?.name || '').trim()
     const isRacing = isRacingGame(game)
-    const useTeamCardColors = leagueStatToggleEnabled(displayLeague, 'useTeamCardColors', false)
+    const flags = densityFlags(displayLeague)
+    const useTeamCardColors = (displayLeague?.colorMode || 'full') !== 'neutral'
     const hasLiveMode = hasLiveGameMode(displayLeague)
     const nextRace = isRacing ? nextRacingCalendarEvent(payload, game) : null
     const liveTheme = runtimeLiveTheme(game, rawEvent)
@@ -471,14 +479,14 @@ export function prepareDisplayGames(games, rawEventsById, displayLeague, leagueL
     const isLargeLogoLiveBaseball = (displayLeague?.cardStyle || 'standard') === 'large-logo' && baseballLiveData
 
     if (isLargeLogoLiveBaseball) {
-      if (displayLeague?.showTV && broadcastText && !isRacing) finalInfoParts.push(`TV ${broadcastText}`)
-      if (displayLeague?.showOdds && oddsText) finalInfoParts.push(`Odds ${oddsText}`)
+      if (displayLeague?.showTV && flags.tv && broadcastText && !isRacing) finalInfoParts.push(`TV ${broadcastText}`)
+      if (flags.odds && oddsText) finalInfoParts.push(`Odds ${oddsText}`)
       if (displayLeague?.showNews && venueText) finalInfoParts.push(venueText)
     } else {
       finalInfoParts = [formatRuntimeStatus(game)].filter(Boolean).filter((s) => s !== 'Scheduled')
       if (hasLiveMode && baseballSituationText && !baseballLiveData) finalInfoParts.push(baseballSituationText)
-      if (displayLeague?.showTV && broadcastText && !isRacing) finalInfoParts.push(`TV ${broadcastText}`)
-      if (displayLeague?.showOdds && oddsText) finalInfoParts.push(`Odds ${oddsText}`)
+      if (displayLeague?.showTV && flags.tv && broadcastText && !isRacing) finalInfoParts.push(`TV ${broadcastText}`)
+      if (flags.odds && oddsText) finalInfoParts.push(`Odds ${oddsText}`)
       if (displayLeague?.showNews && venueText) finalInfoParts.push(venueText)
       if (isPreRaceNoEntries && runtimeDateText) finalInfoParts.push(runtimeDateText)
     }
@@ -491,7 +499,7 @@ export function prepareDisplayGames(games, rawEventsById, displayLeague, leagueL
       isRacing,
       useTeamCardColors,
       showLiveState: hasLiveMode,
-      showStatRecords: leagueStatToggleEnabled(displayLeague, 'showStatRecords', true),
+      showStatRecords: flags.records,
       nextRace,
       baseballLiveData,
       baseballBattingSide,

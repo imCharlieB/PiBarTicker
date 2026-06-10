@@ -67,6 +67,8 @@ def test_league_config_defaults():
     assert league.gameFilter == "all"
     assert league.includedTeams == []
     assert league.cardStyle == "standard"
+    assert league.density == "bal"
+    assert league.colorMode == "full"
 
 
 def test_theme_config_defaults():
@@ -146,6 +148,40 @@ def test_config_store_strips_legacy_team_styles(tmp_path: Path):
     for board in cleaned.get("boards", []):
         for league in board.get("leagues", []):
             assert "teamStyles" not in league
+
+
+def test_config_store_strips_legacy_stat_fields(tmp_path: Path):
+    path = tmp_path / "config.json"
+    config = default_config()
+    data = config.model_dump(mode="json")
+
+    legacy_fields = {
+        "showOdds": False,
+        "useTeamCardColors": False,
+        "showLiveState": False,
+        "showStatRecords": True,
+        "showStatClock": True,
+        "showStatSituation": True,
+        "showStatVenue": False,
+        "showStatOdds": False,
+    }
+    for board in data.get("boards", []):
+        if board.get("type") == "sports" and board.get("leagues"):
+            board["leagues"][0].update(legacy_fields)
+            break
+
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+    store = ConfigStore(path)
+    loaded = store.load()
+
+    assert isinstance(loaded, AppConfig)
+
+    cleaned = json.loads(path.read_text(encoding="utf-8"))
+    for board in cleaned.get("boards", []):
+        for league in board.get("leagues", []):
+            for key in legacy_fields:
+                assert key not in league
 
 
 def test_config_store_load_is_idempotent(tmp_path: Path):

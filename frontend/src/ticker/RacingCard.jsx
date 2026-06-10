@@ -1,4 +1,5 @@
 import {
+  densityFlags,
   formatRuntimeDate,
   racingCardTitle,
   racingEntrySummary,
@@ -55,7 +56,7 @@ export default function RacingCard({ game, isSoloSlate, renderLeague }) {
   const hasEntries = displayEntries.length > 0
   const showTV = renderLeague?.showTV !== false
   const tv = showTV && game?.racingTopInfo?.tv ? String(game.racingTopInfo.tv).replace(/^TV\s+/, '') : ''
-  const showVenue = Boolean(renderLeague?.showStatVenue)
+  const showVenue = densityFlags(renderLeague).venue
 
   // ── Pre-race: no entries → simple upcoming card ──────────────────────────────
   if (isPre && !hasEntries) {

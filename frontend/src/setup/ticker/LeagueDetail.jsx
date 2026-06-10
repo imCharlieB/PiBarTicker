@@ -116,10 +116,6 @@ export default function LeagueDetail({
                   <input type="checkbox" checked={selectedTickerLeague.showTV} onChange={(event) => updateLeague(selectedTickerLeagueIndex, 'showTV', event.target.checked)} />
                 </label>
                 <label className="field field-checkbox">
-                  <span>Show odds</span>
-                  <input type="checkbox" checked={selectedTickerLeague.showOdds} onChange={(event) => updateLeague(selectedTickerLeagueIndex, 'showOdds', event.target.checked)} />
-                </label>
-                <label className="field field-checkbox">
                   <span>Show location</span>
                   <input type="checkbox" checked={Boolean(selectedTickerLeague.showNews)} onChange={(event) => updateLeague(selectedTickerLeagueIndex, 'showNews', event.target.checked)} />
                 </label>
@@ -127,30 +123,37 @@ export default function LeagueDetail({
                   <span>Live game mode</span>
                   <input type="checkbox" checked={Boolean(selectedTickerLeague.liveGameMode)} onChange={(event) => updateLeague(selectedTickerLeagueIndex, 'liveGameMode', event.target.checked)} />
                 </label>
-                <label className="field field-checkbox">
-                  <span>Use team card colors</span>
-                  <input type="checkbox" checked={Boolean(selectedTickerLeague.useTeamCardColors)} onChange={(event) => updateLeague(selectedTickerLeagueIndex, 'useTeamCardColors', event.target.checked)} />
-                </label>
-                <label className="field field-checkbox">
-                  <span>Card stat: team records</span>
-                  <input type="checkbox" checked={selectedTickerLeague.showStatRecords !== false} onChange={(event) => updateLeague(selectedTickerLeagueIndex, 'showStatRecords', event.target.checked)} />
-                </label>
-                <label className="field field-checkbox">
-                  <span>Card stat: game clock/period</span>
-                  <input type="checkbox" checked={selectedTickerLeague.showStatClock !== false} onChange={(event) => updateLeague(selectedTickerLeagueIndex, 'showStatClock', event.target.checked)} />
-                </label>
-                <label className="field field-checkbox">
-                  <span>Card stat: situation detail</span>
-                  <input type="checkbox" checked={selectedTickerLeague.showStatSituation !== false} onChange={(event) => updateLeague(selectedTickerLeagueIndex, 'showStatSituation', event.target.checked)} />
-                </label>
-                <label className="field field-checkbox">
-                  <span>Card stat: venue detail</span>
-                  <input type="checkbox" checked={Boolean(selectedTickerLeague.showStatVenue)} onChange={(event) => updateLeague(selectedTickerLeagueIndex, 'showStatVenue', event.target.checked)} />
-                </label>
-                <label className="field field-checkbox">
-                  <span>Card stat: odds detail</span>
-                  <input type="checkbox" checked={Boolean(selectedTickerLeague.showStatOdds)} onChange={(event) => updateLeague(selectedTickerLeagueIndex, 'showStatOdds', event.target.checked)} />
-                </label>
+                <div className="field">
+                  <span>Detail density</span>
+                  <div className="league-seg">
+                    {[['min', 'Minimal'], ['bal', 'Balanced'], ['max', 'Maximal']].map(([val, label]) => (
+                      <button
+                        key={val}
+                        type="button"
+                        className={`league-seg-btn${(selectedTickerLeague.density || 'bal') === val ? ' league-seg-btn-active' : ''}`}
+                        onClick={() => updateLeague(selectedTickerLeagueIndex, 'density', val)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <small className="field-help">Min: scores only. Balanced: adds records, clock, situation, TV. Maximal: also adds venue and odds.</small>
+                </div>
+                <div className="field">
+                  <span>Team colors</span>
+                  <div className="league-seg">
+                    {[['full', 'Full'], ['accent', 'Accent'], ['neutral', 'Neutral']].map(([val, label]) => (
+                      <button
+                        key={val}
+                        type="button"
+                        className={`league-seg-btn${(selectedTickerLeague.colorMode || 'full') === val ? ' league-seg-btn-active' : ''}`}
+                        onClick={() => updateLeague(selectedTickerLeagueIndex, 'colorMode', val)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

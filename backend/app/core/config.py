@@ -72,17 +72,11 @@ class LeagueConfig(AppBaseModel):
     logo: str = ""
     enabled: bool = True
     showTV: bool = True
-    showOdds: bool = False
     showNews: bool = False
     showInTicker: bool = True
     liveGameMode: bool = False
-    useTeamCardColors: bool = False
-    showLiveState: bool = False
-    showStatRecords: bool = True
-    showStatClock: bool = True
-    showStatSituation: bool = True
-    showStatVenue: bool = False
-    showStatOdds: bool = False
+    density: Literal["min", "bal", "max"] = "bal"
+    colorMode: Literal["full", "accent", "neutral"] = "full"
     gameFilter: Literal["all", "live", "today", "upcoming", "this-week"] = "all"
     useWeekFilter: bool = False
     fallbackWhenEmpty: bool = False
@@ -190,10 +184,19 @@ class ConfigStore:
             raw_text = self._path.read_text(encoding="utf-8")
             data = json.loads(raw_text)
 
-            # One-time hygiene: nuke the dead teamStyles blob that used to live
-            # inside every league in old config.json files. We fully removed the
-            # field from the model. This auto-cleans the user's file on first
-            # startup after the migration so strict validation passes.
+            # One-time hygiene: strip fields removed from LeagueConfig so strict
+            # extra="forbid" validation passes on old config.json files.
+            _LEGACY_LEAGUE_KEYS = {
+                "teamStyles",
+                "showOdds",
+                "useTeamCardColors",
+                "showLiveState",
+                "showStatRecords",
+                "showStatClock",
+                "showStatSituation",
+                "showStatVenue",
+                "showStatOdds",
+            }
             changed = False
             boards = data.get("boards")
             if isinstance(boards, list):
@@ -201,9 +204,11 @@ class ConfigStore:
                     leagues = board.get("leagues") if isinstance(board, dict) else None
                     if isinstance(leagues, list):
                         for league in leagues:
-                            if isinstance(league, dict) and "teamStyles" in league:
-                                league.pop("teamStyles", None)
-                                changed = True
+                            if isinstance(league, dict):
+                                for key in _LEGACY_LEAGUE_KEYS:
+                                    if key in league:
+                                        league.pop(key)
+                                        changed = True
 
             if changed:
                 self._path.write_text(json.dumps(data, indent=2), encoding="utf-8")

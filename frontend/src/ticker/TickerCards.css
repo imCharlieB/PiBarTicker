@@ -414,11 +414,11 @@
 
 /* ── Lower-third insert (broadcast bug, Phase 6) ────────────────────────── */
 .ticker-runtime-shell .l3-insert {
-  display: flex; align-items: center; gap: 9px;
+  display: flex; align-items: center; gap: 18px;
   background: rgba(7,9,12,.72); backdrop-filter: blur(6px);
-  border: 1px solid rgba(255,255,255,.1); border-radius: 9px;
-  padding: 5px 11px 5px 6px; box-shadow: 0 6px 18px rgba(0,0,0,.45);
+  border: 1px solid rgba(255,255,255,.1); border-radius: 18px;
+  padding: 10px 22px 10px 12px; box-shadow: 0 12px 36px rgba(0,0,0,.45);
 }
-.ticker-runtime-shell .l3-logo  { width: 26px; height: 26px; object-fit: contain; flex: 0 0 auto; background: rgba(245,248,252,.95); border-radius: 6px; padding: 3px; }
-.ticker-runtime-shell .l3-badge { font-weight: 900; font-size: 12px; letter-spacing: .07em; color: #0c120e; background: #cfd6e2; padding: 5px 8px; border-radius: 5px; }
-.ticker-runtime-shell .l3-time  { font-family: 'Spline Sans Mono', monospace; font-weight: 700; font-size: 15px; color: #e7edf6; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.ticker-runtime-shell .l3-logo  { width: 52px; height: 52px; object-fit: contain; flex: 0 0 auto; background: rgba(245,248,252,.95); border-radius: 12px; padding: 6px; }
+.ticker-runtime-shell .l3-badge { font-weight: 900; font-size: 24px; letter-spacing: .07em; color: #0c120e; background: #cfd6e2; padding: 10px 16px; border-radius: 10px; }
+.ticker-runtime-shell .l3-time  { font-family: 'Spline Sans Mono', monospace; font-weight: 700; font-size: 30px; color: #e7edf6; font-variant-numeric: tabular-nums; letter-spacing: .02em; }

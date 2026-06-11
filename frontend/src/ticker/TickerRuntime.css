@@ -47,7 +47,7 @@
 
 .ticker-runtime-track {
   display: inline-flex;
-  gap: 0.35rem;
+  gap: 50px;
   min-height: 100%;
   width: max-content;
   padding: 0 0.2rem;

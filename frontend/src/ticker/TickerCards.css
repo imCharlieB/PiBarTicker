@@ -16,7 +16,7 @@
 /* ── Card base ──────────────────────────────────────────────────────────── */
 .ticker-runtime-shell .card {
   position: relative;
-  height: calc(var(--bandH, 380px) - 30px);
+  height: calc(var(--bandH, 380px) - 2px);
   border-radius: 14px;
   overflow: hidden;
   flex: 0 0 auto;

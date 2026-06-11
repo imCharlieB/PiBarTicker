@@ -122,32 +122,33 @@ export function AppContextProvider({ children }) {
   useEffect(() => { configRef.current = config }, [config])
 
   // ── Config load ─────────────────────────────────────────────────────────
+  async function applyLoadedConfig(payload) {
+    const currentFlags = Array.isArray(payload?.kiosk?.chromiumFlags) ? payload.kiosk.chromiumFlags : []
+    const mergedFlags = addRecommendedPiFlags(currentFlags)
+    if (mergedFlags.length !== currentFlags.length) {
+      const updatedPayload = { ...payload, kiosk: { ...payload.kiosk, chromiumFlags: mergedFlags } }
+      setConfig(updatedPayload)
+      setSavedConfig(updatedPayload)
+      configRef.current = updatedPayload
+      fetch('/api/v1/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedPayload),
+      }).catch(() => {})
+    } else {
+      setConfig(payload)
+      setSavedConfig(payload)
+      configRef.current = payload
+    }
+  }
+
   useEffect(() => {
     async function loadConfig() {
       try {
         setError('')
         const response = await fetch('/api/v1/config')
         if (!response.ok) throw new Error(`Config request failed with ${response.status}`)
-
-        const payload = await response.json()
-        const currentFlags = Array.isArray(payload?.kiosk?.chromiumFlags) ? payload.kiosk.chromiumFlags : []
-        const mergedFlags = addRecommendedPiFlags(currentFlags)
-
-        if (mergedFlags.length !== currentFlags.length) {
-          const updatedPayload = { ...payload, kiosk: { ...payload.kiosk, chromiumFlags: mergedFlags } }
-          setConfig(updatedPayload)
-          setSavedConfig(updatedPayload)
-          configRef.current = updatedPayload
-          fetch('/api/v1/config', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updatedPayload),
-          }).catch(() => {})
-        } else {
-          setConfig(payload)
-          setSavedConfig(payload)
-          configRef.current = payload
-        }
+        await applyLoadedConfig(await response.json())
       } catch (loadError) {
         setError(loadError.message)
       } finally {
@@ -156,6 +157,29 @@ export function AppContextProvider({ children }) {
     }
     loadConfig()
   }, [])
+
+  // ── BroadcastChannel: ticker tabs reload config when setup saves ─────────
+  useEffect(() => {
+    if (!isTickerRuntime) return
+    const channel = new BroadcastChannel('pibarticker-config')
+    channel.onmessage = async (e) => {
+      if (e.data?.type !== 'config-updated') return
+      try {
+        const response = await fetch('/api/v1/config')
+        if (!response.ok) return
+        const payload = await response.json()
+        startTransition(() => {
+          applyLoadedConfig(payload)
+          setRuntimeLeagueIndex(0)
+          setRuntimeVisibleLeagueId('')
+          setRuntimeLastStableLeagueId('')
+          setRuntimeLastStableMarqueeGames([])
+          setStableGoodGamesByLeagueId({})
+        })
+      } catch (_) { /* ignore */ }
+    }
+    return () => channel.close()
+  }, [isTickerRuntime]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Config mutation helpers ─────────────────────────────────────────────
   function commitConfig(updateFn) {
@@ -340,6 +364,12 @@ export function AppContextProvider({ children }) {
         setNotice(continueToNextPage ? 'Configuration saved. Moved to next section.' : 'Configuration saved.')
         if (nextPageId) setActivePage(nextPageId)
       })
+
+      try {
+        const bc = new BroadcastChannel('pibarticker-config')
+        bc.postMessage({ type: 'config-updated' })
+        bc.close()
+      } catch (_) { /* ignore in envs without BroadcastChannel */ }
     } catch (saveError) {
       setError(saveError.message)
     }

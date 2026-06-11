@@ -93,17 +93,58 @@ function pickCardComponent(game) {
   return GameCard
 }
 
-function LiveClock() {
-  const [time, setTime] = useState(() =>
-    new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  )
+function LeagueMark({ league, logo }) {
+  const [err, setErr] = useState(false)
+  useEffect(() => { setErr(false) }, [logo])
+  if (logo && !err) return <img className="l3-logo" src={logo} alt={league} onError={() => setErr(true)} />
+  if (league) return <span className="l3-badge">{league}</span>
+  return null
+}
+
+function LowerThird() {
+  const [now, setNow] = useState(() => new Date())
+  const [cur, setCur] = useState({ league: '', logo: '' })
+  const curRef = useRef(cur)
+  curRef.current = cur
+
   useEffect(() => {
-    const id = setInterval(() => {
-      setTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
-    }, 1000)
+    const id = setInterval(() => setNow(new Date()), 1000)
     return () => clearInterval(id)
   }, [])
-  return <>{time}</>
+
+  useEffect(() => {
+    let raf
+    const tick = () => {
+      const win = document.querySelector('.ticker-runtime-marquee-window')
+      if (win) {
+        const wr = win.getBoundingClientRect()
+        const cx = wr.left + wr.width / 2
+        let best = null, bestD = Infinity
+        win.querySelectorAll('.ticker-runtime-card[data-league]').forEach(card => {
+          const r = card.getBoundingClientRect()
+          if (r.right < wr.left || r.left > wr.right) return
+          const d = Math.abs((r.left + r.width / 2) - cx)
+          if (d < bestD) { bestD = d; best = card }
+        })
+        if (best) {
+          const league = best.getAttribute('data-league') || ''
+          const logo = best.getAttribute('data-logo') || ''
+          if (curRef.current.league !== league) setCur({ league, logo })
+        }
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [])
+
+  const time = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  return (
+    <div className="ticker-runtime-lower l3-insert" aria-label="Lower third">
+      <LeagueMark league={cur.league} logo={cur.logo} />
+      <span className="l3-time">{time}</span>
+    </div>
+  )
 }
 
 // ── MemoizedCard — stable article wrapper ────────────────────────────────────
@@ -113,7 +154,7 @@ function LiveClock() {
 // so the browser never has to re-decode textures that are already in GPU memory.
 const MemoizedCard = memo(function MemoizedCard({
   game, isSoloSlate, isDuoSlate, isFirstCardForMeasure,
-  CardComponent, firstCardRef, renderLeague,
+  CardComponent, firstCardRef, renderLeague, leagueLogoUrl,
 }) {
   const sportToken = cssToken(game?.sport, 'generic')
   const stateToken = cssToken(game?.state, 'unknown')
@@ -139,6 +180,8 @@ const MemoizedCard = memo(function MemoizedCard({
       style={runtimeCardStyle(game, game?.useTeamCardColors)}
       role="listitem"
       data-card-style={cardStyle}
+      data-league={game?.leagueName || ''}
+      data-logo={leagueLogoUrl || ''}
     >
       {game?.isLiveFeatured && !isWireframe ? (
         <p className="ticker-runtime-live-flag">LIVE</p>
@@ -529,24 +572,14 @@ function TickerRuntime({
                     CardComponent={CardComponent}
                     firstCardRef={firstCardRef}
                     renderLeague={renderLeague}
+                    leagueLogoUrl={brandLogoUrl}
                   />
                 )
               })}
             </div>
           </div>
 
-          <footer className="ticker-runtime-lower">
-            <div className="ticker-runtime-lower-brand">
-              {brandLogoUrl ? (
-                <img src={brandLogoUrl} alt={brandLeague?.name || 'Ticker'} />
-              ) : (
-                <span className="ticker-runtime-lower-brand-fallback">{brandLeague?.name || ''}</span>
-              )}
-            </div>
-            <div className="ticker-runtime-lower-clock">
-              <LiveClock />
-            </div>
-          </footer>
+          <LowerThird />
         </section>
       )}
     </main>

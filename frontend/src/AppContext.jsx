@@ -158,28 +158,36 @@ export function AppContextProvider({ children }) {
     loadConfig()
   }, [])
 
-  // ── BroadcastChannel: ticker tabs reload config when setup saves ─────────
+  // ── Config change detection: reload the ticker page when setup saves ──────
+  // BroadcastChannel handles same-browser (instant); polling handles cross-device
+  // (laptop setup → Pi kiosk on different browser/origin). Both just do a full
+  // page reload — cleaner than in-place state surgery and matches how the Pi
+  // launch-kiosk.sh while-loop expects the kiosk to restart.
   useEffect(() => {
     if (!isTickerRuntime) return
-    const channel = new BroadcastChannel('pibarticker-config')
-    channel.onmessage = async (e) => {
-      if (e.data?.type !== 'config-updated') return
+    try {
+      const channel = new BroadcastChannel('pibarticker-config')
+      channel.onmessage = (e) => {
+        if (e.data?.type === 'config-updated') window.location.reload()
+      }
+      return () => channel.close()
+    } catch (_) { /* BroadcastChannel unsupported */ }
+  }, [isTickerRuntime])
+
+  useEffect(() => {
+    if (!isTickerRuntime) return
+    let lastVersion = null
+    const id = setInterval(async () => {
       try {
-        const response = await fetch('/api/v1/config')
-        if (!response.ok) return
-        const payload = await response.json()
-        startTransition(() => {
-          applyLoadedConfig(payload)
-          setRuntimeLeagueIndex(0)
-          setRuntimeVisibleLeagueId('')
-          setRuntimeLastStableLeagueId('')
-          setRuntimeLastStableMarqueeGames([])
-          setStableGoodGamesByLeagueId({})
-        })
+        const r = await fetch('/api/v1/config/version')
+        if (!r.ok) return
+        const { version } = await r.json()
+        if (lastVersion === null) { lastVersion = version; return }
+        if (version !== lastVersion) window.location.reload()
       } catch (_) { /* ignore */ }
-    }
-    return () => channel.close()
-  }, [isTickerRuntime]) // eslint-disable-line react-hooks/exhaustive-deps
+    }, 5000)
+    return () => clearInterval(id)
+  }, [isTickerRuntime])
 
   // ── Config mutation helpers ─────────────────────────────────────────────
   function commitConfig(updateFn) {

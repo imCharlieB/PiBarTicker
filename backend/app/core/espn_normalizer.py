@@ -132,6 +132,7 @@ def _racing_entries(competition: dict[str, Any]) -> list[dict[str, Any]]:
                     or team.get("name")
                     or ""
                 ).strip(),
+                "teamId": str(team.get("id") or "").strip(),
                 "teamColor": str(team.get("color") or "").strip(),
             }
         )

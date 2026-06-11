@@ -13,6 +13,20 @@ function teamAbbr(team) {
   return String(team?.abbreviation || team?.name || '?').slice(0, 4).toUpperCase()
 }
 
+// Deterministic hue from a string — same name always produces the same color.
+// Used as fallback when no team color is available (ESPN racing entries have no team data).
+function nameHue(str) {
+  let h = 0
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) & 0xffffff
+  return h % 360
+}
+function entryColor(entry) {
+  if (entry?.teamColor) return `#${String(entry.teamColor).replace(/^#/, '')}`
+  const name = String(entry?.shortName || entry?.name || '')
+  if (!name) return ''
+  return `hsl(${nameHue(name)}, 68%, 52%)`
+}
+
 // Status text shown in the seam/clock slot
 function statusText(game) {
   const state = String(game?.state || '').toLowerCase()
@@ -320,14 +334,20 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
     pos: entry.position ?? i + 1,
     name: entry.shortName || entry.name || 'Driver',
     detail: racingEntrySummary(entry) || String(entry?.score || ''),
-    color: entry.teamColor ? `#${entry.teamColor.replace(/^#/, '')}` : '',
+    color: entryColor(entry),
   }))
 
-  const many = rows.length > 6
-  const perCol = Math.ceil(rows.length / 2)
+  const MAX_PER_COL = 7
+  const MAX_COLS = 6
+  const cols = rows.length > MAX_PER_COL
+    ? Math.min(MAX_COLS, Math.ceil(rows.length / MAX_PER_COL))
+    : 1
+  const perCol = Math.min(Math.ceil(rows.length / cols), MAX_PER_COL)
+  const visibleRows = rows.slice(0, perCol * cols)
+  const useGrid = cols > 1
 
   return (
-    <div className={`card d-board ${dirClass} ${many ? 'board-wide' : ''}`}>
+    <div className={`card d-board ${dirClass} ${useGrid ? 'board-multi' : ''}`}>
       <div className="board-head">
         <div className="board-titles">
           <span className="board-title">{title}</span>
@@ -336,13 +356,13 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
         <StateChip game={game} />
       </div>
       <div
-        className={`board-rows ${many ? 'cols2' : ''}`}
-        style={many ? { gridTemplateRows: `repeat(${perCol}, 1fr)` } : undefined}
+        className={`board-rows ${useGrid ? 'cols-auto' : ''}`}
+        style={useGrid ? { gridTemplateRows: `repeat(${perCol}, 1fr)` } : undefined}
       >
-        {rows.map((r, i) => (
-          <div key={i} className={`board-row ${i === 0 ? 'leader' : ''}`} style={r.color ? { '--rc': r.color } : undefined}>
+        {visibleRows.map((r, i) => (
+          <div key={i} className={`board-row ${i === 0 ? 'leader' : ''}`} style={{ '--rc': r.color }}>
             <span className="board-pos">{r.pos}</span>
-            {r.color ? <span className="board-dot" style={{ background: r.color }} /> : null}
+            <span className="board-dot" style={{ background: r.color }} />
             <span className="board-name">{r.name}</span>
             <span className="board-detail">{r.detail}</span>
           </div>

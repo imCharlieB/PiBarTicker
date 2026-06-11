@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Query
 from ...core.espn_normalizer import normalize_scoreboard_events
 from ...core.espn_registry import resolve_registry_entry
 from ...core.espn_scoreboard import EspnScoreboardClient
+from ...core.logos.logo_store import LogoStore
 from ._utils import _group_key, _groups_endpoint_url, _http_client, _normalized, _site_standings_url
 
 router = APIRouter()
@@ -346,6 +347,21 @@ def get_scoreboard(
         entry=entry,
         events=filtered_events,
     )
+
+    # For racing leagues: enrich teamColor from the logo_store cache when ESPN
+    # doesn't include it directly in the scoreboard competitor data.
+    if entry.sport == "racing":
+        try:
+            meta = LogoStore().load_league_meta(entry.league_id)
+            for game in normalized_games:
+                for race_entry in game.get("racingEntries") or []:
+                    if not race_entry.get("teamColor"):
+                        team_id = str(race_entry.get("teamId") or "").strip()
+                        if team_id and team_id in meta.teams:
+                            race_entry["teamColor"] = meta.teams[team_id].color
+        except Exception:
+            pass
+
     event_count = len(filtered_events)
     return {
         "sport": entry.sport,

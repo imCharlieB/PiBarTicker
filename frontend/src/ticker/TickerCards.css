@@ -175,6 +175,7 @@
   width: 640px; flex-direction: column; justify-content: space-between;
   gap: 9px; padding: 20px 22px; background: #0c0e12;
   font-family: 'Spline Sans Mono', monospace;
+  height: 100%;
 }
 .ticker-runtime-shell .dig-head   { display: flex; align-items: center; gap: 12px; }
 .ticker-runtime-shell .dig-league { font-weight: 700; font-size: 17px; letter-spacing: .18em; color: #9aa3b1; }

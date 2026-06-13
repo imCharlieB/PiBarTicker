@@ -10,6 +10,7 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.api.espn import scoreboard as espn
+from app.core.groups_util import build_team_group_memberships_from_standings as _build_memberships
 
 
 def _event(*, away: dict, home: dict, state: str = "pre", completed: bool = False, date: datetime | None = None) -> dict:
@@ -63,7 +64,7 @@ def test_group_filter_allows_nfc_south_matchups() -> None:
         }
     ]
 
-    memberships = espn._build_team_group_memberships(standings_children)
+    memberships = _build_memberships(standings_children)
     included_groups = {"nfc:south"}
 
     south_vs_east = _event(

@@ -62,7 +62,7 @@ def set_team_logo_override(league: str, team_id: str, variant: str | None = None
 
 
 @router.post("/cache/{league}")
-def trigger_league_logo_cache(league: str, teams: list[dict], full_variants: bool = False) -> dict:
+def trigger_league_logo_cache(league: str, teams: list[dict], sport: str = "", full_variants: bool = False) -> dict:
     """
     Accepts raw team data (same shape as what the frontend gets from ESPN teams endpoint)
     and triggers logo downloading + metadata update for the league.
@@ -70,20 +70,30 @@ def trigger_league_logo_cache(league: str, teams: list[dict], full_variants: boo
     By default (full_variants=False) only main/primary variants are downloaded.
     This keeps NCAA and other large leagues from creating thousands of files.
     Per-team "download the rest" is available via the dedicated team extras endpoint.
+
+    When sport is provided (and not "racing"), also fetches ESPN group/conference data
+    and stores team memberships in team-meta for reliable scoreboard group filtering.
     """
     if not teams:
         raise HTTPException(status_code=400, detail="No teams provided")
 
     try:
         meta = _cache_service.cache_league_from_espn_data(league, teams, full_variants=full_variants)
-        return {
-            "league": league,
-            "status": "success",
-            "teams_cached": len(meta.teams),
-            "message": f"Cached logos for {len(meta.teams)} teams in {league}",
-        }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to cache logos: {exc}") from exc
+
+    if sport and sport.lower() != "racing":
+        try:
+            _cache_service.enrich_team_groups(league, sport)
+        except Exception:
+            pass
+
+    return {
+        "league": league,
+        "status": "success",
+        "teams_cached": len(meta.teams),
+        "message": f"Cached logos for {len(meta.teams)} teams in {league}",
+    }
 
 
 @router.delete("/cache/{league}")

@@ -8,8 +8,15 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
+import httpx
+
 from .downloader import LogoDownloader
 from .logo_store import LogoStore, LeagueTeamMeta, TeamLogoInfo
+from ..groups_util import (
+    build_group_id_to_name,
+    build_team_group_memberships_from_groups,
+    build_team_group_memberships_from_standings,
+)
 
 
 class LogoCacheService:
@@ -194,6 +201,67 @@ class LogoCacheService:
         meta.teams[tid] = existing
         self.store.save_league_meta(meta)
         return existing
+
+    def enrich_team_groups(self, league: str, sport: str) -> None:
+        """Fetch ESPN group/conference memberships and cache them in team-meta.
+
+        Tries the groups endpoint first, then standings (which is more reliable
+        for college sports). Merges both so we get complete coverage for NCAA.
+        """
+        meta = self.store.load_league_meta(league)
+        if not meta.teams:
+            return
+
+        memberships: dict[str, set[str]] = {}
+        raw_groups: list[dict] = []
+        standings_children: list[dict] = []
+
+        try:
+            with httpx.Client(timeout=10.0, follow_redirects=True) as client:
+                groups_url = f"https://site.api.espn.com/apis/site/v2/sports/{sport}/{league}/groups"
+                try:
+                    resp = client.get(groups_url)
+                    if resp.is_success:
+                        payload = resp.json()
+                        raw_groups = payload.get("groups") or []
+                        memberships = build_team_group_memberships_from_groups(raw_groups)
+                except Exception:
+                    pass
+
+                standings_url = f"https://site.api.espn.com/apis/v2/sports/{sport}/{league}/standings"
+                try:
+                    resp = client.get(standings_url)
+                    if resp.is_success:
+                        payload = resp.json()
+                        standings_children = payload.get("children") or []
+                        standings_m = build_team_group_memberships_from_standings(standings_children)
+                        for team_id, group_ids in standings_m.items():
+                            memberships.setdefault(team_id, set()).update(group_ids)
+                except Exception:
+                    pass
+        except Exception:
+            return
+
+        if not memberships:
+            return
+
+        id_to_name = build_group_id_to_name(raw_groups, standings_children)
+
+        changed = False
+        for team_id, group_ids in memberships.items():
+            if team_id in meta.teams:
+                new_groups = sorted(group_ids)
+                # Pick the most specific group (deepest composite ID) for the display name
+                deepest_id = max(group_ids, key=lambda g: g.count(':')) if group_ids else ''
+                conf_name = id_to_name.get(deepest_id, '') if deepest_id else ''
+                t = meta.teams[team_id]
+                if t.groups != new_groups or t.conference_name != conf_name:
+                    t.groups = new_groups
+                    t.conference_name = conf_name
+                    changed = True
+
+        if changed:
+            self.store.save_league_meta(meta)
 
     def close(self) -> None:
         self.downloader.close()

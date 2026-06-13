@@ -66,7 +66,7 @@ export default function TeamDetail({ selectedTickerLeague, selectedTickerTeam, o
           <h3>Team snapshot</h3>
           <div className="team-meta-grid">
             <p><strong>League</strong><span>{selectedTickerLeague.name}</span></p>
-            <p><strong>Group</strong><span>{selectedTeamProfile?.group?.name || selectedTeamProfile?.standings?.group?.name || 'N/A'}</span></p>
+            <p><strong>Conference</strong><span>{cachedTeamMeta?.conference_name || selectedTeamProfile?.group?.name || selectedTeamProfile?.standings?.group?.name || 'N/A'}</span></p>
             <p><strong>Abbreviation</strong><span>{selectedTickerTeam.abbreviation || 'N/A'}</span></p>
             <p><strong>Nickname</strong><span>{selectedTeamProfile?.nickname || 'N/A'}</span></p>
             <p><strong>Location</strong><span>{selectedTickerTeam.location || 'N/A'}</span></p>

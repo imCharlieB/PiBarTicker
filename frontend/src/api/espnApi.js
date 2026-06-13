@@ -199,6 +199,9 @@ function buildTickerScoreboardQuery(league, {
 
     const includedGroups = Array.isArray(league?.includedGroups) ? league.includedGroups : []
     if (includedGroups.length) query.set('included_groups', includedGroups.join(','))
+
+    const rankingsFilter = league?.rankingsFilter ?? null
+    if (rankingsFilter) query.set('rankings_limit', String(rankingsFilter))
   }
 
   return query.toString()
@@ -491,8 +494,9 @@ export async function fetchExtrasForTeam(league, team, alreadyLoaded) {
   return combined.length > 0 ? combined : (Array.isArray(team.logos) ? team.logos.filter((l) => l?.href) : [])
 }
 
-export async function postLogoCache(leagueId, teams) {
-  await fetch(`/api/v1/logos/cache/${encodeURIComponent(leagueId)}`, {
+export async function postLogoCache(leagueId, teams, sport = '') {
+  const query = sport ? `?sport=${encodeURIComponent(sport)}` : ''
+  await fetch(`/api/v1/logos/cache/${encodeURIComponent(leagueId)}${query}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(teams),

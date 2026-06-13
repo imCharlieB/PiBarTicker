@@ -86,6 +86,7 @@ class LeagueConfig(AppBaseModel):
     includedGroups: list[str] = Field(default_factory=list)
     cardStyle: str = "standard"
     entryLimit: int | None = None  # None = show all; used by racing to cap driver list
+    rankingsFilter: int | None = None  # None = no filter; for college leagues, show only games with a top-N ranked team
 
 
 class SportsBoardConfig(AppBaseModel):

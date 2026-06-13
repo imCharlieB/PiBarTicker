@@ -112,24 +112,47 @@ export default function LeagueDetail({
                 </div>
               </div>
             </div>
-            <div className="league-card-control-group">
-              <span className="league-card-control-label">Entry limit</span>
-              <div className="league-card-control-item">
-                <div className="league-seg">
-                  {[[null, 'All'], [5, '5'], [10, '10'], [25, '25']].map(([val, label]) => {
-                    const active = (selectedTickerLeague.entryLimit ?? null) === val
-                    return (
-                      <button
-                        key={label}
-                        type="button"
-                        className={`league-seg-btn${active ? ' league-seg-btn-active' : ''}`}
-                        onClick={() => updateLeague(selectedTickerLeagueIndex, 'entryLimit', val)}
-                      >{label}</button>
-                    )
-                  })}
+            {leagueApiParams.sport === 'racing' && (
+              <div className="league-card-control-group">
+                <span className="league-card-control-label">Entry limit</span>
+                <div className="league-card-control-item">
+                  <div className="league-seg">
+                    {[[null, 'All'], [5, '5'], [10, '10'], [25, '25']].map(([val, label]) => {
+                      const active = (selectedTickerLeague.entryLimit ?? null) === val
+                      return (
+                        <button
+                          key={label}
+                          type="button"
+                          className={`league-seg-btn${active ? ' league-seg-btn-active' : ''}`}
+                          onClick={() => updateLeague(selectedTickerLeagueIndex, 'entryLimit', val)}
+                        >{label}</button>
+                      )
+                    })}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
+            {/college/i.test(leagueApiParams.league || '') && (
+              <div className="league-card-control-group">
+                <span className="league-card-control-label">AP ranking filter</span>
+                <div className="league-card-control-item">
+                  <div className="league-seg">
+                    {[[null, 'All'], [10, 'Top 10'], [25, 'Top 25']].map(([val, label]) => {
+                      const active = (selectedTickerLeague.rankingsFilter ?? null) === val
+                      return (
+                        <button
+                          key={label}
+                          type="button"
+                          className={`league-seg-btn${active ? ' league-seg-btn-active' : ''}`}
+                          onClick={() => updateLeague(selectedTickerLeagueIndex, 'rankingsFilter', val)}
+                        >{label}</button>
+                      )
+                    })}
+                  </div>
+                  <small className="field-help">Show only games where at least one team is ranked in the AP Top 25.</small>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="league-settings-layout">
@@ -214,46 +237,48 @@ export default function LeagueDetail({
             </div>
           </div>
 
-          <div className="league-groups-panel">
-            <div className="league-groups-header">
-              <p className="league-checkbox-title">Conference / Division / Group Filter</p>
-              <button
-                type="button"
-                className="button-link"
-                onClick={() => loadLeagueGroups(selectedTickerLeague)}
-                disabled={selectedLeagueGroupsLoadState.loading}
-              >
-                {selectedLeagueGroupsLoadState.loading ? 'Refreshing...' : 'Refresh groups'}
-              </button>
-            </div>
-            {selectedLeagueGroupsLoadState.error ? (
-              <p className="field-error">{selectedLeagueGroupsLoadState.error}</p>
-            ) : null}
-            {selectedLeagueGroups.length ? (
-              <div className="league-groups-grid">
-                {selectedLeagueGroups.map((group) => {
-                  const id = String(group.id || '').trim()
-                  if (!id) return null
-                  const includedGroupIds = Array.isArray(selectedTickerLeague.includedGroups) ? selectedTickerLeague.includedGroups : []
-                  const isChecked = includedGroupIds.includes(id)
-                  const parentName = group.parent?.name ? ` (${group.parent.name})` : ''
-                  const label = group.name || group.abbreviation || id
-                  return (
-                    <label key={`${selectedTickerLeague.id}-${id}`} className="field field-checkbox">
-                      <span>{label}{parentName}</span>
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={(event) => toggleLeagueIncludedGroup(selectedTickerLeagueIndex, id, event.target.checked)}
-                      />
-                    </label>
-                  )
-                })}
+          {leagueApiParams.sport !== 'racing' && (
+            <div className="league-groups-panel">
+              <div className="league-groups-header">
+                <p className="league-checkbox-title">Conference / Division / Group Filter</p>
+                <button
+                  type="button"
+                  className="button-link"
+                  onClick={() => loadLeagueGroups(selectedTickerLeague)}
+                  disabled={selectedLeagueGroupsLoadState.loading}
+                >
+                  {selectedLeagueGroupsLoadState.loading ? 'Refreshing...' : 'Refresh groups'}
+                </button>
               </div>
-            ) : (
-              <p className="field-help">No group metadata loaded. Click Refresh groups to load.</p>
-            )}
-          </div>
+              {selectedLeagueGroupsLoadState.error ? (
+                <p className="field-error">{selectedLeagueGroupsLoadState.error}</p>
+              ) : null}
+              {selectedLeagueGroups.length ? (
+                <div className="league-groups-grid">
+                  {selectedLeagueGroups.map((group) => {
+                    const id = String(group.id || '').trim()
+                    if (!id) return null
+                    const includedGroupIds = Array.isArray(selectedTickerLeague.includedGroups) ? selectedTickerLeague.includedGroups : []
+                    const isChecked = includedGroupIds.includes(id)
+                    const parentName = group.parent?.name ? ` (${group.parent.name})` : ''
+                    const label = group.name || group.abbreviation || id
+                    return (
+                      <label key={`${selectedTickerLeague.id}-${id}`} className="field field-checkbox">
+                        <span>{label}{parentName}</span>
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(event) => toggleLeagueIncludedGroup(selectedTickerLeagueIndex, id, event.target.checked)}
+                        />
+                      </label>
+                    )
+                  })}
+                </div>
+              ) : (
+                <p className="field-help">No group metadata loaded. Click Refresh groups to load.</p>
+              )}
+            </div>
+          )}
 
           <div className="league-groups-panel">
             <div className="league-groups-header">
@@ -364,7 +389,7 @@ export default function LeagueDetail({
                 })
               }
 
-              triggerLogoCacheForLeague(selectedTickerLeague.id, teams).catch((err) => {
+              triggerLogoCacheForLeague(selectedTickerLeague.id, teams, params.sport).catch((err) => {
                 console.warn('Logo cache failed:', err)
               })
 

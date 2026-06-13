@@ -11,9 +11,10 @@ from ...core.espn_scoreboard import EspnScoreboardClient
 import json
 import re
 
+from ...core.groups_util import build_team_group_memberships_from_groups, build_team_group_memberships_from_standings
 from ...core.logos.logo_store import LogoStore
 from ...core.paths import get_runtime_paths
-from ._utils import _group_key, _groups_endpoint_url, _http_client, _normalized, _site_standings_url
+from ._utils import _groups_endpoint_url, _http_client, _normalized, _rankings_url, _site_standings_url
 
 router = APIRouter()
 
@@ -109,92 +110,6 @@ def _event_matches_team_filter(event: dict, included_teams: set[str]) -> bool:
     return False
 
 
-def _build_team_group_memberships(standings_children: list[dict]) -> dict[str, set[str]]:
-    memberships: dict[str, set[str]] = {}
-
-    def walk(children: list[dict], parent: dict | None = None) -> None:
-        for child in children:
-            raw_child_id = str(child.get("id") or "").strip()
-            name = str(child.get("name") or "").strip()
-            abbreviation = str(child.get("abbreviation") or "").strip()
-            child_id = raw_child_id or _group_key(abbreviation or name)
-
-            parent_id = str((parent or {}).get("id") or "").strip()
-            if parent_id and child_id:
-                child_id = f"{parent_id}:{child_id}"
-
-            standings = child.get("standings") or {}
-            entries = standings.get("entries") or []
-            if isinstance(entries, list):
-                for entry in entries:
-                    team = entry.get("team") or {}
-                    team_id = str(team.get("id") or "").strip()
-                    if not team_id:
-                        continue
-
-                    team_groups = memberships.setdefault(team_id, set())
-                    if child_id:
-                        team_groups.add(child_id.lower())
-                    if parent_id:
-                        team_groups.add(parent_id.lower())
-
-            nested = child.get("children") or []
-            if isinstance(nested, list) and nested:
-                walk(
-                    nested,
-                    {
-                        "id": child_id,
-                        "name": name,
-                        "abbreviation": abbreviation,
-                    },
-                )
-
-    walk(standings_children if isinstance(standings_children, list) else [])
-    return memberships
-
-
-def _build_team_group_memberships_from_groups(groups: list[dict]) -> dict[str, set[str]]:
-    memberships: dict[str, set[str]] = {}
-
-    def walk(items: list[dict], parent: dict | None = None) -> None:
-        for item in items:
-            raw_group_id = str(item.get("id") or "").strip()
-            name = str(item.get("name") or "").strip()
-            abbreviation = str(item.get("abbreviation") or "").strip()
-            group_id = raw_group_id or _group_key(abbreviation or name)
-
-            parent_id = str((parent or {}).get("id") or "").strip()
-            if parent_id and group_id:
-                group_id = f"{parent_id}:{group_id}"
-
-            teams = item.get("teams") or []
-            if isinstance(teams, list):
-                for team_entry in teams:
-                    team = (team_entry or {}).get("team") or team_entry or {}
-                    team_id = str(team.get("id") or "").strip()
-                    if not team_id:
-                        continue
-
-                    team_groups = memberships.setdefault(team_id, set())
-                    if group_id:
-                        team_groups.add(group_id.lower())
-                    if parent_id:
-                        team_groups.add(parent_id.lower())
-
-            nested = item.get("groups") or item.get("children") or []
-            if isinstance(nested, list) and nested:
-                walk(
-                    nested,
-                    {
-                        "id": group_id,
-                        "name": name,
-                        "abbreviation": abbreviation,
-                    },
-                )
-
-    walk(groups if isinstance(groups, list) else [])
-    return memberships
-
 
 def _event_matches_group_filter(
     event: dict,
@@ -217,6 +132,45 @@ def _event_matches_group_filter(
     return False
 
 
+def _fetch_ap_ranked_team_ids(sport: str, league: str, top_n: int, cache_ttl: float) -> set[str]:
+    """Fetch the ESPN AP Top 25 rankings and return the set of team IDs within the top_n."""
+    try:
+        payload = _http_client.get_json(
+            _rankings_url(sport=sport, league=league),
+            use_cache=cache_ttl > 0,
+            cache_ttl_seconds=min(cache_ttl, 3600.0),
+        )
+        rankings_list = payload.get("rankings") or []
+        for ranking in rankings_list:
+            name = _normalized(ranking.get("name") or ranking.get("shortName") or "")
+            if "ap" not in name and "associated press" not in name:
+                continue
+            ranked: set[str] = set()
+            for entry in ranking.get("ranks") or []:
+                current = entry.get("current")
+                if current is None or int(current) > top_n:
+                    continue
+                team_id = str((entry.get("team") or {}).get("id") or "").strip()
+                if team_id:
+                    ranked.add(team_id)
+            if ranked:
+                return ranked
+    except Exception:
+        pass
+    return set()
+
+
+def _event_matches_rankings_filter(event: dict, ranked_team_ids: set[str]) -> bool:
+    """Return True if at least one competitor is in the ranked set."""
+    if not ranked_team_ids:
+        return True
+    for competitor in _iter_event_competitors(event):
+        team_id = str((competitor.get("team") or {}).get("id") or "").strip()
+        if team_id and team_id in ranked_team_ids:
+            return True
+    return False
+
+
 @router.get("/scoreboard")
 def get_scoreboard(
     league: str = Query(..., description="League id, for example nfl or mlb."),
@@ -226,6 +180,7 @@ def get_scoreboard(
     game_filter: str = Query("all", description="Game filter: all, live, today, upcoming, this-week."),
     included_teams: str | None = Query(None, description="Comma-separated team ids/abbreviations/slugs."),
     included_groups: str | None = Query(None, description="Comma-separated group ids from league-groups."),
+    rankings_limit: int | None = Query(None, ge=1, le=100, description="Only show games with a team ranked within top-N of the AP poll."),
     cache_ttl_seconds: float = Query(60.0, ge=0.0, le=3600.0),
 ) -> object:
     now = datetime.now(timezone.utc)
@@ -255,29 +210,52 @@ def get_scoreboard(
 
     team_group_memberships: dict[str, set[str]] = {}
     if parsed_included_groups:
+        # Use team-meta cache if populated during sync (avoids extra ESPN API call)
         try:
-            groups_payload = _http_client.get_json(
-                _groups_endpoint_url(sport=entry.sport, league=entry.league),
-                use_cache=cache_ttl_seconds > 0,
-                cache_ttl_seconds=cache_ttl_seconds,
-            )
-            groups = groups_payload.get("groups") or []
-            team_group_memberships = _build_team_group_memberships_from_groups(
-                groups if isinstance(groups, list) else []
-            )
+            store = LogoStore()
+            meta = store.load_league_meta(entry.league_id)
+            if meta.teams and any(t.groups for t in meta.teams.values()):
+                for team_id, team_info in meta.teams.items():
+                    if team_info.groups:
+                        team_group_memberships[team_id] = set(team_info.groups)
+        except Exception:
+            pass
 
-            if not team_group_memberships:
-                standings_payload = _http_client.get_json(
-                    _site_standings_url(sport=entry.sport, league=entry.league),
+        if not team_group_memberships:
+            # Fall back to live ESPN fetch when team-meta hasn't been synced yet
+            try:
+                groups_payload = _http_client.get_json(
+                    _groups_endpoint_url(sport=entry.sport, league=entry.league),
                     use_cache=cache_ttl_seconds > 0,
                     cache_ttl_seconds=cache_ttl_seconds,
                 )
-                standings_children = standings_payload.get("children") or []
-                team_group_memberships = _build_team_group_memberships(
-                    standings_children if isinstance(standings_children, list) else []
+                groups = groups_payload.get("groups") or []
+                team_group_memberships = build_team_group_memberships_from_groups(
+                    groups if isinstance(groups, list) else []
                 )
-        except Exception:
-            team_group_memberships = {}
+
+                if not team_group_memberships:
+                    standings_payload = _http_client.get_json(
+                        _site_standings_url(sport=entry.sport, league=entry.league),
+                        use_cache=cache_ttl_seconds > 0,
+                        cache_ttl_seconds=cache_ttl_seconds,
+                    )
+                    standings_children = standings_payload.get("children") or []
+                    team_group_memberships = build_team_group_memberships_from_standings(
+                        standings_children if isinstance(standings_children, list) else []
+                    )
+            except Exception:
+                team_group_memberships = {}
+
+    # Fetch AP ranked team IDs once if rankings_limit is set (live, so rankings stay current)
+    ap_ranked_team_ids: set[str] = set()
+    if rankings_limit and _normalized(entry.sport) != "racing":
+        ap_ranked_team_ids = _fetch_ap_ranked_team_ids(
+            sport=entry.sport,
+            league=entry.league,
+            top_n=rankings_limit,
+            cache_ttl=cache_ttl_seconds,
+        )
 
     filtered_events: list[dict] = []
     for event in events:
@@ -292,6 +270,8 @@ def get_scoreboard(
         if not _event_matches_team_filter(event, parsed_included_teams):
             continue
         if _normalized(entry.sport) != "racing" and not _event_matches_group_filter(event, parsed_included_groups, team_group_memberships):
+            continue
+        if ap_ranked_team_ids and not _event_matches_rankings_filter(event, ap_ranked_team_ids):
             continue
         filtered_events.append(event)
 
@@ -604,6 +584,8 @@ def get_scoreboard(
             "gameFilter": _normalized(game_filter) or "all",
             "includedTeams": sorted(parsed_included_teams),
             "includedGroups": sorted(parsed_included_groups),
+            "rankingsLimit": rankings_limit,
+            "apRankedTeamCount": len(ap_ranked_team_ids),
         },
         "rawEventCount": len(events),
         "eventCount": event_count,

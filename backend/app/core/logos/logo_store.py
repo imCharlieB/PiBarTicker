@@ -44,6 +44,11 @@ class TeamLogoInfo:
     # List of known variants we have successfully cached
     available_variants: list[str] = field(default_factory=list)
 
+    # Conference/division/group IDs this team belongs to (populated during sync, used for scoreboard filtering)
+    groups: list[str] = field(default_factory=list)
+    # Human-readable name of the most specific group (e.g. "SEC West", "NFC North")
+    conference_name: str = ""
+
 
 @dataclass
 class LeagueTeamMeta:
@@ -88,6 +93,8 @@ class LogoStore:
                     remote_urls=tdata.get("remote_urls", {}),
                     preferred_variant=tdata.get("preferred_variant"),
                     available_variants=tdata.get("available_variants", []),
+                    groups=tdata.get("groups", []),
+                    conference_name=tdata.get("conference_name", ""),
                 )
             return LeagueTeamMeta(
                 league=league,
@@ -115,6 +122,8 @@ class LogoStore:
                     "remote_urls": t.remote_urls,
                     "preferred_variant": t.preferred_variant,
                     "available_variants": t.available_variants,
+                    "groups": t.groups,
+                    "conference_name": t.conference_name,
                 }
                 for tid, t in meta.teams.items()
             },

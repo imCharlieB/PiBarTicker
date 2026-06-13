@@ -30,3 +30,7 @@ def _groups_endpoint_url(*, sport: str, league: str) -> str:
 
 def _site_standings_url(*, sport: str, league: str) -> str:
     return f"https://site.api.espn.com/apis/v2/sports/{sport}/{league}/standings"
+
+
+def _rankings_url(*, sport: str, league: str) -> str:
+    return f"https://site.api.espn.com/apis/site/v2/sports/{sport}/{league}/rankings"

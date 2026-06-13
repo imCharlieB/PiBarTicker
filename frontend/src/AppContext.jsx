@@ -428,13 +428,13 @@ export function AppContextProvider({ children }) {
     })
   }
 
-  async function triggerLogoCacheForLeague(leagueId, teams) {
+  async function triggerLogoCacheForLeague(leagueId, teams, sport = '') {
     if (!leagueId || !Array.isArray(teams) || teams.length === 0) return
 
     setLogoSyncingLeagues((prev) => ({ ...prev, [leagueId]: true }))
 
     try {
-      await postLogoCache(leagueId, teams)
+      await postLogoCache(leagueId, teams, sport)
       await loadLeagueLogoMeta(leagueId)
     } catch (err) {
       console.warn('Logo cache trigger failed:', err)

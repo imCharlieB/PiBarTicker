@@ -104,7 +104,7 @@ function LeagueMark({ league, logo }) {
   return null
 }
 
-function LowerThird() {
+function LowerThird({ clockFormat }) {
   const [now, setNow] = useState(() => new Date())
   const [cur, setCur] = useState({ league: '', logo: '' })
   const curRef = useRef(cur)
@@ -141,7 +141,7 @@ function LowerThird() {
     return () => cancelAnimationFrame(raf)
   }, [])
 
-  const time = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  const time = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: clockFormat !== '24h' })
   return (
     <div className="ticker-runtime-lower l3-insert" aria-label="Lower third">
       <LeagueMark league={cur.league} logo={cur.logo} />
@@ -221,267 +221,133 @@ function TickerRuntime({
   initialPreFetchesComplete,
   sportsBoard,
   sessionKey,
-  // Shared refs (owned by App.jsx, read+written by both sides)
   handoffGraceRef,
   scrolledThisSlotRef,
   leagueSlotStartTimeRef,
   currentSlotLeagueIdRef,
-  // Callbacks into App.jsx
   onAdvance,
   onHandoffCheck,
 }) {
-  // ── Internal state ──────────────────────────────────────────────────────
-  // Only watermarkSize needs to be React state (it drives a CSS var on the shell).
-  // Everything else that used to be state is now a ref — no re-renders during animation.
   const [watermarkSize, setWatermarkSize] = useState('82%')
-  // ── DOM refs ────────────────────────────────────────────────────────────
   const trackRef = useRef(null)
   const windowRef = useRef(null)
   const firstCardRef = useRef(null)
-
-  // ── Animation refs ──────────────────────────────────────────────────────
-  // Web Animation object — holds the running element.animate() instance.
-  // element.animate() runs on the GPU compositor thread with no per-frame JS.
   const animRef = useRef(null)
-  const advanceTimerRef = useRef(null) // backup setTimeout in case onfinish doesn't fire
-  const trackWidthRef = useRef(0)
-  const windowWidthRef = useRef(0)
-  // scrollReadyRef: track visibility driven by direct DOM writes — no React state, no re-renders
-  const scrollReadyRef = useRef(false)
+  const backupTimerRef = useRef(null)
 
-  // ── Slot-tracking refs ──────────────────────────────────────────────────
-  const didInitialLateMeasureRef = useRef(false)
-  const slotDurationRef = useRef(30000)
-  const hasStartedRef = useRef(false)
-
-  // ── Stable callback refs ─────────────────────────────────────────────────
   const onAdvanceRef = useRef(onAdvance)
   useEffect(() => { onAdvanceRef.current = onAdvance }, [onAdvance])
   const onHandoffCheckRef = useRef(onHandoffCheck)
   useEffect(() => { onHandoffCheckRef.current = onHandoffCheck }, [onHandoffCheck])
 
-  // ── Animation functions ───────────────────────────────────────────────────
+  // ── Animation setup (synchronous pre-paint) ───────────────────────────────
+  // WAA with literal pixel values — compositor thread, no CSS var() issue.
+  // Stable track element (no key prop) + will-change: transform = compositor layer
+  // survives across league changes; cancel + restart does NOT teardown the layer.
+  //
+  // Animation starts running immediately (track opacity:0). The image-preload effect
+  // below simply sets opacity:1 once textures are decoded. This avoids pause/play
+  // timing edge cases and keeps the code simple.
+  useLayoutEffect(() => {
+    if (animRef.current) { try { animRef.current.cancel() } catch (_) {} animRef.current = null }
+    if (backupTimerRef.current) { clearTimeout(backupTimerRef.current); backupTimerRef.current = null }
 
-  function stopCSSAnimation() {
-    if (advanceTimerRef.current) {
-      clearTimeout(advanceTimerRef.current)
-      advanceTimerRef.current = null
-    }
-    if (animRef.current) {
-      try { animRef.current.cancel() } catch (_) {}
-      animRef.current = null
-    }
-  }
+    const track = trackRef.current
+    if (!track) return
+    track.style.opacity = '0'
 
-  // Called when the animation ends (by onfinish or backup timer).
-  // expectedLeagueId guards against stale closures from a prior slot.
-  function triggerAdvance(expectedLeagueId, oneCopy) {
-    if (currentSlotLeagueIdRef.current !== expectedLeagueId) return
-    const liveTrack = trackRef.current
-    if (liveTrack) liveTrack.style.opacity = '0'
-    stopCSSAnimation()
-    scrolledThisSlotRef.current = oneCopy
-    scrollReadyRef.current = false
-    setTimeout(() => {
-      onAdvanceRef.current()
+    if (!displayLeague || !initialPreFetchesComplete || games.length === 0) {
       scrolledThisSlotRef.current = 0
       leagueSlotStartTimeRef.current = 0
-      currentSlotLeagueIdRef.current = ''
+      handoffGraceRef.current = Date.now() + 400
+      setTimeout(() => onHandoffCheckRef.current(), 500)
+      return
+    }
+
+    // No doubling — one clean pass through all cards right-to-left, then advance.
+    // endX = -scrollWidth ensures every card fully exits the left edge before we advance.
+    const totalWidth = track.scrollWidth
+    if (totalWidth < 10) return
+
+    const speed = sportsBoard?.scrollSpeed ?? 110
+    const startX = boardWidth          // cards enter from right edge
+    const endX = -totalWidth           // last card fully off left before advance
+    const scrollDist = startX - endX   // boardWidth + totalWidth
+    const dur = Math.max(3000, Math.round(scrollDist / speed * 1000))
+
+    const cardGap = sportsBoard?.cardGap ?? 50
+    track.style.setProperty('--ticker-card-gap', `${cardGap}px`)
+
+    const leagueId = displayLeague.id
+    currentSlotLeagueIdRef.current = leagueId
+    leagueSlotStartTimeRef.current = performance.now()
+    scrolledThisSlotRef.current = 0
+    handoffGraceRef.current = Date.now() + 400
+
+    const doAdvance = () => {
+      if (currentSlotLeagueIdRef.current !== leagueId) return
+      if (backupTimerRef.current) { clearTimeout(backupTimerRef.current); backupTimerRef.current = null }
+      onAdvanceRef.current()
       handoffGraceRef.current = Date.now() + 800
       setTimeout(() => onHandoffCheckRef.current(), 900)
-    }, 100)
-  }
+    }
 
-  // Start a compositor-threaded animation via element.animate().
-  // JS only touches the DOM once here; all per-frame movement is GPU-side.
-  function startCSSAnimation(track, winW, scrollEndPx, dur, oneCopy, leagueId) {
-    stopCSSAnimation()
-
-    const anim = track.animate([
-      { transform: `translateX(${winW}px) translateZ(0)` },
-      { transform: `translateX(${scrollEndPx}px) translateZ(0)` },
-    ], {
-      duration: dur,
-      easing: 'linear',
-      fill: 'forwards', // hold end position until we cancel
-    })
+    const anim = track.animate(
+      [{ transform: `translateX(${startX}px)` }, { transform: `translateX(${endX}px)` }],
+      { duration: dur, fill: 'forwards', easing: 'linear' }
+    )
     animRef.current = anim
+    anim.finished.then(doAdvance).catch(() => {})
+    backupTimerRef.current = setTimeout(doAdvance, dur + 2000)
 
-    anim.onfinish = () => {
-      // Commit end position to base style so cancel() in triggerAdvance
-      // doesn't snap the track back to its start position.
-      track.style.transform = `translateX(${scrollEndPx}px) translateZ(0)`
-      triggerAdvance(leagueId, oneCopy)
+    setTimeout(() => onHandoffCheckRef.current(), 600)
+  }, [displayLeague?.id, games.length, sessionKey, initialPreFetchesComplete, boardWidth, sportsBoard?.scrollSpeed, sportsBoard?.cardGap]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Image preload + reveal ────────────────────────────────────────────────
+  // Animation is already running; we just need to make the track visible once
+  // all image textures are in GPU memory (prevents mid-animation decode flash).
+  // 1500ms fallback so a slow/unreachable CDN never permanently hides the ticker.
+  useEffect(() => {
+    if (!displayLeague || !initialPreFetchesComplete || games.length === 0) return
+    const leagueId = displayLeague.id
+    let cancelled = false
+
+    const revealTrack = () => {
+      if (cancelled || currentSlotLeagueIdRef.current !== leagueId) return
+      if (trackRef.current) trackRef.current.style.opacity = '1'
     }
 
-    // Backup: if onfinish doesn't fire (tab hidden, suspended, etc.) force advance
-    advanceTimerRef.current = setTimeout(() => {
-      track.style.transform = `translateX(${scrollEndPx}px) translateZ(0)`
-      triggerAdvance(leagueId, oneCopy)
-    }, dur + 800)
-  }
-
-  // ── Session reset: new ticker session or league-set change ──────────────
-  useEffect(() => {
-    didInitialLateMeasureRef.current = false
-    scrollReadyRef.current = false
-    stopCSSAnimation()
-    trackWidthRef.current = 0
-    windowWidthRef.current = 0
-    slotDurationRef.current = ((sportsBoard?.rotateSeconds) || 30) * 1000
-    if (trackRef.current) trackRef.current.style.opacity = '0'
-  }, [sessionKey]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Stop animation on league change (cleanup) ───────────────────────────
-  useEffect(() => {
-    if (!scrollReadyRef.current) stopCSSAnimation()
-    return () => {
-      // Set opacity 0 before cancelling so the position snap from cancel()
-      // is never visible — mirrors what triggerAdvance does.
-      if (trackRef.current) trackRef.current.style.opacity = '0'
-      stopCSSAnimation()
-    }
-  }, [displayLeague?.id]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── League-change reset (pre-paint, synchronous with React commit) ───────
-  useLayoutEffect(() => {
-    if (!displayLeague) return
-    stopCSSAnimation()
-    scrollReadyRef.current = false
-    hasStartedRef.current = false
-    windowWidthRef.current = boardWidth
-    if (trackRef.current) {
-      trackRef.current.style.opacity = '0'
-      trackRef.current.style.transform = `translateX(${boardWidth}px) translateZ(0)`
-    }
-    leagueSlotStartTimeRef.current = 0
-    scrolledThisSlotRef.current = 0
-    currentSlotLeagueIdRef.current = displayLeague.id
-    handoffGraceRef.current = Date.now() + 400
-    setTimeout(() => onHandoffCheckRef.current(), 500)
-  }, [displayLeague?.id]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Measurement: measure DOM, compute widths, start animation ────────────
-  useEffect(() => {
-    if (!displayLeague || games.length === 0) return
-    if (hasStartedRef.current) return
-
-    const runMeasure = () => {
-      const track = trackRef.current
-      if (!track) return
-      const winW = boardWidth
-      const k = games.length
-
-      let cardW = 520
-      if (k === 1 && firstCardRef.current) {
-        const r = firstCardRef.current.getBoundingClientRect()
-        if (r && r.width > 80) cardW = r.width
-      }
-      cardW = Math.max(cardW, 550)
-
-      let oneCopy = winW
-      if (k === 1) {
-        oneCopy = winW + cardW + 100
-      } else {
-        if (track.scrollWidth > 100) oneCopy = track.scrollWidth
-      }
-
-      trackWidthRef.current = oneCopy
-      windowWidthRef.current = winW
-
-      const pxPerSec = 110
-      const baseDur = ((sportsBoard?.rotateSeconds) || 30) * 1000
-
-      // Compute end position and duration to match exact advance conditions:
-      //   k=1:  advance when scrolled >= oneCopy + 150 (card fully off left)
-      //   k>1:  advance when offset + oneCopy <= 0     (track fully off left)
-      let scrollEndPx, dur
-      if (k <= 1) {
-        const scrollDist = oneCopy + 150
-        scrollEndPx = winW - scrollDist
-        dur = Math.max(8000, Math.round(scrollDist / pxPerSec * 1000))
-      } else {
-        scrollEndPx = -oneCopy
-        const scrollDist = winW + oneCopy
-        dur = Math.max(baseDur, Math.round(scrollDist / pxPerSec * 1000) + 2000)
-      }
-
-      const leagueId = displayLeague?.id || ''
-      currentSlotLeagueIdRef.current = leagueId
-      hasStartedRef.current = true
-
-      leagueSlotStartTimeRef.current = performance.now()
-      slotDurationRef.current = dur
-      scrolledThisSlotRef.current = 0
-
-      // Start GPU compositor animation — no per-frame JS from here
-      startCSSAnimation(track, winW, scrollEndPx, dur, oneCopy, leagueId)
-
-      // Collect all image URLs from this game slate.
-      // Images that finish decoding after the compositor layer's first rasterize
-      // trigger a full GPU re-rasterize of every tile (the white flash).
-      // Preloading with img.decode() ensures all textures are resident before reveal.
-      const imageUrls = []
-      for (const game of games) {
-        if (game?._spacer) continue
-        if (game?.isRacing) {
-          for (const entry of (game.racingEntries ?? [])) {
-            if (entry?.flag?.href) imageUrls.push(entry.flag.href)
-          }
-        } else {
-          if (game?.teams?.home?.logo) imageUrls.push(game.teams.home.logo)
-          if (game?.teams?.away?.logo) imageUrls.push(game.teams.away.logo)
+    const imageUrls = []
+    for (const game of games) {
+      if (game?._spacer) continue
+      if (game?.isRacing) {
+        for (const entry of (game.racingEntries ?? [])) {
+          if (entry?.flag?.href) imageUrls.push(entry.flag.href)
         }
+      } else {
+        if (game?.teams?.home?.logo) imageUrls.push(game.teams.home.logo)
+        if (game?.teams?.away?.logo) imageUrls.push(game.teams.away.logo)
       }
-      const uniqueUrls = [...new Set(imageUrls.filter(Boolean))]
-
-      let shown = false
-      const showTrack = () => {
-        if (shown || !trackRef.current || currentSlotLeagueIdRef.current !== leagueId) return
-        shown = true
-        trackRef.current.style.opacity = '1'
-        scrollReadyRef.current = true
-      }
-
-      if (uniqueUrls.length === 0) {
-        showTrack()
-        return
-      }
-
-      // Reveal once all images are decoded — fallback after 1500ms so the ticker
-      // never hangs if a CDN image is slow or unreachable.
-      const fallbackTimer = setTimeout(showTrack, 1500)
-      Promise.all(
-        uniqueUrls.map(url => {
-          const img = new Image()
-          img.src = url
-          return img.decode ? img.decode().catch(() => {}) : new Promise(res => { img.onload = res; img.onerror = res })
-        })
-      ).then(() => { clearTimeout(fallbackTimer); showTrack() })
     }
+    const uniqueUrls = [...new Set(imageUrls.filter(Boolean))]
 
-    const raf1 = window.requestAnimationFrame(() => window.requestAnimationFrame(runMeasure))
-    let tLate = null
-    if (!didInitialLateMeasureRef.current) {
-      didInitialLateMeasureRef.current = true
-      // Fallback: only fires if the double-rAF didn't complete measurement in time.
-      // Guard with hasStartedRef so we never cancel a running animation.
-      tLate = window.setTimeout(() => {
-        if (trackRef.current && !hasStartedRef.current) runMeasure()
-      }, 350)
-    }
-    return () => {
-      cancelAnimationFrame(raf1)
-      if (tLate) clearTimeout(tLate)
-    }
-  }, [displayLeague?.id, games.length, boardWidth, initialPreFetchesComplete]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (uniqueUrls.length === 0) { revealTrack(); return }
+
+    const fallbackTimer = setTimeout(revealTrack, 1500)
+    Promise.all(
+      uniqueUrls.map(url => {
+        const img = new Image()
+        img.src = url
+        return img.decode ? img.decode().catch(() => {}) : new Promise(r => { img.onload = r; img.onerror = r })
+      })
+    ).then(() => { clearTimeout(fallbackTimer); revealTrack() })
+
+    return () => { cancelled = true; clearTimeout(fallbackTimer) }
+  }, [displayLeague?.id, games.length, initialPreFetchesComplete]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Watermark image size measurement ─────────────────────────────────────
   useEffect(() => {
-    if (!watermarkUrl) {
-      setWatermarkSize('82%')
-      return
-    }
+    if (!watermarkUrl) { setWatermarkSize('82%'); return }
     const img = new Image()
     img.onload = () => {
       const boardH = Number(config?.monitor?.height) || 380
@@ -495,12 +361,8 @@ function TickerRuntime({
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  const seamlessGames = games.length > 0 ? [...games] : games
+  const seamlessGames = games
   const hasEnabledLeagues = leagues.length > 0
-
-  if (!windowWidthRef.current) {
-    windowWidthRef.current = boardWidth
-  }
 
   const brandLogoUrl = resolveLeagueLogo(brandLeague, payloadByLeagueId[brandLeague?.id])
 
@@ -537,7 +399,6 @@ function TickerRuntime({
         >
           <div className="ticker-runtime-marquee-window" ref={windowRef}>
             <div
-              key={`marquee-${displayLeague?.id || 'none'}`}
               className="ticker-runtime-track"
               ref={trackRef}
               role="list"
@@ -558,12 +419,11 @@ function TickerRuntime({
                 const isSoloSlate = games.length === 1
                 const isDuoSlate = games.length === 2
                 const isFirstCardForMeasure = index === 0
-                // Only needed for standard/large-logo paths; wireframe and racing dispatch internally.
                 const CardComponent = (game?.isRacing || WIREFRAME_STYLES.has(game?.cardStyle))
                   ? null
                   : pickCardComponent(game)
-                // Stable key without -${index}: prevents DOM destruction when array order changes.
-                const cardKey = game.id || `${game?.teams?.away?.id || ''}-${game?.teams?.home?.id || ''}-${game?.startTimeUtc || ''}`
+                const copyIdx = index < games.length ? 0 : 1
+                const cardKey = `${copyIdx}-${game.id || `${game?.teams?.away?.id || ''}-${game?.teams?.home?.id || ''}-${game?.startTimeUtc || ''}`}`
 
                 return (
                   <MemoizedCard
@@ -582,7 +442,7 @@ function TickerRuntime({
             </div>
           </div>
 
-          <LowerThird />
+          <LowerThird clockFormat={config?.theme?.clockFormat ?? '12h'} />
         </section>
       )}
     </main>

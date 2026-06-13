@@ -64,6 +64,8 @@ class ThemeConfig(AppBaseModel):
     tickerWatermarkEnabled: bool = True
     tickerWatermarkUseTeam: bool = True  # when enabled + team theme active, auto-use the team's logo
 
+    clockFormat: Literal["12h", "24h"] = "12h"
+
 
 class LeagueConfig(AppBaseModel):
     id: str
@@ -95,6 +97,8 @@ class SportsBoardConfig(AppBaseModel):
     scroll: bool = True
     refreshSeconds: int = 45
     skipIfEmpty: bool = False
+    scrollSpeed: int = 110  # px/s — how fast cards scroll across the display
+    cardGap: int = 50       # px — gap between game cards
     leagues: list[LeagueConfig] = Field(default_factory=list)
 
 

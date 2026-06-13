@@ -176,6 +176,27 @@ export default function LeagueList({ sportsBoard, onSelectLeague }) {
                 onChange={(event) => updateBoard('sports', { refreshSeconds: Number(event.target.value) })}
               />
             </label>
+            <label className="field">
+              <span>Scroll speed — {sportsBoard.scrollSpeed ?? 110} px/s</span>
+              <input
+                type="range"
+                min="30"
+                max="300"
+                step="10"
+                value={sportsBoard.scrollSpeed ?? 110}
+                onChange={(event) => updateBoard('sports', { scrollSpeed: Number(event.target.value) })}
+              />
+            </label>
+            <label className="field">
+              <span>Card gap (px)</span>
+              <input
+                type="number"
+                min="0"
+                max="300"
+                value={sportsBoard.cardGap ?? 50}
+                onChange={(event) => updateBoard('sports', { cardGap: Number(event.target.value) })}
+              />
+            </label>
           </div>
         </div>
       ) : null}

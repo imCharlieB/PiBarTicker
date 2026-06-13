@@ -47,23 +47,21 @@
 
 .ticker-runtime-track {
   display: inline-flex;
-  gap: 50px;
+  gap: var(--ticker-card-gap, 50px);
   min-height: 100%;
   width: max-content;
   padding: 0 0.2rem;
   align-items: stretch;
   /* Prevent sub-pixel overflow from triggering scrollbars on Pi */
   contain: layout style paint;
-  /* Scrolling driven by element.animate() — GPU compositor thread, zero per-frame JS.
-     opacity and transform are written directly to the DOM (never via React state)
-     so Chrome never invalidates the compositor layer textures during animation. */
+  /* WAA animates transform directly — GPU compositor thread, zero per-frame JS.
+     will-change keeps the compositor layer alive between league animations so
+     cancel + restart doesn't teardown the layer (the root cause of flicker). */
   opacity: 0;
   will-change: transform;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  /* Force consistent grayscale antialiasing for all text in this compositor layer.
-     Without this, text alignment to pixel boundaries changes as the layer moves,
-     causing the text-flicker ("dancing" driver names, team abbreviations). */
+  /* Consistent antialiasing prevents text from jumping as the layer moves. */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

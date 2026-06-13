@@ -97,6 +97,17 @@ export default function ThemePage() {
           {themeErrors.mode ? <small className="field-error">{themeErrors.mode}</small> : null}
         </label>
 
+        <label className="field">
+          <span>Clock format</span>
+          <select
+            value={config.theme.clockFormat ?? '12h'}
+            onChange={(event) => updateConfigSection('theme', 'clockFormat', event.target.value)}
+          >
+            <option value="12h">12-hour (1:30 PM)</option>
+            <option value="24h">24-hour (13:30)</option>
+          </select>
+        </label>
+
         <label className="field field-checkbox">
           <span>Ticker watermark</span>
           <input

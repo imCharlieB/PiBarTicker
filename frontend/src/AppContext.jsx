@@ -789,7 +789,7 @@ export function AppContextProvider({ children }) {
 
   useEffect(() => {
     if (!isTickerRuntime || runtimeLeagues.length <= 1 || !sportsBoard || !initialPreFetchesComplete) return
-    if (isTickerRuntime) return // ticker advance driven from rAF tick in TickerRuntime
+    if (isTickerRuntime) return // ticker advance driven by TickerRuntime animationend
 
     const dur = (sportsBoard.rotateSeconds || 30) * 1000
     const timeoutId = window.setTimeout(() => {

@@ -272,32 +272,43 @@ class F1CacheService:
     # -----------------------------------------------------------------------
 
     def sync_team_cars(self) -> dict:
-        f1_meta = self.store.load_league_meta("f1")
         logos_dir = self.paths.logos / "f1"
         logos_dir.mkdir(parents=True, exist_ok=True)
 
+        # Download every known constructor slug independently — works on a fresh
+        # install even before the standard ESPN "Sync Teams & Logos" has run.
+        all_slugs = set(_TEAM_SLUG_MAP.values())
         synced = 0
-        for team_id, team in f1_meta.teams.items():
-            slug = _slug_for_team(team.display_name)
-            if not slug:
-                continue
-
+        for slug in sorted(all_slugs):
             car_url = _CAR_URL_TEMPLATE.format(cdn=_F1_CDN_BASE, slug=slug)
             dest = logos_dir / f"{slug}_car.webp"
-
-            team.remote_urls["car"] = car_url
             if not dest.exists():
                 data = _download_bytes(car_url)
                 if data:
                     dest.write_bytes(data)
-
             if dest.exists():
-                team.logos["car"] = f"f1/{slug}_car.webp"
-                if "car" not in team.available_variants:
-                    team.available_variants.append("car")
                 synced += 1
 
-        self.store.save_league_meta(f1_meta)
+        # Update f1.json team meta with car variant if it already has teams.
+        try:
+            f1_meta = self.store.load_league_meta("f1")
+            changed = False
+            for team in f1_meta.teams.values():
+                slug = _slug_for_team(team.display_name)
+                if not slug:
+                    continue
+                dest = logos_dir / f"{slug}_car.webp"
+                team.remote_urls["car"] = _CAR_URL_TEMPLATE.format(cdn=_F1_CDN_BASE, slug=slug)
+                if dest.exists():
+                    team.logos["car"] = f"f1/{slug}_car.webp"
+                    if "car" not in team.available_variants:
+                        team.available_variants.append("car")
+                    changed = True
+            if changed:
+                self.store.save_league_meta(f1_meta)
+        except Exception:
+            pass
+
         return {"ok": True, "teams_synced": synced}
 
     # -----------------------------------------------------------------------

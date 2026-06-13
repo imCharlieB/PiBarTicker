@@ -1,13 +1,34 @@
+import { useState, useEffect } from 'react'
 import { useAppContext } from '../../AppContext'
 import { getLeagueEntityType } from '../helpers'
 
-export default function TeamDetail({ selectedTickerLeague, selectedTickerTeam, onBack }) {
+export default function TeamDetail({ selectedTickerLeague, selectedTickerTeam, onBack, onSelectDriver }) {
   const {
     leagueLogoMetaById, logoSyncingLeagues,
     loadLeagueLogoMeta, downloadExtrasForTeam, teamLogoDetailsByKey,
   } = useAppContext()
 
   const cachedTeamMeta = leagueLogoMetaById[selectedTickerLeague.id]?.teams?.[String(selectedTickerTeam.id)] || null
+
+  const [f1Drivers, setF1Drivers] = useState([])
+  useEffect(() => {
+    if (selectedTickerLeague.id !== 'f1') { setF1Drivers([]); return }
+    const constructorColor = String(cachedTeamMeta?.color || '').replace(/^#/, '').toLowerCase()
+    const constructorName = String(selectedTickerTeam.displayName || selectedTickerTeam.name || '').toLowerCase()
+    fetch('/api/v1/logos/meta/f1-drivers')
+      .then((r) => r.json())
+      .then((data) => {
+        const matched = Object.values(data.teams || {}).filter((d) => {
+          const dColor = String(d.color || '').replace(/^#/, '').toLowerCase()
+          if (constructorColor && dColor && dColor === constructorColor) return true
+          const teamName = String(d.remote_urls?.team_name || '').toLowerCase()
+          if (!teamName) return false
+          return constructorName.includes(teamName) || teamName.includes(constructorName.split(' ')[0])
+        })
+        setF1Drivers(matched)
+      })
+      .catch(() => setF1Drivers([]))
+  }, [selectedTickerLeague.id, selectedTickerTeam.id, cachedTeamMeta?.color])
   const cachedVariants = cachedTeamMeta?.logos
     ? Object.entries(cachedTeamMeta.logos).map(([variant, relativePath]) => ({
         variant,
@@ -80,6 +101,34 @@ export default function TeamDetail({ selectedTickerLeague, selectedTickerTeam, o
         </div>
 
         <div>
+          {f1Drivers.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <h3 style={{ marginBottom: 6 }}>Drivers</h3>
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                {f1Drivers.map((d) => {
+                  const headshotPath = d.logos?.headshot
+                  const color = String(d.color || '').replace(/^#/, '')
+                  return (
+                    <div
+                      key={d.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => onSelectDriver?.(d)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onSelectDriver?.(d) }}
+                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 80, cursor: 'pointer' }}
+                    >
+                      {headshotPath
+                        ? <img src={`/logos/${headshotPath}`} alt={d.display_name} style={{ width: 72, height: 72, borderRadius: '50%', objectFit: 'cover', border: `3px solid #${color || '444'}` }} />
+                        : <div style={{ width: 72, height: 72, borderRadius: '50%', background: '#1a1f2a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 900, color: `#${color || 'fff'}` }}>{d.abbreviation}</div>}
+                      <span style={{ fontSize: 13, fontWeight: 700, textAlign: 'center' }}>{d.display_name}</span>
+                      <span style={{ fontSize: 11, color: '#6b7480', fontWeight: 800, letterSpacing: '.06em' }}>{d.abbreviation}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           <div style={{ marginBottom: 16 }}>
             <h3 style={{ marginBottom: 4 }}>More logo variants from ESPN</h3>
             <p className="team-explorer-subtitle" style={{ marginBottom: 8 }}>

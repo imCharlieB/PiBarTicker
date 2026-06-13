@@ -368,6 +368,25 @@
 }
 .ticker-runtime-shell .d-board.d-marq .board-detail { color: #fff; }
 
+/* Board: driver headshots */
+.ticker-runtime-shell .board-hs {
+  width: 38px; height: 38px; border-radius: 50%;
+  object-fit: cover; flex: 0 0 auto;
+  border: 2px solid var(--rc, #333);
+}
+.ticker-runtime-shell .board-multi .board-hs { width: 24px; height: 24px; border-width: 1.5px; }
+
+/* Board: pre-race circuit map */
+.ticker-runtime-shell .d-board.board-pre-circuit { width: 740px; }
+.ticker-runtime-shell .bpre-circuit {
+  flex: 1 1 auto; display: flex; align-items: center; justify-content: flex-end;
+  overflow: hidden; border-radius: 8px; min-height: 0;
+}
+.ticker-runtime-shell .bpre-circuit-img {
+  height: 100%; width: auto; max-width: 100%;
+  object-fit: contain; opacity: 0.9;
+}
+
 /* ── Baseball live (full diamond + B/S/O) ───────────────────────────────── */
 .ticker-runtime-shell .live         { display: flex; align-items: center; gap: 18px; }
 .ticker-runtime-shell .live-compact { flex-direction: column; gap: 10px; align-items: center; }

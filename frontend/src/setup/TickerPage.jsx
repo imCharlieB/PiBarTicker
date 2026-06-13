@@ -3,11 +3,13 @@ import { useAppContext } from '../AppContext'
 import LeagueList from './ticker/LeagueList'
 import LeagueDetail from './ticker/LeagueDetail'
 import TeamDetail from './ticker/TeamDetail'
+import DriverDetail from './ticker/DriverDetail'
 
 export default function TickerPage() {
   const { config, leagueTeamsById, leagueLoadStateById } = useAppContext()
   const [selectedTickerLeagueId, setSelectedTickerLeagueId] = useState('')
   const [selectedTickerTeamId, setSelectedTickerTeamId] = useState('')
+  const [selectedDriver, setSelectedDriver] = useState(null)
 
   const sportsBoard = config.boards.find((b) => b.type === 'sports')
 
@@ -35,7 +37,14 @@ export default function TickerPage() {
           onSelectLeague={(id) => {
             setSelectedTickerLeagueId(id)
             setSelectedTickerTeamId('')
+            setSelectedDriver(null)
           }}
+        />
+      ) : selectedDriver ? (
+        <DriverDetail
+          selectedTickerLeague={selectedTickerLeague}
+          driver={selectedDriver}
+          onBack={() => setSelectedDriver(null)}
         />
       ) : !selectedTickerTeam ? (
         <LeagueDetail
@@ -51,6 +60,7 @@ export default function TickerPage() {
           selectedTickerLeague={selectedTickerLeague}
           selectedTickerTeam={selectedTickerTeam}
           onBack={() => setSelectedTickerTeamId('')}
+          onSelectDriver={setSelectedDriver}
         />
       )}
     </article>

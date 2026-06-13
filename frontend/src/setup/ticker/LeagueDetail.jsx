@@ -354,6 +354,36 @@ export default function LeagueDetail({
           {selectedLeagueLoadState.loading ? 'Syncing...' : 'Sync Teams & Logos'}
         </button>
 
+        {selectedTickerLeague.id === 'f1' ? (
+          <button
+            type="button"
+            className="button-link"
+            onClick={async () => {
+              setLogoSyncingLeagues((prev) => ({ ...prev, f1: 'Syncing F1 drivers, cars & circuits…' }))
+              try {
+                const res = await fetch('/api/v1/logos/cache/f1/sync', { method: 'POST' })
+                const data = await res.json()
+                const drivers = data?.drivers?.drivers_synced ?? 0
+                const cars = data?.team_cars?.teams_synced ?? 0
+                const circuits = data?.circuits?.circuits_synced ?? 0
+                setNotice(`F1 sync complete — ${drivers} drivers, ${cars} cars, ${circuits} circuits cached.`)
+                loadLeagueLogoMeta('f1')
+                loadLeagueLogoMeta('f1-drivers')
+              } catch (e) {
+                setNotice(`F1 sync failed: ${e.message}`)
+              } finally {
+                setLogoSyncingLeagues((prev) => {
+                  const copy = { ...prev }
+                  delete copy.f1
+                  return copy
+                })
+              }
+            }}
+          >
+            Sync F1 Drivers & Assets
+          </button>
+        ) : null}
+
         <button
           type="button"
           className="button-link"

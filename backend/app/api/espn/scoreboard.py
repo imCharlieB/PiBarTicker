@@ -7,7 +7,11 @@ from fastapi import APIRouter, HTTPException, Query
 from ...core.espn_normalizer import normalize_scoreboard_events
 from ...core.espn_registry import resolve_registry_entry
 from ...core.espn_scoreboard import EspnScoreboardClient
+import json
+import re
+
 from ...core.logos.logo_store import LogoStore
+from ...core.paths import get_runtime_paths
 from ._utils import _group_key, _groups_endpoint_url, _http_client, _normalized, _site_standings_url
 
 router = APIRouter()
@@ -352,13 +356,143 @@ def get_scoreboard(
     # doesn't include it directly in the scoreboard competitor data.
     if entry.sport == "racing":
         try:
-            meta = LogoStore().load_league_meta(entry.league_id)
+            store = LogoStore()
+            meta = store.load_league_meta(entry.league_id)
+            # F1: auto-sync circuits in background when new ones appear in the F1 index
+            f1_drivers_meta = None
+            if entry.league_id == "f1":
+                try:
+                    f1_drivers_meta = store.load_league_meta("f1-drivers")
+                except Exception:
+                    pass
+                try:
+                    from ...core.logos.f1_cache_service import F1CacheService
+                    import threading
+                    def _bg_circuit_sync():
+                        svc = F1CacheService()
+                        try:
+                            svc.sync_circuit_maps()
+                        finally:
+                            svc.close()
+                    circuits_path = get_runtime_paths().team_meta / "f1-circuits.json"
+                    try:
+                        existing_circuits: dict = json.loads(circuits_path.read_text(encoding="utf-8"))
+                    except Exception:
+                        existing_circuits = {}
+                    # Trigger background sync if any F1 game has no circuit in the local cache.
+                    # ESPN venue is null for all F1 events, so we use the game title to check.
+                    known_circuit_keys = set(existing_circuits.keys()) - {"_ts"}
+                    has_uncached = bool(normalized_games and not known_circuit_keys)
+                    if not has_uncached:
+                        for g in normalized_games:
+                            g_title = str(g.get("title") or "").lower()
+                            if g_title and not any(
+                                kk.replace("_", " ") in g_title or g_title in kk.replace("_", " ")
+                                for kk in known_circuit_keys
+                            ):
+                                has_uncached = True
+                                break
+                    if has_uncached:
+                        threading.Thread(target=_bg_circuit_sync, daemon=True).start()
+                except Exception:
+                    pass
+            # Country name → adjective form used in ESPN race titles like "Australian Grand Prix".
+            # This is stable language data, not race-specific.
+            _COUNTRY_ADJECTIVES: dict[str, str] = {
+                "australia": "australian",
+                "austria": "austrian",
+                "azerbaijan": "azerbaijani",
+                "bahrain": "bahraini",
+                "belgium": "belgian",
+                "brazil": "brazilian",
+                "canada": "canadian",
+                "china": "chinese",
+                "great britain": "british",
+                "hungary": "hungarian",
+                "italy": "italian",
+                "japan": "japanese",
+                "mexico": "mexican",
+                "netherlands": "dutch",
+                "saudi arabia": "saudi arabian",
+                "spain": "spanish",
+                "united kingdom": "british",
+                "united states": "american",
+            }
+            # Build circuit lookup: text key → (image_url, circuit_name)
+            f1_circuit_lookup: dict[str, tuple[str, str]] = {}
+            if entry.league_id == "f1":
+                try:
+                    circuits_path = get_runtime_paths().team_meta / "f1-circuits.json"
+                    circuits_data: dict = json.loads(circuits_path.read_text(encoding="utf-8"))
+                    for map_key, val in circuits_data.items():
+                        if map_key == "_ts":
+                            continue
+                        key_lower = map_key.replace("_", " ").lower()
+                        if isinstance(val, str):
+                            f1_circuit_lookup[key_lower] = (f"/logos/{val}", "")
+                        elif isinstance(val, dict):
+                            path = str(val.get("path") or "").strip()
+                            if not path:
+                                continue
+                            img_url = f"/logos/{path}"
+                            circuit_name = str(val.get("circuit_name") or "").strip()
+                            entry_pair = (img_url, circuit_name)
+                            country_lower = str(val.get("country") or "").strip().lower()
+                            for k in (
+                                key_lower,
+                                str(val.get("location") or "").strip().lower(),
+                                country_lower,
+                                circuit_name.lower(),
+                                _COUNTRY_ADJECTIVES.get(country_lower, ""),
+                            ):
+                                if k:
+                                    f1_circuit_lookup[k] = entry_pair
+                except Exception:
+                    pass
+
             for game in normalized_games:
                 for race_entry in game.get("racingEntries") or []:
                     if not race_entry.get("teamColor"):
                         team_id = str(race_entry.get("teamId") or "").strip()
                         if team_id and team_id in meta.teams:
                             race_entry["teamColor"] = meta.teams[team_id].color
+                    # F1 surname join — ESPN has no teamId for F1 entries
+                    if f1_drivers_meta and not race_entry.get("teamColor"):
+                        full_name = str(race_entry.get("name") or "").strip()
+                        surname = full_name.split()[-1].lower() if full_name else ""
+                        driver = f1_drivers_meta.teams.get(surname)
+                        if driver:
+                            if driver.color:
+                                race_entry["teamColor"] = driver.color
+                            if driver.logos.get("headshot") and not race_entry.get("headshot"):
+                                race_entry["headshot"] = driver.logos["headshot"]
+
+                # Inject circuitImage + circuitName for F1 games.
+                # ESPN returns venue:null for all F1 events, so we match against the
+                # event title (shortName / name) which contains the race name.
+                if f1_circuit_lookup and not game.get("circuitImage"):
+                    venue = game.get("venue") or {}
+                    venue_city = str(venue.get("city") or "").strip().lower()
+                    venue_name = str(venue.get("name") or "").strip().lower()
+                    game_title = str(game.get("title") or "").strip().lower()
+                    status_detail = str((game.get("status") or {}).get("shortDetail") or "").strip().lower()
+                    matched: tuple[str, str] | None = None
+                    # Exact match on city, venue name, title, or known keys
+                    for text in (venue_city, venue_name, game_title):
+                        if text and text in f1_circuit_lookup:
+                            matched = f1_circuit_lookup[text]
+                            break
+                    # Whole-word scan across all available text including race title
+                    if not matched:
+                        haystack = " ".join(filter(None, [venue_city, venue_name, status_detail, game_title]))
+                        for key, pair in f1_circuit_lookup.items():
+                            if key and re.search(r'\b' + re.escape(key) + r'\b', haystack):
+                                matched = pair
+                                break
+                    if matched:
+                        game["circuitImage"] = matched[0]
+                        if matched[1]:
+                            game["circuitName"] = matched[1]
         except Exception:
             pass
 

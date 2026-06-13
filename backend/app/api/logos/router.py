@@ -8,6 +8,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 
 from ...core.logos.cache_service import LogoCacheService
+from ...core.logos.f1_cache_service import F1CacheService
 from ...core.logos.logo_store import LogoStore
 
 router = APIRouter(prefix="/api/v1/logos", tags=["logos"])
@@ -34,6 +35,7 @@ def get_league_logo_meta(league: str) -> dict:
                 "available_variants": t.available_variants,
                 "preferred_variant": t.preferred_variant,
                 "logos": t.logos,
+                "remote_urls": t.remote_urls,
             }
             for tid, t in meta.teams.items()
         },
@@ -95,6 +97,18 @@ def clear_league_logo_cache(league: str) -> dict:
         }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to clear logo cache: {exc}") from exc
+
+
+@router.post("/cache/f1/sync")
+def sync_f1_data(year: int = 2026) -> dict:
+    """Sync F1 driver headshots, team car images, and circuit maps from F1 CDN."""
+    service = F1CacheService()
+    try:
+        return service.sync_all(year=year)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"F1 sync failed: {exc}") from exc
+    finally:
+        service.close()
 
 
 @router.post("/cache/{league}/team/{team_id}")

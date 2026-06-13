@@ -304,20 +304,37 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
     const timeText = game?.runtimeDateText
       || formatRuntimeDate(game)
       || String(game?.status?.shortDetail || '').trim()
+    const circuitImg = String(game?.circuitImage || '').trim()
+    const circuitName = String(game?.circuitName || '').trim()
     return (
-      <div className={`card d-board ${dirClass} board-pre`}>
+      <div className={`card d-board ${dirClass} board-pre ${circuitImg ? 'board-pre-circuit' : ''}`}>
         <div className="board-head">
           <div className="board-titles">
             <span className="board-title">{title}</span>
-            <span className="board-sub">{seriesName}</span>
+            <span className="board-sub">{circuitName || seriesName}</span>
           </div>
           <StateChip game={game} />
         </div>
-        {timeText ? <div className="bpre-when"><span>{timeText}</span></div> : null}
+        <div className="bpre-main">
+          <div className="bpre-when">
+            <span className="bpre-label">STARTS</span>
+            <span className="bpre-time">{timeText || '—'}</span>
+            {game?.broadcastText && flags.tv
+              ? <span className="bpre-tv"><em>TV</em>{game.broadcastText}</span>
+              : null}
+          </div>
+          {circuitImg ? (
+            <div className="bpre-circuit" id={`bpre-c-${game?.gameId}`}>
+              <img
+                src={circuitImg}
+                alt="Circuit map"
+                className="bpre-circuit-img"
+                onError={(e) => { e.currentTarget.closest('.bpre-circuit')?.remove() }}
+              />
+            </div>
+          ) : null}
+        </div>
         <div className="board-foot">
-          {game?.broadcastText && flags.tv
-            ? <span className="board-unit">{game.broadcastText}</span>
-            : null}
           <MetaRow game={game} flags={flags} mono />
         </div>
       </div>
@@ -335,6 +352,7 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
     name: entry.shortName || entry.name || 'Driver',
     detail: racingEntrySummary(entry) || String(entry?.score || ''),
     color: entryColor(entry),
+    headshot: entry.headshot ? `/logos/${entry.headshot}` : null,
   }))
 
   const MAX_PER_COL = 7
@@ -360,9 +378,11 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
         style={useGrid ? { gridTemplateRows: `repeat(${perCol}, 1fr)` } : undefined}
       >
         {visibleRows.map((r, i) => (
-          <div key={i} className={`board-row ${i === 0 ? 'leader' : ''}`} style={{ '--rc': r.color }}>
+          <div key={i} className={`board-row ${i === 0 ? 'leader' : ''} ${r.headshot ? 'has-hs' : ''}`} style={{ '--rc': r.color }}>
             <span className="board-pos">{r.pos}</span>
-            <span className="board-dot" style={{ background: r.color }} />
+            {r.headshot
+              ? <img className="board-hs" src={r.headshot} alt={r.name} />
+              : <span className="board-dot" style={{ background: r.color }} />}
             <span className="board-name">{r.name}</span>
             <span className="board-detail">{r.detail}</span>
           </div>

@@ -44,7 +44,10 @@
 }
 .ticker-runtime-shell .chip-live  { color: #0c120e; background: #7CF29B; }
 .ticker-runtime-shell .chip-final { color: #cdd6e4; background: #2a3142; }
-.ticker-runtime-shell .chip-pre   { color: #0b0e14; background: #F2C94C; }
+.ticker-runtime-shell .chip-pre        { color: #0b0e14; background: #F2C94C; }
+.ticker-runtime-shell .chip-flag-green  { color: #0c120e; background: #3dd68c; }
+.ticker-runtime-shell .chip-flag-yellow { color: #0c120e; background: #F2C94C; }
+.ticker-runtime-shell .chip-flag-red    { color: #ffffff; background: #e03131; }
 .ticker-runtime-shell .chip-dot {
   width: 7px; height: 7px; border-radius: 50%;
   background: #0c120e;

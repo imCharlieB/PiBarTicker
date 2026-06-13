@@ -22,6 +22,7 @@ import re
 import ssl
 import urllib.request
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from ..paths import get_runtime_paths
@@ -80,6 +81,40 @@ _MANUFACTURER_NAMES: dict[str, str] = {
     "ford": "Ford",
     "toyota": "Toyota",
 }
+
+
+def _dominant_badge_color(path: Path) -> str:
+    """Extract dominant non-background hex color from a car badge PNG.
+
+    Badge images have a transparent (or white) background; the badge itself
+    is the team's primary color. We filter out near-transparent, near-white,
+    and near-black pixels then quantize to find the most common color.
+    """
+    try:
+        from PIL import Image  # type: ignore
+        _lanczos = getattr(getattr(Image, "Resampling", Image), "LANCZOS")
+        img = Image.open(path).convert("RGBA").resize((64, 64), _lanczos)
+        pixels = [
+            (r, g, b)
+            for r, g, b, a in img.getdata()
+            if a > 100
+            and not (r > 220 and g > 220 and b > 220)
+            and (r + g + b) > 60
+        ]
+        if len(pixels) < 20:
+            return ""
+        canvas = Image.new("RGB", (len(pixels), 1))
+        canvas.putdata(pixels)
+        q = canvas.quantize(colors=6)
+        counts: dict[int, int] = {}
+        for idx in q.getdata():
+            counts[idx] = counts.get(idx, 0) + 1
+        pal = q.getpalette() or []
+        best = max(counts, key=counts.get)
+        r, g, b = pal[best * 3], pal[best * 3 + 1], pal[best * 3 + 2]
+        return f"{r:02x}{g:02x}{b:02x}"
+    except Exception:
+        return ""
 
 
 def _ssl_ctx() -> ssl.SSLContext:
@@ -289,6 +324,10 @@ class NascarCacheService:
                         info.logos["badge"] = relative
                         if "badge" not in info.available_variants:
                             info.available_variants.append("badge")
+                        if not info.color:
+                            color = _dominant_badge_color(badge_dest)
+                            if color:
+                                info.color = color
 
                 # Download ESPN CDN headshot into per-series subfolder
                 espn_id = espn_athlete_map.get(surname_key)

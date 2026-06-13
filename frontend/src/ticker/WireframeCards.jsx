@@ -4,6 +4,7 @@ import {
   formatRuntimeStatus,
   racingCardTitle,
   racingEntrySummary,
+  racingLiveHeader,
   formatRuntimeDate,
 } from './cardHelpers.js'
 
@@ -47,6 +48,13 @@ function StateChip({ game, className }) {
       {label}
     </span>
   )
+}
+
+function FlagChip({ state }) {
+  const s = String(state || '').toLowerCase()
+  if (!s || s === 'checkered' || s === 'white') return null
+  const cls = s === 'green' ? 'chip-flag-green' : s === 'red' ? 'chip-flag-red' : 'chip-flag-yellow'
+  return <span className={`chip ${cls}`}>{s.toUpperCase()}</span>
 }
 
 function LogoBox({ team, side, size }) {
@@ -335,7 +343,7 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
           ) : null}
         </div>
         <div className="board-foot">
-          <MetaRow game={game} flags={flags} mono />
+          <MetaRow game={game} flags={{ ...flags, tv: false }} mono />
         </div>
       </div>
     )
@@ -343,7 +351,7 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
 
   // Board with rows (live / post / pre+grid)
   const statusLabel = state === 'in'
-    ? (formatRuntimeStatus(game) || 'LIVE')
+    ? racingLiveHeader(game)
     : state === 'pre' ? 'STARTING GRID' : 'RESULTS'
   const unit = state === 'in' ? 'GAP' : state === 'pre' ? 'GRID' : 'RESULTS'
 
@@ -373,6 +381,7 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
           <span className="board-sub">{statusLabel}</span>
         </div>
         <StateChip game={game} />
+        {state === 'in' ? <FlagChip state={game?.flagState} /> : null}
       </div>
       <div
         className={`board-rows ${useGrid ? 'cols-auto' : ''}`}
@@ -393,7 +402,7 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
       </div>
       <div className="board-foot">
         <span className="board-unit">{unit}</span>
-        <MetaRow game={game} flags={flags} mono />
+        <MetaRow game={game} flags={{ ...flags, tv: false }} mono />
       </div>
     </div>
   )

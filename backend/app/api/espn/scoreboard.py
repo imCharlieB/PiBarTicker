@@ -474,6 +474,19 @@ def get_scoreboard(
                 except Exception:
                     pass
 
+            # Fetch cf.nascar.com live feed for lap/flag data when a NASCAR race is active.
+            # Generic endpoint covers whichever series is currently live.
+            nascar_live_data: dict | None = None
+            if _is_nascar and any(str(g.get("state") or "").lower() == "in" for g in normalized_games):
+                try:
+                    nascar_live_data = _http_client.get_json(
+                        "https://cf.nascar.com/live/feeds/live-feed.json",
+                        use_cache=True,
+                        cache_ttl_seconds=5.0,
+                    )
+                except Exception:
+                    pass
+
             for game in normalized_games:
                 for race_entry in game.get("racingEntries") or []:
                     if not race_entry.get("teamColor"):
@@ -519,10 +532,35 @@ def get_scoreboard(
                                         cdn_badge = str(driver.remote_urls.get("badge_image") or "").strip()
                                         if cdn_badge:
                                             race_entry["carBadge"] = cdn_badge
+                                if driver.color and not race_entry.get("teamColor"):
+                                    race_entry["teamColor"] = driver.color
 
             # Inject seriesLogo for NASCAR so the frontend can display the real series logo
             if nascar_series_logo:
                 game["seriesLogo"] = nascar_series_logo
+
+            # Inject lap number, laps to go, and flag state from cf.nascar.com live feed
+            if _is_nascar and nascar_live_data and str(game.get("state") or "").lower() == "in":
+                _FLAG_INT_MAP = {1: "green", 2: "yellow", 3: "red", 4: "checkered", 5: "white", 8: "yellow"}
+                lap_num = nascar_live_data.get("lap_number")
+                laps_go = nascar_live_data.get("laps_to_go")
+                flag_raw = nascar_live_data.get("flag_state")
+                if lap_num is not None:
+                    try:
+                        game["lapNumber"] = int(lap_num)
+                    except (TypeError, ValueError):
+                        pass
+                if laps_go is not None:
+                    try:
+                        game["lapsToGo"] = int(laps_go)
+                    except (TypeError, ValueError):
+                        pass
+                if isinstance(flag_raw, int):
+                    game["flagState"] = _FLAG_INT_MAP.get(flag_raw, "")
+                elif isinstance(flag_raw, str):
+                    fs = flag_raw.lower()
+                    if fs in ("green", "yellow", "red", "caution", "checkered", "white"):
+                        game["flagState"] = fs
 
             # Inject circuitImage + circuitName for F1 games.
             # ESPN returns venue:null for all F1 events, so we match against the

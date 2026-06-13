@@ -105,6 +105,11 @@ export function racingTelemetryFallback(game, entries) {
 }
 
 export function racingLiveHeader(game) {
+  // Prefer cf.nascar.com live feed data when available
+  const cfLap = game?.lapNumber != null ? Number(game.lapNumber) : null
+  const cfToGo = game?.lapsToGo != null ? Number(game.lapsToGo) : null
+  if (cfLap && cfLap > 0) return cfToGo != null ? `Lap ${cfLap} · ${cfToGo} to go` : `Lap ${cfLap}`
+  // Fall back to ESPN status (works for F1 and other racing)
   const detail = String(game?.liveState?.detail || game?.status?.detail || game?.status?.shortDetail || '').trim()
   const lap = Number.isInteger(Number(game?.status?.period)) ? Number(game.status.period) : null
   if (lap && lap > 0) return detail ? `Lap ${lap} • ${detail}` : `Lap ${lap}`

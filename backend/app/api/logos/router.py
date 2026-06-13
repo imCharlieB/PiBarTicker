@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException
 
 from ...core.logos.cache_service import LogoCacheService
 from ...core.logos.f1_cache_service import F1CacheService
+from ...core.logos.nascar_cache_service import NascarCacheService
 from ...core.logos.logo_store import LogoStore
 
 router = APIRouter(prefix="/api/v1/logos", tags=["logos"])
@@ -97,6 +98,16 @@ def clear_league_logo_cache(league: str) -> dict:
         }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to clear logo cache: {exc}") from exc
+
+
+@router.post("/cache/nascar/sync")
+def sync_nascar_data() -> dict:
+    """Sync NASCAR driver headshots and badge metadata from cf.nascar.com."""
+    service = NascarCacheService()
+    try:
+        return service.sync_all()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"NASCAR sync failed: {exc}") from exc
 
 
 @router.post("/cache/f1/sync")

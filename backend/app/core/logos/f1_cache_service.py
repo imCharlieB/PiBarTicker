@@ -16,8 +16,11 @@ Output files:
 
 from __future__ import annotations
 
+import concurrent.futures
 import json
+import re
 import ssl
+import unicodedata
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -73,6 +76,17 @@ _CIRCUIT_URL_TEMPLATE = (
     "/2018-redesign-assets/Circuit%20maps%2016x9/{name}_Circuit.png"
 )
 
+# ESPN CDN fallback for F1 headshots — covers drivers where F1's own CDN returns placeholders
+_ESPN_CORE_F1_BASE = "https://sports.core.api.espn.com/v2/sports/racing/leagues/f1"
+_ESPN_F1_HEADSHOT_URL = "https://a.espncdn.com/i/headshots/f1/players/full/{id}.png"
+
+# F1 profile headshot — used when both DriverList CDN and ESPN CDN return placeholders/404s
+# driver_code extracted from HeadshotUrl (e.g. "gabbor01" from .../GABBOR01_.../gabbor01.png)
+_F1_PROFILE_HEADSHOT_TEMPLATE = (
+    "{cdn}/image/upload/c_fill,w_720/q_auto"
+    "/v1740000001/common/f1/2026/{team_slug}/{driver_code}/2026{team_slug}{driver_code}right.webp"
+)
+
 
 def _ssl_ctx() -> ssl.SSLContext:
     return ssl.create_default_context()
@@ -112,6 +126,63 @@ def _circuit_map_name(country_name: str, location: str) -> str:
         return _COUNTRY_MAP_OVERRIDES[lower]
     # Default: capitalise and replace spaces with underscores
     return country_name.replace(" ", "_").title()
+
+
+def _ascii_surname(full_name: str) -> str:
+    """Extract surname, strip accents/umlauts, return lowercase ASCII.
+
+    Normalizes 'Pérez' → 'perez', 'Hülkenberg' → 'hulkenberg' so ESPN
+    accented names match the unaccented keys in f1-drivers.json.
+    """
+    surname = full_name.split()[-1] if full_name else ""
+    normalized = unicodedata.normalize("NFKD", surname)
+    return normalized.encode("ascii", "ignore").decode().lower()
+
+
+def _build_espn_f1_athlete_map() -> dict[str, str]:
+    """Build ascii_surname → espn_athlete_id for all current F1 drivers.
+
+    Uses ESPN core API seasons/athletes pagination, resolves names in parallel.
+    """
+    athlete_map: dict[str, str] = {}
+    current_season = datetime.now(timezone.utc).year
+
+    ids: list[str] = []
+    page = 1
+    while True:
+        try:
+            url = f"{_ESPN_CORE_F1_BASE}/seasons/{current_season}/athletes?limit=100&page={page}"
+            data = _fetch_json(url)
+            for item in data.get("items") or []:
+                ref = str(item.get("$ref") or "")
+                m = re.search(r"/athletes/(\d+)", ref)
+                if m:
+                    ids.append(m.group(1))
+            if page >= int(data.get("pageCount") or 1):
+                break
+            page += 1
+        except Exception as exc:
+            print(f"[f1-cache] ESPN athletes list failed page {page}: {exc}")
+            break
+
+    def _fetch_athlete(athlete_id: str) -> tuple[str, str] | None:
+        try:
+            data = _fetch_json(f"{_ESPN_CORE_F1_BASE}/athletes/{athlete_id}")
+            name = str(data.get("fullName") or data.get("displayName") or "").strip()
+            if name and athlete_id:
+                return (_ascii_surname(name), athlete_id)
+        except Exception:
+            pass
+        return None
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        for result in executor.map(_fetch_athlete, ids):
+            if result:
+                surname, aid = result
+                if surname not in athlete_map:
+                    athlete_map[surname] = aid
+
+    return athlete_map
 
 
 # ---------------------------------------------------------------------------
@@ -215,6 +286,8 @@ class F1CacheService:
         logos_dir = self.paths.logos / "f1"
         logos_dir.mkdir(parents=True, exist_ok=True)
 
+        espn_athlete_map = _build_espn_f1_athlete_map()
+
         saved = 0
         for _car_number, driver in driver_list.items():
             if not isinstance(driver, dict):
@@ -247,19 +320,68 @@ class F1CacheService:
             if team_name:
                 info.remote_urls["team_name"] = team_name
 
-            # Download headshot
+            # Full-body render — downloaded first so headshot fallback can reference it
+            # common/f1/2026/{team_slug}/{driver_code}/2026{team_slug}{driver_code}right.webp
+            team_slug = _slug_for_team(team_name)
+            driver_code: str | None = None
             if headshot_url:
+                m = re.search(r"/([a-z0-9]+)\.png", headshot_url, re.IGNORECASE)
+                if m:
+                    driver_code = m.group(1).lower()
+            if team_slug and driver_code:
+                render_filename = f"{tla}-{surname}_render.webp"
+                render_dest = logos_dir / render_filename
+                if not render_dest.exists():
+                    render_url = _F1_PROFILE_HEADSHOT_TEMPLATE.format(
+                        cdn=_F1_CDN_BASE, team_slug=team_slug, driver_code=driver_code
+                    )
+                    info.remote_urls["f1_render"] = render_url
+                    render_data = _download_bytes(render_url)
+                    if render_data and len(render_data) > 5000:
+                        render_dest.write_bytes(render_data)
+                if render_dest.exists():
+                    info.logos["render"] = f"f1/{render_filename}"
+                    if "render" not in info.available_variants:
+                        info.available_variants.append("render")
+
+            # Download headshot — priority: F1 DriverList CDN (6col) → ESPN CDN → render fallback
+            # DriverList.json HeadshotUrl uses 1col (~4-5KB thumbnail or fallback silhouette).
+            # We upgrade to 6col which gives real headshots at ~100-240KB; fallback silhouettes
+            # stay tiny (<10KB) at 6col, so a 50KB threshold separates real images from placeholders.
+            dest_filename = self.store.get_logo_filename(tla, surname, "headshot")
+            dest = logos_dir / dest_filename
+
+            # Delete small thumbnails (1col artifacts, ~12KB) and placeholders (<5KB)
+            if dest.exists() and dest.stat().st_size < 50_000:
+                dest.unlink()
+
+            # 1. F1 DriverList CDN at 6col — real headshots for all drivers who have them
+            if not dest.exists() and headshot_url:
                 info.remote_urls["headshot"] = headshot_url
-                dest_filename = self.store.get_logo_filename(tla, surname, "headshot")
-                dest = logos_dir / dest_filename
-                if not dest.exists():
-                    data = _download_bytes(headshot_url)
-                    if data:
-                        dest.write_bytes(data)
+                url_6col = headshot_url.replace(".transform/1col/image.png", ".transform/6col/image.png")
+                data = _download_bytes(url_6col)
+                if data and len(data) > 50_000:
+                    dest.write_bytes(data)
+
+            # 2. ESPN CDN fallback — covers drivers not yet on F1's 2026 CDN
+            if not dest.exists():
+                espn_id = espn_athlete_map.get(surname)
+                if espn_id:
+                    info.remote_urls["espn_athlete_id"] = espn_id
+                    espn_url = _ESPN_F1_HEADSHOT_URL.format(id=espn_id)
+                    espn_data = _download_bytes(espn_url)
+                    if espn_data and len(espn_data) > 5000:
+                        dest.write_bytes(espn_data)
+
+            if dest.exists():
                 relative = f"f1/{dest_filename}"
                 info.logos["headshot"] = relative
                 if "headshot" not in info.available_variants:
                     info.available_variants.append("headshot")
+            else:
+                info.logos.pop("headshot", None)
+                if "headshot" in info.available_variants:
+                    info.available_variants.remove("headshot")
 
             meta.teams[surname] = info
             saved += 1
@@ -289,10 +411,22 @@ class F1CacheService:
             if dest.exists():
                 synced += 1
 
-        # Update f1.json team meta with car variant if it already has teams.
+        # Update f1.json team meta with car variant; create entries for teams ESPN has but without logos.
+        # Keyed by ESPN team ID so getCachedOrRemoteLogo(leagueId, team) resolves correctly.
+        # ESPN IDs confirmed from site.api.espn.com/apis/site/v2/sports/racing/f1/teams
+        _ESPNID_STUB: dict[str, str] = {
+            "132212": "audi",       # Audi (formerly Kick Sauber)
+            "132211": "cadillac",   # Cadillac (11th team, 2026)
+        }
+        _DISPLAY_NAMES: dict[str, str] = {
+            "132212": "Audi",
+            "132211": "Cadillac",
+        }
         try:
             f1_meta = self.store.load_league_meta("f1")
             changed = False
+
+            # Register car on existing ESPN teams
             for team in f1_meta.teams.values():
                 slug = _slug_for_team(team.display_name)
                 if not slug:
@@ -304,6 +438,32 @@ class F1CacheService:
                     if "car" not in team.available_variants:
                         team.available_variants.append("car")
                     changed = True
+
+            # Create stub entries for constructors ESPN knows but whose logos need local resolution
+            for espn_id, slug in _ESPNID_STUB.items():
+                dest = logos_dir / f"{slug}_car.webp"
+                if not dest.exists():
+                    continue
+                entry = f1_meta.teams.get(espn_id)
+                if entry is None:
+                    entry = TeamLogoInfo(
+                        id=espn_id,
+                        abbreviation="",
+                        display_name=_DISPLAY_NAMES[espn_id],
+                    )
+                    f1_meta.teams[espn_id] = entry
+                entry.logos["car"] = f"f1/{slug}_car.webp"
+                entry.remote_urls["car"] = _CAR_URL_TEMPLATE.format(cdn=_F1_CDN_BASE, slug=slug)
+                if "car" not in entry.available_variants:
+                    entry.available_variants.append("car")
+                changed = True
+
+            # Remove any stale slug-keyed stubs left from a prior run
+            for stale_key in ("audi", "cadillac"):
+                if stale_key in f1_meta.teams:
+                    del f1_meta.teams[stale_key]
+                    changed = True
+
             if changed:
                 self.store.save_league_meta(f1_meta)
         except Exception:

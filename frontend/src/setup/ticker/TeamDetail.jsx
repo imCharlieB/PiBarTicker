@@ -23,7 +23,7 @@ export default function TeamDetail({ selectedTickerLeague, selectedTickerTeam, o
           if (constructorColor && dColor && dColor === constructorColor) return true
           const teamName = String(d.remote_urls?.team_name || '').toLowerCase()
           if (!teamName) return false
-          return constructorName.includes(teamName) || teamName.includes(constructorName.split(' ')[0])
+          return constructorName === teamName || constructorName.includes(teamName) || teamName.includes(constructorName)
         })
         setF1Drivers(matched)
       })

@@ -54,6 +54,7 @@ export default function TickerPage() {
           selectedLeagueLoadState={selectedLeagueLoadState}
           onBack={() => setSelectedTickerLeagueId('')}
           onSelectTeam={(id) => setSelectedTickerTeamId(id)}
+          onSelectDriver={setSelectedDriver}
         />
       ) : (
         <TeamDetail

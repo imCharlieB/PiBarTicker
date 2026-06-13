@@ -79,6 +79,9 @@ function runtimeCardStyle(game, useTeamCardColors = false) {
 function resolveLeagueLogo(league, payload) {
   const explicitLogo = String(league?.logo || '').trim()
   if (explicitLogo) return explicitLogo
+  // NASCAR: use the real series logo captured during driver sync (injected per-game by backend)
+  const seriesLogo = String(payload?.normalizedGames?.[0]?.seriesLogo || '').trim()
+  if (seriesLogo) return seriesLogo.startsWith('http') ? seriesLogo : `/logos/${seriesLogo}`
   const payloadLogo = String(payload?.scoreboard?.leagues?.[0]?.logos?.[0]?.href || '').trim()
   if (payloadLogo) return payloadLogo
   const leagueId = String(league?.id || '').trim().toLowerCase()

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import unicodedata
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, HTTPException, Query
@@ -358,6 +359,29 @@ def get_scoreboard(
         try:
             store = LogoStore()
             meta = store.load_league_meta(entry.league_id)
+
+            # NASCAR: enrich entries from cached per-series meta (nascar-cup.json etc.)
+            # ESPN uses "nascar-premier" / "nascar-truck"; cf.nascar.com uses "nascar-cup" / "nascar-trucks".
+            _NASCAR_ESPN_TO_CACHE: dict[str, str] = {
+                "nascar-premier": "nascar-cup",
+                "nascar-truck": "nascar-trucks",
+            }
+            nascar_drivers_meta = None
+            nascar_series_logo: str = ""
+            _is_nascar = "nascar" in entry.league_id.lower() or "nascar" in entry.league.lower()
+            if _is_nascar:
+                nascar_cache_id = _NASCAR_ESPN_TO_CACHE.get(entry.league_id, entry.league_id)
+                try:
+                    nascar_drivers_meta = store.load_league_meta(nascar_cache_id)
+                except Exception:
+                    pass
+                try:
+                    series_meta_path = get_runtime_paths().team_meta / "nascar-series.json"
+                    series_data: dict = json.loads(series_meta_path.read_text(encoding="utf-8"))
+                    nascar_series_logo = str(series_data.get(nascar_cache_id) or series_data.get(entry.league_id) or "").strip()
+                except Exception:
+                    pass
+
             # F1: auto-sync circuits in background when new ones appear in the F1 index
             f1_drivers_meta = None
             if entry.league_id == "f1":
@@ -456,10 +480,12 @@ def get_scoreboard(
                         team_id = str(race_entry.get("teamId") or "").strip()
                         if team_id and team_id in meta.teams:
                             race_entry["teamColor"] = meta.teams[team_id].color
-                    # F1 surname join — ESPN has no teamId for F1 entries
+                    # F1 surname join — ESPN has no teamId for F1 entries.
+                    # Normalize accents so "Pérez" → "perez", "Hülkenberg" → "hulkenberg".
                     if f1_drivers_meta and not race_entry.get("teamColor"):
                         full_name = str(race_entry.get("name") or "").strip()
-                        surname = full_name.split()[-1].lower() if full_name else ""
+                        _raw = full_name.split()[-1] if full_name else ""
+                        surname = unicodedata.normalize("NFKD", _raw).encode("ascii", "ignore").decode().lower()
                         driver = f1_drivers_meta.teams.get(surname)
                         if driver:
                             if driver.color:
@@ -467,10 +493,41 @@ def get_scoreboard(
                             if driver.logos.get("headshot") and not race_entry.get("headshot"):
                                 race_entry["headshot"] = driver.logos["headshot"]
 
-                # Inject circuitImage + circuitName for F1 games.
-                # ESPN returns venue:null for all F1 events, so we match against the
-                # event title (shortName / name) which contains the race name.
-                if f1_circuit_lookup and not game.get("circuitImage"):
+                    # NASCAR surname join — inject headshot, car number, badge image
+                    if _is_nascar:
+                        # Fallback: ESPN CDN headshot from athleteId (no sync required)
+                        athlete_id = str(race_entry.get("athleteId") or "").strip()
+                        if athlete_id and not race_entry.get("headshot"):
+                            race_entry["headshot"] = f"https://a.espncdn.com/i/headshots/rpm/players/full/{athlete_id}.png"
+                        if nascar_drivers_meta:
+                            full_name = str(race_entry.get("name") or "").strip()
+                            surname = full_name.split()[-1].lower() if full_name else ""
+                            driver = nascar_drivers_meta.teams.get(surname)
+                            if driver:
+                                # Prefer locally-cached images (relative paths served via /logos/)
+                                if driver.logos.get("headshot") and not race_entry.get("headshot"):
+                                    race_entry["headshot"] = driver.logos["headshot"]
+                                car_num = str(driver.remote_urls.get("car_number") or "").strip()
+                                if car_num and not race_entry.get("carNumber"):
+                                    race_entry["carNumber"] = car_num
+                                # Use local cached badge if available, else fall back to CDN URL
+                                if not race_entry.get("carBadge"):
+                                    local_badge = driver.logos.get("badge")
+                                    if local_badge:
+                                        race_entry["carBadge"] = local_badge
+                                    else:
+                                        cdn_badge = str(driver.remote_urls.get("badge_image") or "").strip()
+                                        if cdn_badge:
+                                            race_entry["carBadge"] = cdn_badge
+
+            # Inject seriesLogo for NASCAR so the frontend can display the real series logo
+            if nascar_series_logo:
+                game["seriesLogo"] = nascar_series_logo
+
+            # Inject circuitImage + circuitName for F1 games.
+            # ESPN returns venue:null for all F1 events, so we match against the
+            # event title (shortName / name) which contains the race name.
+            if f1_circuit_lookup and not game.get("circuitImage"):
                     venue = game.get("venue") or {}
                     venue_city = str(venue.get("city") or "").strip().lower()
                     venue_name = str(venue.get("name") or "").strip().lower()

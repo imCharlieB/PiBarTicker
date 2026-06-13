@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useAppContext } from '../../AppContext'
 import { parseLeagueApiParams, isIndividualSport, harvestRacingEntities } from '../../api/espnApi'
 import { resolveTeamPrimaryLogo, getLeagueEntityType } from '../helpers'
@@ -9,6 +10,7 @@ export default function LeagueDetail({
   selectedLeagueLoadState,
   onBack,
   onSelectTeam,
+  onSelectDriver,
 }) {
   const {
     setNotice,
@@ -47,6 +49,26 @@ export default function LeagueDetail({
 
   const entityType = getLeagueEntityType(selectedTickerLeague)
   const leagueApiParams = parseLeagueApiParams(selectedTickerLeague?.url || '')
+  const isNascarLeague = leagueApiParams.sport === 'racing' && String(leagueApiParams.league || '').toLowerCase().includes('nascar')
+
+  // ESPN uses "nascar-premier"/"nascar-truck"; cf.nascar.com uses "nascar-cup"/"nascar-trucks"
+  const _nascarCacheIdMap = { 'nascar-premier': 'nascar-cup', 'nascar-truck': 'nascar-trucks' }
+  const nascarCacheId = _nascarCacheIdMap[selectedTickerLeague.id] || selectedTickerLeague.id
+
+  useEffect(() => {
+    if (isNascarLeague && nascarCacheId) {
+      loadLeagueLogoMeta(nascarCacheId)
+    }
+    // loadLeagueLogoMeta is stable from context — not adding to deps
+  }, [isNascarLeague, nascarCacheId, selectedTickerLeague.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const nascarDriversMeta = leagueLogoMetaById[nascarCacheId] ?? null
+  const nascarDriverList = (isNascarLeague && nascarDriversMeta?.teams)
+    ? Object.entries(nascarDriversMeta.teams)
+        .map(([key, d]) => ({ key, ...d }))
+        .sort((a, b) => (a.display_name || '').localeCompare(b.display_name || ''))
+    : []
+
 
   return (
     <>
@@ -54,7 +76,11 @@ export default function LeagueDetail({
         <div className="league-hero-main">
           <p className="section-kicker">Ticker</p>
           <h2>{selectedTickerLeague.name}</h2>
-          <p className="league-hero-meta">{selectedLeagueTeams.length} teams loaded</p>
+          <p className="league-hero-meta">
+            {isNascarLeague && nascarDriverList.length > 0
+              ? `${nascarDriverList.length} drivers cached`
+              : `${selectedLeagueTeams.length} teams loaded`}
+          </p>
         </div>
         <div className="league-hero-actions">
           <button type="button" className="button-secondary" onClick={onBack}>
@@ -267,12 +293,15 @@ export default function LeagueDetail({
         <div>
           <h3 style={{ margin: 0 }}>{entityType.label}</h3>
           <p className="team-explorer-subtitle">
-            Select {entityType.label.toLowerCase()} to include and open details
-            {isIndividualSport(leagueApiParams.sport, leagueApiParams.league) ? ' (driver list is best-effort for now)' : ''}
+            {isNascarLeague
+              ? nascarDriverList.length > 0
+                ? `${nascarDriverList.length} drivers synced from cf.nascar.com — badges shown below`
+                : 'Click "Sync NASCAR Drivers & Assets" to load driver badges'
+              : `Select ${entityType.label.toLowerCase()} to include and open details${isIndividualSport(leagueApiParams.sport, leagueApiParams.league) ? ' (driver list is best-effort for now)' : ''}`}
           </p>
         </div>
 
-        <button
+        {!isNascarLeague ? <button
           type="button"
           className="button-link"
           onClick={async () => {
@@ -352,7 +381,7 @@ export default function LeagueDetail({
           disabled={selectedLeagueLoadState.loading}
         >
           {selectedLeagueLoadState.loading ? 'Syncing...' : 'Sync Teams & Logos'}
-        </button>
+        </button> : null}
 
         {selectedTickerLeague.id === 'f1' ? (
           <button
@@ -381,6 +410,48 @@ export default function LeagueDetail({
             }}
           >
             Sync F1 Drivers & Assets
+          </button>
+        ) : null}
+
+        {isNascarLeague ? (
+          <button
+            type="button"
+            className="button-link"
+            disabled={!!logoSyncingLeagues[selectedTickerLeague.id]}
+            onClick={async () => {
+              const lid = selectedTickerLeague.id
+              setLogoSyncingLeagues((prev) => ({ ...prev, [lid]: 'Syncing NASCAR drivers…' }))
+              setNotice('Downloading NASCAR driver images from cf.nascar.com — this may take a minute…')
+              try {
+                const res = await fetch('/api/v1/logos/cache/nascar/sync', { method: 'POST' })
+                const data = await res.json()
+                if (!res.ok) throw new Error(data?.detail || `HTTP ${res.status}`)
+                const d = data?.drivers || {}
+                const bySeries = d.by_series || {}
+                const cup = bySeries['nascar-cup'] ?? 0
+                const xfinity = bySeries['nascar-xfinity'] ?? 0
+                const trucks = bySeries['nascar-trucks'] ?? 0
+                const parts = [cup && `${cup} Cup`, xfinity && `${xfinity} Xfinity`, trucks && `${trucks} Trucks`].filter(Boolean)
+                const badges = d.badges_downloaded ?? 0
+                const headshots = d.headshots_downloaded ?? 0
+                const seriesLogos = d.series_logos_downloaded ?? 0
+                const imgParts = [badges && `${badges} badges`, headshots && `${headshots} headshots`, seriesLogos && `${seriesLogos} series logos`].filter(Boolean)
+                setNotice(`NASCAR sync complete — ${parts.join(', ')} drivers. ${imgParts.length ? `Downloaded: ${imgParts.join(', ')}.` : 'Images already cached.'}`)
+                loadLeagueLogoMeta('nascar-cup')
+                loadLeagueLogoMeta('nascar-xfinity')
+                loadLeagueLogoMeta('nascar-trucks')
+              } catch (e) {
+                setNotice(`NASCAR sync failed: ${e.message}`)
+              } finally {
+                setLogoSyncingLeagues((prev) => {
+                  const copy = { ...prev }
+                  delete copy[lid]
+                  return copy
+                })
+              }
+            }}
+          >
+            {logoSyncingLeagues[selectedTickerLeague.id] ? 'Syncing NASCAR drivers…' : 'Sync NASCAR Drivers & Assets'}
           </button>
         ) : null}
 
@@ -438,54 +509,82 @@ export default function LeagueDetail({
         </p>
       )}
 
+      {isNascarLeague && nascarDriversMeta === null && (
+        <p className="field-help">Loading driver data…</p>
+      )}
+
       <div className="team-logo-grid">
-        {selectedLeagueTeams.map((team) => {
-          const cachedLogo = getCachedOrRemoteLogo(selectedTickerLeague.id, team)
-          const primaryLogoHref = cachedLogo || resolveTeamPrimaryLogo(team, selectedTickerLeague.id)
-          const includedTeamIds = Array.isArray(selectedTickerLeague.includedTeams)
-            ? selectedTickerLeague.includedTeams
-            : []
-          const isIncluded = includedTeamIds.includes(String(team.id))
-          return (
-            <div
-              key={`${selectedTickerLeague.id}-${team.id}`}
-              className="team-logo-card"
-              onClick={() => {
-                onSelectTeam(team.id)
-                loadTeamLogosForLeagueTeam(selectedTickerLeague, team)
-                loadLeagueLogoMeta(selectedTickerLeague.id)
-              }}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault()
-                  onSelectTeam(team.id)
-                  loadTeamLogosForLeagueTeam(selectedTickerLeague, team)
-                }
-              }}
-              role="button"
-              tabIndex={0}
-            >
-              {primaryLogoHref ? (
-                <img src={primaryLogoHref} alt={team.abbreviation || team.name} />
-              ) : (
-                <div className="team-logo-fallback">No logo</div>
-              )}
-              <p>{team.name}</p>
-              <label className="field field-checkbox">
-                <span>Include in ticker</span>
-                <input
-                  type="checkbox"
-                  checked={isIncluded}
-                  onChange={(event) => {
-                    event.stopPropagation()
-                    toggleLeagueIncludedTeam(selectedTickerLeagueIndex, String(team.id), event.target.checked)
+        {isNascarLeague && nascarDriverList.length > 0
+          ? nascarDriverList.map((driver) => {
+              const localBadge = driver.logos?.badge ? `/logos/${driver.logos.badge}` : null
+              const badgeUrl = localBadge || null
+              const carNum = driver.remote_urls?.car_number || ''
+              const teamName = driver.remote_urls?.team_name || ''
+              return (
+                <div
+                  key={driver.key}
+                  className="team-logo-card"
+                  onClick={() => onSelectDriver && onSelectDriver(driver)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectDriver && onSelectDriver(driver) } }}
+                  role="button"
+                  tabIndex={0}
+                >
+                  {badgeUrl
+                    ? <img src={badgeUrl} alt={driver.display_name} />
+                    : <div className="team-logo-fallback">No badge</div>}
+                  <p>{driver.display_name}</p>
+                  {carNum ? <p style={{ fontSize: '0.75em', color: '#888', margin: '2px 0 0' }}>#{carNum}{teamName ? ` · ${teamName}` : ''}</p> : null}
+                </div>
+              )
+            })
+          : isNascarLeague ? [] : selectedLeagueTeams.map((team) => {
+              const cachedLogo = getCachedOrRemoteLogo(selectedTickerLeague.id, team)
+              const primaryLogoHref = cachedLogo || resolveTeamPrimaryLogo(team, selectedTickerLeague.id)
+              const includedTeamIds = Array.isArray(selectedTickerLeague.includedTeams)
+                ? selectedTickerLeague.includedTeams
+                : []
+              const isIncluded = includedTeamIds.includes(String(team.id))
+              return (
+                <div
+                  key={`${selectedTickerLeague.id}-${team.id}`}
+                  className="team-logo-card"
+                  onClick={() => {
+                    onSelectTeam(team.id)
+                    loadTeamLogosForLeagueTeam(selectedTickerLeague, team)
+                    loadLeagueLogoMeta(selectedTickerLeague.id)
                   }}
-                  onClick={(event) => event.stopPropagation()}
-                />
-              </label>
-            </div>
-          )
-        })}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      onSelectTeam(team.id)
+                      loadTeamLogosForLeagueTeam(selectedTickerLeague, team)
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                >
+                  {primaryLogoHref ? (
+                    <img src={primaryLogoHref} alt={team.abbreviation || team.name} />
+                  ) : (
+                    <div className="team-logo-fallback">No logo</div>
+                  )}
+                  <p>{team.name}</p>
+                  <label className="field field-checkbox">
+                    <span>Include in ticker</span>
+                    <input
+                      type="checkbox"
+                      checked={isIncluded}
+                      onChange={(event) => {
+                        event.stopPropagation()
+                        toggleLeagueIncludedTeam(selectedTickerLeagueIndex, String(team.id), event.target.checked)
+                      }}
+                      onClick={(event) => event.stopPropagation()}
+                    />
+                  </label>
+                </div>
+              )
+            })
+        }
       </div>
     </>
   )

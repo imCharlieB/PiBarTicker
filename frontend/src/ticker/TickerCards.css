@@ -376,6 +376,13 @@
 }
 .ticker-runtime-shell .board-multi .board-hs { width: 24px; height: 24px; border-width: 1.5px; }
 
+/* Board: NASCAR car number badge */
+.ticker-runtime-shell .board-badge {
+  width: 38px; height: 38px; flex: 0 0 auto;
+  object-fit: contain;
+}
+.ticker-runtime-shell .board-multi .board-badge { width: 28px; height: 28px; }
+
 /* Board: pre-race circuit map */
 .ticker-runtime-shell .d-board.board-pre-circuit { width: 740px; }
 .ticker-runtime-shell .bpre-circuit {

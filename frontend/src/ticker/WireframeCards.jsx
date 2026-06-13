@@ -352,7 +352,8 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
     name: entry.shortName || entry.name || 'Driver',
     detail: racingEntrySummary(entry) || String(entry?.score || ''),
     color: entryColor(entry),
-    headshot: entry.headshot ? `/logos/${entry.headshot}` : null,
+    headshot: entry.headshot ? (entry.headshot.startsWith('http') ? entry.headshot : `/logos/${entry.headshot}`) : null,
+    carBadge: entry.carBadge ? (entry.carBadge.startsWith('http') ? entry.carBadge : `/logos/${entry.carBadge}`) : null,
   }))
 
   const MAX_PER_COL = 7
@@ -378,11 +379,13 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
         style={useGrid ? { gridTemplateRows: `repeat(${perCol}, 1fr)` } : undefined}
       >
         {visibleRows.map((r, i) => (
-          <div key={i} className={`board-row ${i === 0 ? 'leader' : ''} ${r.headshot ? 'has-hs' : ''}`} style={{ '--rc': r.color }}>
+          <div key={i} className={`board-row ${i === 0 ? 'leader' : ''} ${r.headshot ? 'has-hs' : r.carBadge ? 'has-badge' : ''}`} style={{ '--rc': r.color }}>
             <span className="board-pos">{r.pos}</span>
             {r.headshot
               ? <img className="board-hs" src={r.headshot} alt={r.name} />
-              : <span className="board-dot" style={{ background: r.color }} />}
+              : r.carBadge
+                ? <img className="board-badge" src={r.carBadge} alt={r.name} />
+                : <span className="board-dot" style={{ background: r.color }} />}
             <span className="board-name">{r.name}</span>
             <span className="board-detail">{r.detail}</span>
           </div>

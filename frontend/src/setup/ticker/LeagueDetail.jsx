@@ -55,18 +55,21 @@ export default function LeagueDetail({
   const _nascarCacheIdMap = { 'nascar-premier': 'nascar-cup', 'nascar-truck': 'nascar-trucks' }
   const nascarCacheId = _nascarCacheIdMap[selectedTickerLeague.id] || selectedTickerLeague.id
 
+  const _ALL_NASCAR_CACHE_IDS = ['nascar-cup', 'nascar-xfinity', 'nascar-trucks']
+
   useEffect(() => {
-    if (isNascarLeague && nascarCacheId) {
-      loadLeagueLogoMeta(nascarCacheId)
+    if (isNascarLeague) {
+      _ALL_NASCAR_CACHE_IDS.forEach((id) => loadLeagueLogoMeta(id))
     }
     // loadLeagueLogoMeta is stable from context — not adding to deps
-  }, [isNascarLeague, nascarCacheId, selectedTickerLeague.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isNascarLeague, selectedTickerLeague.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const nascarDriversMeta = leagueLogoMetaById[nascarCacheId] ?? null
-  const nascarDriverList = (isNascarLeague && nascarDriversMeta?.teams)
-    ? Object.entries(nascarDriversMeta.teams)
-        .map(([key, d]) => ({ key, ...d }))
-        .sort((a, b) => (a.display_name || '').localeCompare(b.display_name || ''))
+  const nascarDriverList = isNascarLeague
+    ? _ALL_NASCAR_CACHE_IDS.flatMap((id) => {
+        const meta = leagueLogoMetaById[id]
+        if (!meta?.teams) return []
+        return Object.entries(meta.teams).map(([key, d]) => ({ key: `${id}:${key}`, ...d }))
+      }).sort((a, b) => (a.display_name || '').localeCompare(b.display_name || ''))
     : []
 
 
@@ -509,7 +512,7 @@ export default function LeagueDetail({
         </p>
       )}
 
-      {isNascarLeague && nascarDriversMeta === null && (
+      {isNascarLeague && _ALL_NASCAR_CACHE_IDS.every((id) => !leagueLogoMetaById[id]) && (
         <p className="field-help">Loading driver data…</p>
       )}
 

@@ -58,11 +58,8 @@ def get_display_power() -> dict:
 def set_display_power(body: DisplayPowerRequest) -> dict:
     global _display_on, _cached_output
 
-    has_wlopm = shutil.which("wlopm") is not None
-    has_wlr_randr = shutil.which("wlr-randr") is not None
-
-    if not has_wlopm and not has_wlr_randr:
-        raise HTTPException(status_code=503, detail="Neither wlopm nor wlr-randr is available")
+    if not shutil.which("wlr-randr"):
+        raise HTTPException(status_code=503, detail="wlr-randr not available")
 
     env = _wayland_env()
     output = _detect_output(env) or _cached_output
@@ -74,29 +71,23 @@ def set_display_power(body: DisplayPowerRequest) -> dict:
     _cached_output = output
 
     try:
-        if has_wlopm:
-            flag = "--on" if body.on else "--off"
-            subprocess.run(["wlopm", flag, output], check=True, timeout=10, env=env)
+        if body.on:
+            cfg = config_store.load()
+            w, h = cfg.monitor.width, cfg.monitor.height
+            subprocess.run(
+                ["wlr-randr", "--output", output, "--custom-mode", f"{w}x{h}"],
+                check=True, timeout=10, env=env,
+            )
         else:
-            if body.on:
-                # Mirror what launch-kiosk.sh does on startup: set --custom-mode WxH
-                # (no --on flag, no @refresh — setting a mode implicitly enables the output)
-                cfg = config_store.load()
-                w, h = cfg.monitor.width, cfg.monitor.height
-                subprocess.run(
-                    ["wlr-randr", "--output", output, "--custom-mode", f"{w}x{h}"],
-                    check=True, timeout=10, env=env,
-                )
-            else:
-                subprocess.run(
-                    ["wlr-randr", "--output", output, "--off"],
-                    check=True, timeout=10, env=env,
-                )
+            subprocess.run(
+                ["wlr-randr", "--output", output, "--off"],
+                check=True, timeout=10, env=env,
+            )
     except subprocess.CalledProcessError as exc:
         if not body.on:
             raise HTTPException(status_code=500, detail=f"Display off failed: {exc}")
-        # Turn-on command failed — still mark as on so the kiosk loop unblocks
-        # and Chromium restarts (its reconnecting to the compositor re-enables the output)
+        # --custom-mode failed; still mark on so kiosk loop unblocks and
+        # Chromium restarts — reconnecting to the compositor may restore the output
         _log.warning("Display turn-on command failed (kiosk will restart anyway): %s", exc)
 
     _display_on = body.on

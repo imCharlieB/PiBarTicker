@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 import subprocess
@@ -5,10 +6,13 @@ import subprocess
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from ..core.config import config_store
+
 router = APIRouter(prefix="/api/v1/display", tags=["display"])
 
-_display_on: bool = True   # assumed on at startup
-_cached_output: str | None = None  # last known output name; reused when display is off
+_log = logging.getLogger(__name__)
+_display_on: bool = True
+_cached_output: str | None = None
 
 
 def _wayland_env() -> dict:
@@ -41,16 +45,6 @@ def _detect_output(env: dict) -> str | None:
     return None
 
 
-def _set_power_wlopm(output: str, on: bool, env: dict) -> None:
-    flag = "--on" if on else "--off"
-    subprocess.run(["wlopm", flag, output], check=True, timeout=10, env=env)
-
-
-def _set_power_wlr_randr(output: str, on: bool, env: dict) -> None:
-    flag = "--on" if on else "--off"
-    subprocess.run(["wlr-randr", "--output", output, flag], check=True, timeout=10, env=env)
-
-
 class DisplayPowerRequest(BaseModel):
     on: bool
 
@@ -71,7 +65,6 @@ def set_display_power(body: DisplayPowerRequest) -> dict:
         raise HTTPException(status_code=503, detail="Neither wlopm nor wlr-randr is available")
 
     env = _wayland_env()
-
     output = _detect_output(env) or _cached_output
     if not output:
         raise HTTPException(
@@ -82,16 +75,29 @@ def set_display_power(body: DisplayPowerRequest) -> dict:
 
     try:
         if has_wlopm:
-            _set_power_wlopm(output, body.on, env)
+            flag = "--on" if body.on else "--off"
+            subprocess.run(["wlopm", flag, output], check=True, timeout=10, env=env)
         else:
-            _set_power_wlr_randr(output, body.on, env)
+            if body.on:
+                # Mirror what launch-kiosk.sh does on startup: set --custom-mode WxH
+                # (no --on flag, no @refresh — setting a mode implicitly enables the output)
+                cfg = config_store.load()
+                w, h = cfg.monitor.width, cfg.monitor.height
+                subprocess.run(
+                    ["wlr-randr", "--output", output, "--custom-mode", f"{w}x{h}"],
+                    check=True, timeout=10, env=env,
+                )
+            else:
+                subprocess.run(
+                    ["wlr-randr", "--output", output, "--off"],
+                    check=True, timeout=10, env=env,
+                )
     except subprocess.CalledProcessError as exc:
         if not body.on:
-            raise HTTPException(status_code=500, detail=f"Display command failed: {exc}")
-        # Turn-on failure: log but still mark as on so the kiosk loop unblocks
-        # and Chromium can restart (it reconnecting may re-enable the output anyway)
-        import logging
-        logging.getLogger(__name__).warning("Display turn-on command failed: %s", exc)
+            raise HTTPException(status_code=500, detail=f"Display off failed: {exc}")
+        # Turn-on command failed — still mark as on so the kiosk loop unblocks
+        # and Chromium restarts (its reconnecting to the compositor re-enables the output)
+        _log.warning("Display turn-on command failed (kiosk will restart anyway): %s", exc)
 
     _display_on = body.on
     return {"on": _display_on}

@@ -281,8 +281,15 @@ if '<dpmsTimeout>' in content:
     content = re.sub(r'<dpmsTimeout>\d+</dpmsTimeout>', '<dpmsTimeout>0</dpmsTimeout>', content)
 elif '<core>' in content:
     content = content.replace('<core>', '<core>\n    <dpmsTimeout>0</dpmsTimeout>', 1)
-elif '</labwc_config>' in content:
-    content = content.replace('</labwc_config>', '  <core>\n    <dpmsTimeout>0</dpmsTimeout>\n  </core>\n</labwc_config>')
+else:
+    # File may use <openbox_config> (Pi OS default) or <labwc_config> as root.
+    for closing_tag in ('</openbox_config>', '</labwc_config>'):
+        if closing_tag in content:
+            content = content.replace(
+                closing_tag,
+                '  <core>\n    <dpmsTimeout>0</dpmsTimeout>\n  </core>\n' + closing_tag,
+            )
+            break
 open(path, 'w').write(content)
 print("labwc rc.xml: dpmsTimeout=0")
 PY

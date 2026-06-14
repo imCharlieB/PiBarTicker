@@ -64,7 +64,7 @@ def _setup_sensor_bridge(
         new_state = event.data.get("new_state")
         if new_state is None:
             return
-        asyncio.ensure_future(_push_sensor(hass, entry, new_state))
+        hass.async_create_task(_push_sensor(hass, entry, new_state))
 
     unsub = async_track_state_change_event(hass, entity_ids, _state_changed)
     entry.async_on_unload(unsub)
@@ -73,7 +73,7 @@ def _setup_sensor_bridge(
     for entity_id in entity_ids:
         state = hass.states.get(entity_id)
         if state:
-            asyncio.ensure_future(_push_sensor(hass, entry, state))
+            hass.async_create_task(_push_sensor(hass, entry, state))
 
 
 async def _push_sensor(hass: HomeAssistant, entry: ConfigEntry, state) -> None:

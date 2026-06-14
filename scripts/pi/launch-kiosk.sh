@@ -222,8 +222,12 @@ done
 
 echo "Backend healthy (or wait done); launching Chromium kiosk now..."
 
-display_is_on() {
-  curl -fsS "${BACKEND_URL}/api/v1/display/power" 2>/dev/null | grep -q '"on":true'
+display_explicitly_off() {
+  # Returns true ONLY when backend is up and explicitly says on:false.
+  # If backend is unreachable, returns false (don't block Chromium restart).
+  local body
+  body=$(curl -fsS "${BACKEND_URL}/api/v1/display/power" 2>/dev/null) || return 1
+  echo "$body" | grep -q '"on":false'
 }
 
 while true; do
@@ -255,10 +259,9 @@ while true; do
     "${CHROMIUM_FLAGS[@]}" \
     "${URL}" >> /tmp/pibarticker-kiosk.log 2>&1 || true
 
-  # If the display was turned off (via HA or setup UI), hold here until it's
-  # back on. Prevents Chromium reconnecting to the compositor and waking the
-  # output before the user intends.
-  while ! display_is_on; do
+  # If display was explicitly turned off, hold until it's back on.
+  # Only blocks when backend is up and says on:false — never blocks on unreachable.
+  while display_explicitly_off; do
     sleep 3
   done
 

@@ -5,8 +5,6 @@ import subprocess
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from ..core.config import config_store
-
 router = APIRouter(prefix="/api/v1/display", tags=["display"])
 
 _display_on: bool = True   # assumed on at startup
@@ -49,13 +47,8 @@ def _set_power_wlopm(output: str, on: bool, env: dict) -> None:
 
 
 def _set_power_wlr_randr(output: str, on: bool, env: dict) -> None:
-    if on:
-        cfg = config_store.load()
-        w, h = cfg.monitor.width, cfg.monitor.height
-        cmd = ["wlr-randr", "--output", output, "--on", "--custom-mode", f"{w}x{h}@60"]
-    else:
-        cmd = ["wlr-randr", "--output", output, "--off"]
-    subprocess.run(cmd, check=True, timeout=10, env=env)
+    flag = "--on" if on else "--off"
+    subprocess.run(["wlr-randr", "--output", output, flag], check=True, timeout=10, env=env)
 
 
 class DisplayPowerRequest(BaseModel):
@@ -93,7 +86,12 @@ def set_display_power(body: DisplayPowerRequest) -> dict:
         else:
             _set_power_wlr_randr(output, body.on, env)
     except subprocess.CalledProcessError as exc:
-        raise HTTPException(status_code=500, detail=f"Display command failed: {exc}")
+        if not body.on:
+            raise HTTPException(status_code=500, detail=f"Display command failed: {exc}")
+        # Turn-on failure: log but still mark as on so the kiosk loop unblocks
+        # and Chromium can restart (it reconnecting may re-enable the output anyway)
+        import logging
+        logging.getLogger(__name__).warning("Display turn-on command failed: %s", exc)
 
     _display_on = body.on
     return {"on": _display_on}

@@ -100,17 +100,27 @@ apt-get install -y --no-install-recommends \
 # X11-only packages (x11-xserver-utils, xdotool, unclutter) removed — not required
 # for Labwc/Wayland on current Pi OS. wlr-randr/wlopm and chromium are kept.
 
-# ddcutil: optional — not in Pi OS default repos, but enables direct DDC/CI monitor
-# control over HDMI which bypasses the Wayland compositor idle daemon entirely.
-# Falls back to wlopm silently if not available.
-echo "Attempting ddcutil install (optional — not in all Pi OS repos)..."
-apt-get install -y --no-install-recommends ddcutil 2>/dev/null || \
-  echo "ddcutil not available in repos — display control will use wlopm fallback."
+# ddcutil: talks directly to monitor hardware over HDMI DDC/CI, bypassing the
+# Wayland compositor idle daemon. Not in Pi OS default repos — fetch from Debian
+# Bookworm main temporarily, then remove the source so it doesn't affect other packages.
+echo "Installing ddcutil (DDC/CI direct monitor control)..."
+if ! apt-get install -y --no-install-recommends ddcutil 2>/dev/null; then
+  echo "ddcutil not in Pi OS repos — adding Debian Bookworm main temporarily..."
+  echo "deb http://deb.debian.org/debian bookworm main" \
+    > /etc/apt/sources.list.d/debian-bookworm-main-temp.list
+  apt-get update -qq
+  apt-get install -y --no-install-recommends ddcutil || \
+    echo "WARNING: ddcutil install failed — display control will use wlopm fallback."
+  rm -f /etc/apt/sources.list.d/debian-bookworm-main-temp.list
+  apt-get update -qq
+fi
 if command -v ddcutil >/dev/null 2>&1; then
-  echo "Enabling i2c for ddcutil..."
+  echo "ddcutil installed — enabling i2c..."
   raspi-config nonint do_i2c 0 2>/dev/null || true
   modprobe i2c-dev 2>/dev/null || true
   usermod -a -G i2c "${APP_USER}" 2>/dev/null || true
+else
+  echo "ddcutil unavailable — display control will fall back to wlopm."
 fi
 
 # Stop any currently running services so we can safely update files.

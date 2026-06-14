@@ -126,6 +126,14 @@ def set_display_power(body: DisplayPowerRequest) -> dict:
         _cached_outputs = outputs
         _save_cached_outputs(outputs)
 
+    if not body.on:
+        # Kill the kiosk Chromium before disabling the output — if Chromium is still
+        # connected the compositor immediately re-enables the output after --off.
+        subprocess.run(
+            ["pkill", "-f", "user-data-dir=/tmp/pibarticker-kiosk"],
+            timeout=5,
+        )
+
     flag = "--on" if body.on else "--off"
     errors = []
     for output in outputs:

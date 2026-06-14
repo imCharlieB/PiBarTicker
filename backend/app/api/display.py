@@ -187,34 +187,30 @@ def set_display_power(body: DisplayPowerRequest) -> dict:
     env = _wayland_env()
 
     if not body.on:
-        # Do NOT kill Chromium. Keeping Chromium running keeps the Wayland
-        # compositor active and the HDMI/DDC channel alive. If Chromium is killed,
-        # the compositor has no clients and cuts the TMDS signal within seconds —
-        # after that, ddcutil has no DDC channel and can never wake the monitor.
-        # (This matches how TouchKio works: ddcutil-only, compositor always running.)
-        if _ddcutil_power(False):
-            _log.info("Display off via ddcutil (Chromium still running)")
+        # Kill Chromium so the compositor has no active client, then wlopm --off
+        # drops the HDMI signal. The monitor enters deep sleep on its own once the
+        # signal is gone. lxqt-powermanagement is permanently disabled via config
+        # (install_pi.sh), so nothing will race wlopm --on at wake time.
+        subprocess.run(
+            ["pkill", "-f", "user-data-dir=/tmp/pibarticker-kiosk"],
+            timeout=5,
+        )
+        errors = _wlopm_outputs(False, env)
+        if errors:
+            _log.warning("wlopm --off errors: %s", errors)
         else:
-            _log.warning("ddcutil off failed — falling back to wlopm (HDMI signal will drop)")
-            _wlopm_outputs(False, env)
+            _log.info("Display off via wlopm")
         _display_on = False
         return {"on": _display_on}
 
-    # Turning ON: two steps are both required.
-    # 1. ddcutil D6=1 — wakes the monitor hardware from VCP standby.
-    # 2. wlopm --on  — tells labwc to re-enable its DRM output so the GPU
-    #    starts driving the HDMI signal again. This is needed because labwc
-    #    may have DPMS-off'd the output (via lxqt or its own idle timer) even
-    #    if we killed lxqt — ddcutil alone wakes the monitor but leaves the GPU
-    #    output dark, causing "No Signal" on the monitor OSD.
-    ddcutil_ok = _ddcutil_power(True)
-    _log.info("ddcutil turn-on: %s", "ok" if ddcutil_ok else "failed/unavailable")
-
+    # Turning ON: wlopm --on re-enables the GPU output and drives the HDMI signal.
+    # The monitor auto-wakes when it detects the signal. lxqt is disabled so nothing
+    # races wlopm and re-asserts DPMS-off. Chromium relaunches via the kiosk loop.
     errors = _wlopm_outputs(True, env)
     if errors:
-        _log.warning("wlopm --on had errors: %s", errors)
+        _log.warning("wlopm --on errors: %s", errors)
     else:
-        _log.info("wlopm --on sent to all outputs")
+        _log.info("Display on via wlopm")
 
     _display_on = True
     return {"on": _display_on}

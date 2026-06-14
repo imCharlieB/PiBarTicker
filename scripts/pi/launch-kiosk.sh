@@ -178,18 +178,6 @@ if [ "$IS_WAYLAND" = "1" ] && command -v wlopm >/dev/null 2>&1; then
   done
 fi
 
-# Replace lxqt idle sleep with swayidle + ddcutil. ddcutil talks directly to the
-# monitor hardware over HDMI DDC/CI, keeping the HDMI signal alive so HA can always
-# wake the display. timeout=1800s (30 min); resume re-lights the panel on any input.
-if [ "$IS_WAYLAND" = "1" ] && command -v swayidle >/dev/null 2>&1 && command -v ddcutil >/dev/null 2>&1; then
-  pkill -f swayidle 2>/dev/null || true
-  swayidle -w \
-    timeout 1800 'ddcutil setvcp 0xD6 4' \
-    resume  'ddcutil setvcp 0xD6 1' \
-    >>/tmp/pibarticker-swayidle.log 2>&1 &
-  echo "swayidle started (30-min idle → ddcutil off, resume → ddcutil on)"
-fi
-
 if [ "$IS_WAYLAND" = "1" ]; then
   if command -v wlr-randr >/dev/null 2>&1; then
     # Wayland / Labwc custom resolution for bar displays (e.g. 1920x380 or 3840x380)

@@ -222,11 +222,13 @@ done
 
 echo "Backend healthy (or wait done); launching Chromium kiosk now..."
 
+display_is_on() {
+  curl -fsS "${BACKEND_URL}/api/v1/display/power" 2>/dev/null | grep -q '"on":true'
+}
+
 while true; do
   # Launch Chromium with Wayland-specific flags required for clean operation
   # under the current official Raspberry Pi OS Labwc compositor.
-  # These flags enable proper Wayland integration, hardware video, scrollbars,
-  # and window decorations without falling back to XWayland in unwanted ways.
   "${CHROMIUM_BIN}" \
     --disable-session-crashed-bubble \
     --disable-translate \
@@ -253,9 +255,12 @@ while true; do
     "${CHROMIUM_FLAGS[@]}" \
     "${URL}" >> /tmp/pibarticker-kiosk.log 2>&1 || true
 
-  # Chromium may exit during updates/crashes or if it can't connect to the
-  # compositor on the first try (common from ssh/manual launch); restart
-  # automatically every 5s. This keeps the launcher process alive (no more
-  # job "Exit 1") so the install's detection and the ticker eventually appear.
+  # If the display was turned off (via HA or setup UI), hold here until it's
+  # back on. Prevents Chromium reconnecting to the compositor and waking the
+  # output before the user intends.
+  while ! display_is_on; do
+    sleep 3
+  done
+
   sleep 5
 done

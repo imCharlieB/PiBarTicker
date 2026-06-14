@@ -21,10 +21,16 @@ export default function ServicesPage() {
   const [loadingState, setLoadingState] = useState('loading') // 'loading' | 'done' | 'error'
 
   useEffect(() => {
-    fetch('/api/v1/ha/sensors')
-      .then((r) => (r.ok ? r.json() : []))
-      .then((list) => { setPushedSensors(list); setLoadingState('done') })
-      .catch(() => setLoadingState('error'))
+    let cancelled = false
+    const poll = () => {
+      fetch('/api/v1/ha/sensors')
+        .then((r) => (r.ok ? r.json() : []))
+        .then((list) => { if (!cancelled) { setPushedSensors(list); setLoadingState('done') } })
+        .catch(() => { if (!cancelled) setLoadingState('error') })
+    }
+    poll()
+    const id = setInterval(poll, 5000)
+    return () => { cancelled = true; clearInterval(id) }
   }, [])
 
   function getSavedConfig(entityId) {

@@ -6,7 +6,7 @@ export default function DisplayPage() {
   const displayErrors = computeDisplayErrors(config)
 
   return (
-    <article className="card page-card">
+    <article className="page-card">
       <div className="section-heading">
         <div>
           <p className="section-kicker">Display</p>

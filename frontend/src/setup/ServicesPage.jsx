@@ -7,7 +7,7 @@ export default function ServicesPage() {
   const servicesErrors = computeServicesErrors(config)
 
   return (
-    <article className="card page-card">
+    <article className="page-card">
       <div className="section-heading">
         <div>
           <p className="section-kicker">Services</p>
@@ -18,31 +18,51 @@ export default function ServicesPage() {
       <div className="field-grid field-grid-2">
         <label className="field field-full">
           <span>Home Assistant URL</span>
-          <input type="text" value={config.homeAssistant.url} onChange={(event) => updateConfigSection('homeAssistant', 'url', event.target.value)} />
+          <input type="text"
+            value={config.homeAssistant.url}
+            onChange={(e) => updateConfigSection('homeAssistant', 'url', e.target.value)} />
           {servicesErrors.url ? <small className="field-error">{servicesErrors.url}</small> : null}
         </label>
 
         <label className="field field-full">
           <span>Home Assistant access token</span>
-          <input type="password" value={config.homeAssistant.token} onChange={(event) => updateConfigSection('homeAssistant', 'token', event.target.value)} />
+          <input type="password"
+            value={config.homeAssistant.token}
+            onChange={(e) => updateConfigSection('homeAssistant', 'token', e.target.value)} />
           <small className="field-help">Used only to fetch local Home Assistant sensor values.</small>
         </label>
 
-        <label className="field field-checkbox">
-          <span>HTTP enabled</span>
-          <input type="checkbox" checked={config.http.enabled} onChange={(event) => updateConfigSection('http', 'enabled', event.target.checked)} />
-        </label>
+        {/* HTTP enabled — toggle switch */}
+        <div className="page-toggle-group">
+          <div className="page-toggle-row">
+            <div>
+              <div className="page-toggle-label">HTTP enabled</div>
+              <div className="page-toggle-desc">Expose a local HTTP server for remote control and status</div>
+            </div>
+            <label className="toggle-switch">
+              <input type="checkbox"
+                checked={config.http.enabled}
+                onChange={(e) => updateConfigSection('http', 'enabled', e.target.checked)} />
+              <span className="toggle-slider" />
+            </label>
+          </div>
+        </div>
 
         <label className="field">
           <span>HTTP port</span>
-          <input type="number" value={config.http.port} onChange={(event) => updateConfigSection('http', 'port', Number(event.target.value))} />
+          <input type="number"
+            value={config.http.port}
+            onChange={(e) => updateConfigSection('http', 'port', Number(e.target.value))} />
           {servicesErrors.port ? <small className="field-error">{servicesErrors.port}</small> : null}
         </label>
 
         {homeAssistantBoard ? (
           <label className="field field-full">
             <span>Lower-third sensors</span>
-            <textarea rows="6" value={listToText(homeAssistantBoard.haSensors)} onChange={(event) => updateBoard('home-assistant', { haSensors: parseList(event.target.value) })} />
+            <textarea
+              rows="6"
+              value={listToText(homeAssistantBoard.haSensors)}
+              onChange={(e) => updateBoard('home-assistant', { haSensors: parseList(e.target.value) })} />
           </label>
         ) : null}
       </div>

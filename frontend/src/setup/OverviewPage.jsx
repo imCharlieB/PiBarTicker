@@ -11,7 +11,7 @@ export default function OverviewPage() {
   const completedSetupSections = sectionChecks.filter((c) => c.complete).length
 
   return (
-    <article className="card page-card">
+    <article className="page-card">
       <div className="section-heading">
         <div>
           <p className="section-kicker">Overview</p>
@@ -30,39 +30,64 @@ export default function OverviewPage() {
             className={`readiness-item ${check.complete ? 'is-complete' : 'is-incomplete'}`}
             onClick={() => setActivePage(check.id)}
           >
-            <span className="readiness-title">{check.label}</span>
-            <span className="readiness-state">{check.complete ? 'Complete' : 'Needs attention'}</span>
-            {!check.complete && check.errors[0] ? (
-              <span className="readiness-error">{check.errors[0]}</span>
-            ) : null}
+            <span className="readiness-item-left">
+              <span className={`readiness-dot ${check.complete ? 'is-complete' : 'is-incomplete'}`} />
+              <span className="readiness-title">{check.label}</span>
+              {!check.complete && check.errors[0] ? (
+                <span className="readiness-error">{check.errors[0]}</span>
+              ) : null}
+            </span>
+            <span className={`readiness-badge ${check.complete ? 'is-complete' : 'is-incomplete'}`}>
+              {check.complete ? 'Complete' : 'Needs attention'}
+            </span>
           </button>
         ))}
       </div>
 
       <div className="overview-grid">
         <button type="button" className="overview-item" onClick={() => setActivePage('display')}>
-          <h3>Display</h3>
-          <p>Mode: {config.monitor.mode}</p>
-          <p>Resolution: {config.monitor.width} x {config.monitor.height}</p>
-          <p>Kiosk startup: {config.kiosk.autoStart}</p>
+          <div className="overview-item-header">
+            <h3>Display</h3>
+            <span className="overview-item-arrow">›</span>
+          </div>
+          <div className="overview-kv-list">
+            <div className="overview-kv-row"><span>Mode</span><span>{config.monitor.mode}</span></div>
+            <div className="overview-kv-row"><span>Resolution</span><span>{config.monitor.width} × {config.monitor.height}</span></div>
+            <div className="overview-kv-row"><span>Kiosk startup</span><span>{config.kiosk.autoStart}</span></div>
+          </div>
         </button>
         <button type="button" className="overview-item" onClick={() => setActivePage('theme')}>
-          <h3>Theme</h3>
-          <p>Mode: {config.theme.mode}</p>
-          <p>Background override: {config.theme.background || 'None'}</p>
-          <p>Accent override: {config.theme.accent || 'None'}</p>
+          <div className="overview-item-header">
+            <h3>Theme</h3>
+            <span className="overview-item-arrow">›</span>
+          </div>
+          <div className="overview-kv-list">
+            <div className="overview-kv-row"><span>Mode</span><span>{config.theme.mode}</span></div>
+            <div className="overview-kv-row"><span>Background</span><span>{config.theme.background || 'Default'}</span></div>
+            <div className="overview-kv-row"><span>Accent</span><span>{config.theme.accent || 'Default'}</span></div>
+          </div>
         </button>
         <button type="button" className="overview-item" onClick={() => setActivePage('services')}>
-          <h3>Services</h3>
-          <p>HTTP: {config.http.enabled ? `Enabled on ${config.http.port}` : 'Disabled'}</p>
-          <p>Home Assistant URL: {config.homeAssistant.url || 'Not set'}</p>
-          <p>Sensors: {homeAssistantBoard?.haSensors.length || 0}</p>
+          <div className="overview-item-header">
+            <h3>Services</h3>
+            <span className="overview-item-arrow">›</span>
+          </div>
+          <div className="overview-kv-list">
+            <div className="overview-kv-row"><span>HTTP</span><span>{config.http.enabled ? `Enabled · :${config.http.port}` : 'Disabled'}</span></div>
+            <div className="overview-kv-row"><span>Home Assistant</span><span>{config.homeAssistant.url || 'Not set'}</span></div>
+            <div className="overview-kv-row"><span>Sensors</span><span>{homeAssistantBoard?.haSensors.length || 0}</span></div>
+          </div>
         </button>
         <button type="button" className="overview-item" onClick={() => setActivePage('ticker')}>
-          <h3>Ticker</h3>
-          <p>Board: {sportsBoard?.enabled ? 'Enabled' : 'Disabled'}</p>
-          <p>Leagues enabled: {enabledLeagues.length}</p>
-          <p>Rotation: {sportsBoard?.rotateSeconds || 0}s</p>
+          <div className="overview-item-header">
+            <h3>Ticker</h3>
+            <span className="overview-item-arrow">›</span>
+          </div>
+          <div className="overview-kv-list">
+            <div className="overview-kv-row"><span>Board</span><span>{sportsBoard?.enabled ? 'Enabled' : 'Disabled'}</span></div>
+            <div className="overview-kv-row"><span>Leagues enabled</span><span>{enabledLeagues.length}</span></div>
+            <div className="overview-kv-row"><span>Rotation</span><span>{sportsBoard?.rotateSeconds || 0}s</span></div>
+          </div>
         </button>
       </div>
     </article>

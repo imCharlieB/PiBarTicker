@@ -49,19 +49,16 @@ export default function LeagueDetail({
 
   const entityType = getLeagueEntityType(selectedTickerLeague)
   const leagueApiParams = parseLeagueApiParams(selectedTickerLeague?.url || '')
-  const isNascarLeague = leagueApiParams.sport === 'racing' && String(leagueApiParams.league || '').toLowerCase().includes('nascar')
+  const isRacingLeague = leagueApiParams.sport === 'racing'
+  const isNascarLeague = isRacingLeague && String(leagueApiParams.league || '').toLowerCase().includes('nascar')
 
-  // ESPN uses "nascar-premier"/"nascar-truck"; cf.nascar.com uses "nascar-cup"/"nascar-trucks"
   const _nascarCacheIdMap = { 'nascar-premier': 'nascar-cup', 'nascar-truck': 'nascar-trucks' }
-  const nascarCacheId = _nascarCacheIdMap[selectedTickerLeague.id] || selectedTickerLeague.id
-
   const _ALL_NASCAR_CACHE_IDS = ['nascar-cup', 'nascar-xfinity', 'nascar-trucks']
 
   useEffect(() => {
     if (isNascarLeague) {
       _ALL_NASCAR_CACHE_IDS.forEach((id) => loadLeagueLogoMeta(id))
     }
-    // loadLeagueLogoMeta is stable from context — not adding to deps
   }, [isNascarLeague, selectedTickerLeague.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const nascarDriverList = isNascarLeague
@@ -72,548 +69,555 @@ export default function LeagueDetail({
       }).sort((a, b) => (a.display_name || '').localeCompare(b.display_name || ''))
     : []
 
+  const includedGroupIds = Array.isArray(selectedTickerLeague.includedGroups) ? selectedTickerLeague.includedGroups : []
+  const leagueMeta = leagueLogoMetaById[selectedTickerLeague.id] || {}
+
+  const syncTeamsAndLogos = async () => {
+    await loadLeagueTeams(selectedTickerLeague)
+    let teams = leagueTeamsById[selectedTickerLeague.id] || []
+    const params = parseLeagueApiParams(selectedTickerLeague.url || '')
+    const isRacingOrIndividual = isIndividualSport(params.sport, params.league)
+
+    if (isRacingOrIndividual) {
+      setLogoSyncingLeagues((prev) => ({ ...prev, [selectedTickerLeague.id]: 'Harvesting drivers from scoreboard…' }))
+      setNotice(`Syncing ${selectedTickerLeague.name} — harvesting drivers/teams...`)
+      try {
+        const racingEntities = await harvestRacingEntities(selectedTickerLeague)
+        if (racingEntities.length > 0) {
+          const byId = new Map(teams.map((t) => [String(t.id), t]))
+          for (const ent of racingEntities) {
+            if (!byId.has(String(ent.id))) byId.set(String(ent.id), ent)
+          }
+          teams = Array.from(byId.values())
+        }
+      } catch (e) {
+        console.warn('harvestRacingEntities failed', e)
+      }
+      setLogoSyncingLeagues((prev) => {
+        const copy = { ...prev }
+        if (typeof copy[selectedTickerLeague.id] === 'string' && copy[selectedTickerLeague.id].includes('Harvesting')) delete copy[selectedTickerLeague.id]
+        return copy
+      })
+    }
+
+    if (teams.length > 0) {
+      const isFootball = params.sport === 'football'
+      if (isFootball || isRacingOrIndividual) {
+        setLogoSyncingLeagues((prev) => ({ ...prev, [selectedTickerLeague.id]: 'Enriching logos for drivers/teams…' }))
+        teams = await enrichTeamsForLogoSync(selectedTickerLeague, teams)
+        setLogoSyncingLeagues((prev) => {
+          const copy = { ...prev }
+          if (typeof copy[selectedTickerLeague.id] === 'string' && copy[selectedTickerLeague.id].includes('Enriching')) delete copy[selectedTickerLeague.id]
+          return copy
+        })
+      }
+      triggerLogoCacheForLeague(selectedTickerLeague.id, teams, params.sport).catch((err) => {
+        console.warn('Logo cache failed:', err)
+      })
+      if (isRacingOrIndividual) {
+        setTimeout(() => loadLeagueLogoMeta(selectedTickerLeague.id), 300)
+      }
+    } else {
+      setNotice(isRacingOrIndividual
+        ? `Sync for ${selectedTickerLeague.name} didn't find many drivers right now (common depending on season/events).`
+        : `Sync found no teams for ${selectedTickerLeague.name}. Try loading preview first or check the league URL.`)
+    }
+  }
+
+  const clearCachedLogos = async () => {
+    const leagueId = selectedTickerLeague.id
+    try {
+      await fetch(`/api/v1/logos/cache/${encodeURIComponent(leagueId)}`, { method: 'DELETE' })
+      setNotice(`Cleared cached logos for ${selectedTickerLeague.name}.`)
+    } catch (_e) { /* still clear local state */ }
+    setLogoClearMessageById((prev) => ({ ...prev, [leagueId]: 'Cache cleared — logos folder + meta deleted from disk.' }))
+    setTimeout(() => {
+      setLogoClearMessageById((prev) => { const next = { ...prev }; delete next[leagueId]; return next })
+    }, 4500)
+    setLeagueLogoMetaById((current) => { const copy = { ...current }; delete copy[leagueId]; return copy })
+  }
 
   return (
     <>
-      <div className="league-hero">
-        <div className="league-hero-main">
+      {/* Hero */}
+      <div className="ld-hero">
+        <div className="ld-hero-left">
           <p className="section-kicker">Ticker</p>
-          <h2>{selectedTickerLeague.name}</h2>
-          <p className="league-hero-meta">
-            {isNascarLeague && nascarDriverList.length > 0
-              ? `${nascarDriverList.length} drivers cached`
-              : `${selectedLeagueTeams.length} teams loaded`}
-          </p>
+          <h2 className="ld-hero-name">{selectedTickerLeague.name}</h2>
+          <div className="ld-hero-meta-row">
+            <span className={`ld-enabled-badge ${selectedTickerLeague.enabled ? 'is-enabled' : 'is-disabled'}`}>
+              {selectedTickerLeague.enabled ? 'Enabled' : 'Disabled'}
+            </span>
+            <span className="ld-hero-count">
+              {isNascarLeague && nascarDriverList.length > 0
+                ? `${nascarDriverList.length} drivers cached`
+                : `${selectedLeagueTeams.length} ${entityType.label.toLowerCase()} loaded`}
+            </span>
+          </div>
         </div>
-        <div className="league-hero-actions">
-          <button type="button" className="button-secondary" onClick={onBack}>
-            Back to leagues
-          </button>
-        </div>
+        <button type="button" className="button-secondary" onClick={onBack}>
+          Back to leagues
+        </button>
       </div>
 
-      {selectedTickerLeagueIndex >= 0 ? (
-        <div className="league-settings-panel">
-          <h3>League settings</h3>
+      {/* Settings panel */}
+      {selectedTickerLeagueIndex >= 0 && (
+        <div className="ld-settings-panel">
+          <div className="ld-settings-header">
+            <h3>League settings</h3>
+            <p className="ld-settings-caption">Changes stage until you save</p>
+          </div>
 
-          <div className="league-card-controls">
-            <div className="league-card-control-group">
-              <span className="league-card-control-label">Card style</span>
-              <div className="league-card-control-item">
-                <div className="league-seg">
-                  {[['standard', 'Standard'], ['large-logo', 'Large Logo'], ['slab', 'Slab'], ['spine', 'Spine'], ['digits', 'Digits'], ['marquee', 'Marquee']].map(([val, label]) => (
-                    <button
-                      key={val}
-                      type="button"
-                      className={`league-seg-btn${(selectedTickerLeague.cardStyle || 'standard') === val ? ' league-seg-btn-active' : ''}`}
-                      onClick={() => updateLeague(selectedTickerLeagueIndex, 'cardStyle', val)}
+          {/* Segmented controls */}
+          <div className="ld-seg-controls-row">
+            <div className="ld-seg-control">
+              <span className="ld-seg-label">Card style</span>
+              <div className="seg-pill">
+                {[['standard','Standard'],['large-logo','Large Logo'],['slab','Slab'],['spine','Spine'],['digits','Digits'],['marquee','Marquee']].map(([val, label]) => (
+                  <button key={val} type="button"
+                    className={`seg-pill-btn${(selectedTickerLeague.cardStyle || 'standard') === val ? ' is-active' : ''}`}
+                    onClick={() => updateLeague(selectedTickerLeagueIndex, 'cardStyle', val)}
+                  >{label}</button>
+                ))}
+              </div>
+            </div>
+
+            {isRacingLeague && (
+              <div className="ld-seg-control">
+                <span className="ld-seg-label">Entry limit</span>
+                <div className="seg-pill">
+                  {[[null,'All'],[5,'5'],[10,'10'],[25,'25']].map(([val, label]) => (
+                    <button key={label} type="button"
+                      className={`seg-pill-btn${(selectedTickerLeague.entryLimit ?? null) === val ? ' is-active' : ''}`}
+                      onClick={() => updateLeague(selectedTickerLeagueIndex, 'entryLimit', val)}
                     >{label}</button>
                   ))}
                 </div>
               </div>
-            </div>
-            {leagueApiParams.sport === 'racing' && (
-              <div className="league-card-control-group">
-                <span className="league-card-control-label">Entry limit</span>
-                <div className="league-card-control-item">
-                  <div className="league-seg">
-                    {[[null, 'All'], [5, '5'], [10, '10'], [25, '25']].map(([val, label]) => {
-                      const active = (selectedTickerLeague.entryLimit ?? null) === val
-                      return (
-                        <button
-                          key={label}
-                          type="button"
-                          className={`league-seg-btn${active ? ' league-seg-btn-active' : ''}`}
-                          onClick={() => updateLeague(selectedTickerLeagueIndex, 'entryLimit', val)}
-                        >{label}</button>
-                      )
-                    })}
-                  </div>
-                </div>
-              </div>
             )}
+
             {/college/i.test(leagueApiParams.league || '') && (
-              <div className="league-card-control-group">
-                <span className="league-card-control-label">AP ranking filter</span>
-                <div className="league-card-control-item">
-                  <div className="league-seg">
-                    {[[null, 'All'], [10, 'Top 10'], [25, 'Top 25']].map(([val, label]) => {
-                      const active = (selectedTickerLeague.rankingsFilter ?? null) === val
-                      return (
-                        <button
-                          key={label}
-                          type="button"
-                          className={`league-seg-btn${active ? ' league-seg-btn-active' : ''}`}
-                          onClick={() => updateLeague(selectedTickerLeagueIndex, 'rankingsFilter', val)}
-                        >{label}</button>
-                      )
-                    })}
-                  </div>
-                  <small className="field-help">Show only games where at least one team is ranked in the AP Top 25.</small>
+              <div className="ld-seg-control">
+                <span className="ld-seg-label">AP ranking filter</span>
+                <div className="seg-pill">
+                  {[[null,'All'],[10,'Top 10'],[25,'Top 25']].map(([val, label]) => (
+                    <button key={label} type="button"
+                      className={`seg-pill-btn${(selectedTickerLeague.rankingsFilter ?? null) === val ? ' is-active' : ''}`}
+                      onClick={() => updateLeague(selectedTickerLeagueIndex, 'rankingsFilter', val)}
+                    >{label}</button>
+                  ))}
                 </div>
+                <small className="ld-seg-help">Show only games where at least one team is ranked in the AP Top 25.</small>
               </div>
             )}
+
           </div>
 
-          <div className="league-settings-layout">
-            <div className="league-checkbox-group">
-              <p className="league-checkbox-title">Card and Feed Toggles</p>
-              <div className="league-checkbox-grid">
-                <label className="field field-checkbox">
-                  <span>League enabled</span>
-                  <input type="checkbox" checked={selectedTickerLeague.enabled} onChange={(event) => updateLeague(selectedTickerLeagueIndex, 'enabled', event.target.checked)} />
-                </label>
-                <label className="field field-checkbox">
-                  <span>Live game mode</span>
-                  <input type="checkbox" checked={Boolean(selectedTickerLeague.liveGameMode)} onChange={(event) => updateLeague(selectedTickerLeagueIndex, 'liveGameMode', event.target.checked)} />
-                </label>
-                <div className="field">
-                  <span>Detail density</span>
-                  <div className="league-seg">
-                    {[['min', 'Minimal'], ['bal', 'Balanced'], ['max', 'Maximal']].map(([val, label]) => (
-                      <button
-                        key={val}
-                        type="button"
-                        className={`league-seg-btn${(selectedTickerLeague.density || 'bal') === val ? ' league-seg-btn-active' : ''}`}
-                        onClick={() => updateLeague(selectedTickerLeagueIndex, 'density', val)}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                  <small className="field-help">Min: scores only. Balanced: adds records, clock, situation, TV. Maximal: also adds venue and odds.</small>
-                </div>
-                <div className="field">
-                  <span>Team colors</span>
-                  <div className="league-seg">
-                    {[['full', 'Full'], ['accent', 'Accent'], ['neutral', 'Neutral']].map(([val, label]) => (
-                      <button
-                        key={val}
-                        type="button"
-                        className={`league-seg-btn${(selectedTickerLeague.colorMode || 'full') === val ? ' league-seg-btn-active' : ''}`}
-                        onClick={() => updateLeague(selectedTickerLeagueIndex, 'colorMode', val)}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+          {/* Card & Feed toggles */}
+          <div className="ld-toggles-group">
+            <div className="ld-toggles-kicker">Card &amp; Feed Toggles</div>
+            <div className="ld-toggle-row">
+              <div className="ld-toggle-left">
+                <span className="ld-toggle-label">League enabled</span>
+                <span className="ld-toggle-desc">Include this league in the live ticker rotation.</span>
+              </div>
+              <label className="toggle-switch">
+                <input type="checkbox" checked={selectedTickerLeague.enabled}
+                  onChange={(e) => updateLeague(selectedTickerLeagueIndex, 'enabled', e.target.checked)} />
+                <span className="toggle-slider" />
+              </label>
+            </div>
+            <div className="ld-toggle-row">
+              <div className="ld-toggle-left">
+                <span className="ld-toggle-label">Live game mode</span>
+                <span className="ld-toggle-desc">{isRacingLeague ? 'Enhanced in-progress visuals: lap, position, pit status.' : 'Enhanced in-progress visuals: clock, possession, situation.'}</span>
+              </div>
+              <label className="toggle-switch">
+                <input type="checkbox" checked={Boolean(selectedTickerLeague.liveGameMode)}
+                  onChange={(e) => updateLeague(selectedTickerLeagueIndex, 'liveGameMode', e.target.checked)} />
+                <span className="toggle-slider" />
+              </label>
+            </div>
+            <div className="ld-toggle-row" style={{ alignItems: 'flex-start' }}>
+              <div className="ld-toggle-left">
+                <span className="ld-toggle-label">Detail density</span>
+                <span className="ld-toggle-desc">{isRacingLeague ? 'Min: positions only. Balanced: adds laps, gaps, pit status. Maximal: also adds manufacturer and stage.' : 'Min: scores only. Balanced: adds records, clock, situation, TV. Maximal: also adds venue and odds.'}</span>
+              </div>
+              <div className="seg-pill" style={{ flexShrink: 0 }}>
+                {[['min','Minimal'],['bal','Balanced'],['max','Maximal']].map(([val, label]) => (
+                  <button key={val} type="button"
+                    className={`seg-pill-btn${(selectedTickerLeague.density || 'bal') === val ? ' is-active' : ''}`}
+                    onClick={() => updateLeague(selectedTickerLeagueIndex, 'density', val)}
+                  >{label}</button>
+                ))}
+              </div>
+            </div>
+            <div className="ld-toggle-row">
+              <div className="ld-toggle-left">
+                <span className="ld-toggle-label">Team colors</span>
+                <span className="ld-toggle-desc">{isRacingLeague ? 'How strongly driver / manufacturer colors tint each card.' : 'How strongly team brand colors tint each card.'}</span>
+              </div>
+              <div className="seg-pill" style={{ flexShrink: 0 }}>
+                {[['full','Full'],['accent','Accent'],['neutral','Neutral']].map(([val, label]) => (
+                  <button key={val} type="button"
+                    className={`seg-pill-btn${(selectedTickerLeague.colorMode || 'full') === val ? ' is-active' : ''}`}
+                    onClick={() => updateLeague(selectedTickerLeagueIndex, 'colorMode', val)}
+                  >{label}</button>
+                ))}
               </div>
             </div>
           </div>
 
-          <div className="league-feed-filter">
-            <p className="league-checkbox-title">Feed Filter (server-side)</p>
-            <div className="league-filter-controls">
-              <label className="field">
-                <span>Game filter</span>
-                <select
-                  value={selectedTickerLeague.gameFilter || 'all'}
-                  onChange={(event) => updateLeague(selectedTickerLeagueIndex, 'gameFilter', event.target.value)}
-                >
-                  <option value="all">All (no filter)</option>
-                  <option value="live">Live only</option>
-                  <option value="today">Today</option>
-                  <option value="upcoming">Upcoming</option>
-                  <option value="this-week">This week (football)</option>
-                </select>
-                <small className="field-help">
-                  Filters at the ESPN API level for smaller, faster responses (especially useful for NFL / college football).
-                  This only affects which games are fetched — it does not enable the enhanced live card visuals (those come from "Live game mode").
-                </small>
-              </label>
-
-              <label className="field field-checkbox" style={{ marginTop: 8 }}>
-                <span>Fallback if empty</span>
-                <input
-                  type="checkbox"
-                  checked={Boolean(selectedTickerLeague.fallbackWhenEmpty)}
-                  onChange={(event) => updateLeague(selectedTickerLeagueIndex, 'fallbackWhenEmpty', event.target.checked)}
-                />
-                <small className="field-help" style={{ marginLeft: 8 }}>
-                  If the strict filter returns no games, automatically broaden results (e.g. show upcoming) so the ticker stays useful instead of going blank.
-                </small>
+          {/* Feed filter */}
+          <div className="ld-sub-panel">
+            <div className="ld-sub-panel-header">
+              <span className="ld-sub-panel-kicker">Feed Filter (server-side)</span>
+            </div>
+            <div className="ld-filter-select-wrap">
+              <select
+                value={selectedTickerLeague.gameFilter || 'all'}
+                onChange={(e) => updateLeague(selectedTickerLeagueIndex, 'gameFilter', e.target.value)}
+              >
+                <option value="all">All (no filter)</option>
+                <option value="live">Live only</option>
+                <option value="today">Today</option>
+                <option value="upcoming">Upcoming</option>
+                <option value="this-week">This week (football)</option>
+              </select>
+            </div>
+            <p className="ld-filter-help">Filters at the ESPN API level for smaller, faster responses. Does not enable live card visuals — those come from Live game mode.</p>
+            <div className="ld-sub-divider" />
+            <div className="ld-toggle-row">
+              <div className="ld-toggle-left">
+                <span className="ld-toggle-label">Fallback if empty</span>
+                <span className="ld-toggle-desc">If strict filter returns no games, broaden results so the ticker stays useful</span>
+              </div>
+              <label className="toggle-switch">
+                <input type="checkbox" checked={Boolean(selectedTickerLeague.fallbackWhenEmpty)}
+                  onChange={(e) => updateLeague(selectedTickerLeagueIndex, 'fallbackWhenEmpty', e.target.checked)} />
+                <span className="toggle-slider" />
               </label>
             </div>
           </div>
 
-          {leagueApiParams.sport !== 'racing' && (
-            <div className="league-groups-panel">
-              <div className="league-groups-header">
-                <p className="league-checkbox-title">Conference / Division / Group Filter</p>
-                <button
-                  type="button"
-                  className="button-link"
+          {/* Conference / group filter (non-racing) */}
+          {!isRacingLeague && (
+            <div className="ld-sub-panel">
+              <div className="ld-sub-panel-header">
+                <span className="ld-sub-panel-kicker">Conference / Division / Group Filter</span>
+                <button type="button" className="button-link"
                   onClick={() => loadLeagueGroups(selectedTickerLeague)}
                   disabled={selectedLeagueGroupsLoadState.loading}
                 >
                   {selectedLeagueGroupsLoadState.loading ? 'Refreshing...' : 'Refresh groups'}
                 </button>
               </div>
-              {selectedLeagueGroupsLoadState.error ? (
-                <p className="field-error">{selectedLeagueGroupsLoadState.error}</p>
-              ) : null}
-              {selectedLeagueGroups.length ? (
-                <div className="league-groups-grid">
-                  {selectedLeagueGroups.map((group) => {
-                    const id = String(group.id || '').trim()
-                    if (!id) return null
-                    const includedGroupIds = Array.isArray(selectedTickerLeague.includedGroups) ? selectedTickerLeague.includedGroups : []
-                    const isChecked = includedGroupIds.includes(id)
-                    const parentName = group.parent?.name ? ` (${group.parent.name})` : ''
-                    const label = group.name || group.abbreviation || id
-                    return (
-                      <label key={`${selectedTickerLeague.id}-${id}`} className="field field-checkbox">
-                        <span>{label}{parentName}</span>
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={(event) => toggleLeagueIncludedGroup(selectedTickerLeagueIndex, id, event.target.checked)}
-                        />
-                      </label>
-                    )
-                  })}
-                </div>
+              {selectedLeagueGroupsLoadState.error
+                ? <p className="field-error" style={{ margin: 0 }}>{selectedLeagueGroupsLoadState.error}</p>
+                : null}
+              {selectedLeagueGroups.length > 0 ? (
+                <>
+                  <div className="ld-group-tags-input">
+                    {includedGroupIds.map((id) => {
+                      const grp = selectedLeagueGroups.find((g) => String(g.id) === id)
+                      const label = grp ? (grp.name || grp.abbreviation || id) : id
+                      return (
+                        <span key={id} className="ld-group-tag"
+                          onClick={() => toggleLeagueIncludedGroup(selectedTickerLeagueIndex, id, false)}
+                        >
+                          {label}
+                          <span className="ld-group-tag-x">×</span>
+                        </span>
+                      )
+                    })}
+                    <span className="ld-group-tags-placeholder">
+                      {includedGroupIds.length === 0 ? 'All conferences included — click below to filter' : 'Search to add a conference…'}
+                    </span>
+                    {includedGroupIds.length > 0 && (
+                      <span className="ld-group-count-badge">{includedGroupIds.length} selected</span>
+                    )}
+                  </div>
+                  <p className="ld-group-tags-help">Selected conferences pin here as removable tags — pick more from the list below.</p>
+                  <div className="ld-groups-list">
+                    {selectedLeagueGroups.map((group) => {
+                      const id = String(group.id || '').trim()
+                      if (!id) return null
+                      const isSelected = includedGroupIds.includes(id)
+                      const parentName = group.parent?.name ? ` (${group.parent.name})` : ''
+                      const label = group.name || group.abbreviation || id
+                      return (
+                        <button key={`${selectedTickerLeague.id}-${id}`} type="button"
+                          className={`ld-group-item${isSelected ? ' is-selected' : ''}`}
+                          onClick={() => toggleLeagueIncludedGroup(selectedTickerLeagueIndex, id, !isSelected)}
+                        >
+                          <span>{label}{parentName}</span>
+                          {isSelected
+                            ? <span className="ld-group-check">✓</span>
+                            : <span className="ld-group-add">+</span>}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </>
               ) : (
-                <p className="field-help">No group metadata loaded. Click Refresh groups to load.</p>
+                <p className="field-help" style={{ margin: 0 }}>No group metadata loaded. Click Refresh groups to load.</p>
               )}
             </div>
           )}
 
-          <div className="league-groups-panel">
-            <div className="league-groups-header">
-              <p className="league-checkbox-title">Ticker filter preview</p>
-              <button
-                type="button"
-                className="button-link"
+          {/* Ticker filter preview */}
+          <div className="ld-sub-panel">
+            <div className="ld-sub-panel-header">
+              <span className="ld-sub-panel-kicker">Ticker filter preview</span>
+              <button type="button" className="button-link"
                 onClick={() => loadLeagueTickerPreview(selectedTickerLeague)}
                 disabled={selectedLeagueTickerPreviewLoadState.loading}
               >
                 {selectedLeagueTickerPreviewLoadState.loading ? 'Refreshing...' : 'Refresh preview'}
               </button>
             </div>
-            {selectedLeagueTickerPreviewLoadState.error ? (
-              <p className="field-error">{selectedLeagueTickerPreviewLoadState.error}</p>
-            ) : null}
+            {selectedLeagueTickerPreviewLoadState.error
+              ? <p className="field-error" style={{ margin: 0 }}>{selectedLeagueTickerPreviewLoadState.error}</p>
+              : null}
             {selectedLeagueTickerPreview ? (
               <>
-                <p className="field-help">
+                <p className="field-help" style={{ margin: '0 0 4px', fontSize: '13px', color: '#93969c' }}>
                   Showing {selectedLeagueTickerPreview.eventCount} of {selectedLeagueTickerPreview.rawEventCount || selectedLeagueTickerPreview.eventCount} events after filters.
                   {selectedLeagueTickerPreview.appliedFilters?.gameFilter && selectedLeagueTickerPreview.appliedFilters.gameFilter !== 'all' && (
                     <> (filter: {selectedLeagueTickerPreview.appliedFilters.gameFilter})</>
                   )}
                 </p>
-                {selectedLeaguePreviewMatchups.length ? (
-                  <p className="field-help">
+                {selectedLeaguePreviewMatchups.length > 0 && (
+                  <p className="field-help" style={{ margin: 0, fontSize: '12.5px', lineHeight: 1.6 }}>
                     Matchups: {selectedLeaguePreviewMatchupsText}
                     {selectedLeaguePreviewMatchups.length > 8 ? `, +${selectedLeaguePreviewMatchups.length - 8} more` : ''}
                   </p>
-                ) : null}
+                )}
               </>
             ) : (
-              <p className="field-help">Load preview to verify week/team/group filters for this league.</p>
+              <p className="field-help" style={{ margin: 0 }}>Load preview to verify week/team/group filters for this league.</p>
             )}
           </div>
         </div>
-      ) : null}
+      )}
 
-      <div className="team-explorer-heading">
+      {/* Explorer header */}
+      <div className="ld-explorer-header">
         <div>
           <h3 style={{ margin: 0 }}>{entityType.label}</h3>
-          <p className="team-explorer-subtitle">
+          <p className="ld-explorer-subtitle">
             {isNascarLeague
               ? nascarDriverList.length > 0
                 ? `${nascarDriverList.length} drivers synced from cf.nascar.com — badges shown below`
                 : 'Click "Sync NASCAR Drivers & Assets" to load driver badges'
-              : `Select ${entityType.label.toLowerCase()} to include and open details${isIndividualSport(leagueApiParams.sport, leagueApiParams.league) ? ' (driver list is best-effort for now)' : ''}`}
+              : isRacingLeague
+                ? `Select ${entityType.label.toLowerCase()} to view details`
+                : `Select ${entityType.label.toLowerCase()} to include and open details`}
           </p>
         </div>
-
-        {!isNascarLeague ? <button
-          type="button"
-          className="button-link"
-          onClick={async () => {
-            await loadLeagueTeams(selectedTickerLeague)
-            let teams = leagueTeamsById[selectedTickerLeague.id] || []
-
-            const params = parseLeagueApiParams(selectedTickerLeague.url || '')
-            const isRacingOrIndividual = isIndividualSport(params.sport, params.league)
-
-            if (isRacingOrIndividual) {
-              setLogoSyncingLeagues((prev) => ({
-                ...prev,
-                [selectedTickerLeague.id]: 'Harvesting drivers from scoreboard…'
-              }))
-              setNotice(`Syncing ${selectedTickerLeague.name} — harvesting drivers/teams...`)
-
-              try {
-                const racingEntities = await harvestRacingEntities(selectedTickerLeague)
-                if (racingEntities.length > 0) {
-                  const byId = new Map(teams.map((t) => [String(t.id), t]))
-                  for (const ent of racingEntities) {
-                    const key = String(ent.id)
-                    if (!byId.has(key)) byId.set(key, ent)
-                  }
-                  teams = Array.from(byId.values())
+        <div className="ld-explorer-actions">
+          {!isNascarLeague && (
+            <button type="button" className="ld-explorer-btn"
+              onClick={syncTeamsAndLogos}
+              disabled={selectedLeagueLoadState.loading}
+            >
+              {selectedLeagueLoadState.loading ? 'Syncing...' : 'Sync Teams & Logos'}
+            </button>
+          )}
+          {selectedTickerLeague.id === 'f1' && (
+            <button type="button" className="ld-explorer-btn"
+              onClick={async () => {
+                setLogoSyncingLeagues((prev) => ({ ...prev, f1: 'Syncing F1 drivers, cars & circuits…' }))
+                try {
+                  const res = await fetch('/api/v1/logos/cache/f1/sync', { method: 'POST' })
+                  const data = await res.json()
+                  const drivers = data?.drivers?.drivers_synced ?? 0
+                  const cars = data?.team_cars?.teams_synced ?? 0
+                  const circuits = data?.circuits?.circuits_synced ?? 0
+                  setNotice(`F1 sync complete — ${drivers} drivers, ${cars} cars, ${circuits} circuits cached.`)
+                  loadLeagueLogoMeta('f1')
+                  loadLeagueLogoMeta('f1-drivers')
+                } catch (e) {
+                  setNotice(`F1 sync failed: ${e.message}`)
+                } finally {
+                  setLogoSyncingLeagues((prev) => { const copy = { ...prev }; delete copy.f1; return copy })
                 }
-              } catch (e) {
-                console.warn('Extra harvestRacingEntities during sync failed', e)
-              }
-
-              setLogoSyncingLeagues((prev) => {
-                const copy = { ...prev }
-                if (copy[selectedTickerLeague.id] && typeof copy[selectedTickerLeague.id] === 'string' && copy[selectedTickerLeague.id].includes('Harvesting')) {
-                  delete copy[selectedTickerLeague.id]
+              }}
+            >
+              Sync F1 Drivers & Assets
+            </button>
+          )}
+          {isNascarLeague && (
+            <button type="button" className="ld-explorer-btn"
+              disabled={!!logoSyncingLeagues[selectedTickerLeague.id]}
+              onClick={async () => {
+                const lid = selectedTickerLeague.id
+                setLogoSyncingLeagues((prev) => ({ ...prev, [lid]: 'Syncing NASCAR drivers…' }))
+                setNotice('Downloading NASCAR driver images from cf.nascar.com — this may take a minute…')
+                try {
+                  const res = await fetch('/api/v1/logos/cache/nascar/sync', { method: 'POST' })
+                  const data = await res.json()
+                  if (!res.ok) throw new Error(data?.detail || `HTTP ${res.status}`)
+                  const d = data?.drivers || {}
+                  const bySeries = d.by_series || {}
+                  const cup = bySeries['nascar-cup'] ?? 0
+                  const xfinity = bySeries['nascar-xfinity'] ?? 0
+                  const trucks = bySeries['nascar-trucks'] ?? 0
+                  const parts = [cup && `${cup} Cup`, xfinity && `${xfinity} Xfinity`, trucks && `${trucks} Trucks`].filter(Boolean)
+                  const badges = d.badges_downloaded ?? 0
+                  const headshots = d.headshots_downloaded ?? 0
+                  const seriesLogos = d.series_logos_downloaded ?? 0
+                  const imgParts = [badges && `${badges} badges`, headshots && `${headshots} headshots`, seriesLogos && `${seriesLogos} series logos`].filter(Boolean)
+                  setNotice(`NASCAR sync complete — ${parts.join(', ')} drivers. ${imgParts.length ? `Downloaded: ${imgParts.join(', ')}.` : 'Images already cached.'}`)
+                  loadLeagueLogoMeta('nascar-cup')
+                  loadLeagueLogoMeta('nascar-xfinity')
+                  loadLeagueLogoMeta('nascar-trucks')
+                } catch (e) {
+                  setNotice(`NASCAR sync failed: ${e.message}`)
+                } finally {
+                  setLogoSyncingLeagues((prev) => { const copy = { ...prev }; delete copy[lid]; return copy })
                 }
-                return copy
-              })
-            }
-
-            if (teams.length > 0) {
-              const isFootball = params.sport === 'football'
-
-              if (isFootball || isRacingOrIndividual) {
-                setLogoSyncingLeagues((prev) => ({
-                  ...prev,
-                  [selectedTickerLeague.id]: 'Enriching logos for drivers/teams…'
-                }))
-
-                teams = await enrichTeamsForLogoSync(selectedTickerLeague, teams)
-
-                setLogoSyncingLeagues((prev) => {
-                  const copy = { ...prev }
-                  if (copy[selectedTickerLeague.id] && typeof copy[selectedTickerLeague.id] === 'string' && copy[selectedTickerLeague.id].includes('Enriching')) {
-                    delete copy[selectedTickerLeague.id]
-                  }
-                  return copy
-                })
-              }
-
-              triggerLogoCacheForLeague(selectedTickerLeague.id, teams, params.sport).catch((err) => {
-                console.warn('Logo cache failed:', err)
-              })
-
-              if (isRacingOrIndividual) {
-                setTimeout(() => {
-                  loadLeagueLogoMeta(selectedTickerLeague.id)
-                }, 300)
-              }
-            } else {
-              if (isRacingOrIndividual) {
-                setNotice(`Sync for ${selectedTickerLeague.name} didn't find many drivers right now (common for NASCAR etc. depending on season/events). The live ticker still works. A better driver roster pull is planned for later.`)
-              } else {
-                setNotice(`Sync found no teams/drivers for ${selectedTickerLeague.name}. Try loading preview first or check the league URL.`)
-              }
-            }
-          }}
-          disabled={selectedLeagueLoadState.loading}
-        >
-          {selectedLeagueLoadState.loading ? 'Syncing...' : 'Sync Teams & Logos'}
-        </button> : null}
-
-        {selectedTickerLeague.id === 'f1' ? (
-          <button
-            type="button"
-            className="button-link"
-            onClick={async () => {
-              setLogoSyncingLeagues((prev) => ({ ...prev, f1: 'Syncing F1 drivers, cars & circuits…' }))
-              try {
-                const res = await fetch('/api/v1/logos/cache/f1/sync', { method: 'POST' })
-                const data = await res.json()
-                const drivers = data?.drivers?.drivers_synced ?? 0
-                const cars = data?.team_cars?.teams_synced ?? 0
-                const circuits = data?.circuits?.circuits_synced ?? 0
-                setNotice(`F1 sync complete — ${drivers} drivers, ${cars} cars, ${circuits} circuits cached.`)
-                loadLeagueLogoMeta('f1')
-                loadLeagueLogoMeta('f1-drivers')
-              } catch (e) {
-                setNotice(`F1 sync failed: ${e.message}`)
-              } finally {
-                setLogoSyncingLeagues((prev) => {
-                  const copy = { ...prev }
-                  delete copy.f1
-                  return copy
-                })
-              }
-            }}
-          >
-            Sync F1 Drivers & Assets
+              }}
+            >
+              {logoSyncingLeagues[selectedTickerLeague.id] ? 'Syncing NASCAR drivers…' : 'Sync NASCAR Drivers & Assets'}
+            </button>
+          )}
+          <button type="button" className="ld-explorer-btn is-danger" onClick={clearCachedLogos}>
+            Clear Cached Logos
           </button>
-        ) : null}
-
-        {isNascarLeague ? (
-          <button
-            type="button"
-            className="button-link"
-            disabled={!!logoSyncingLeagues[selectedTickerLeague.id]}
-            onClick={async () => {
-              const lid = selectedTickerLeague.id
-              setLogoSyncingLeagues((prev) => ({ ...prev, [lid]: 'Syncing NASCAR drivers…' }))
-              setNotice('Downloading NASCAR driver images from cf.nascar.com — this may take a minute…')
-              try {
-                const res = await fetch('/api/v1/logos/cache/nascar/sync', { method: 'POST' })
-                const data = await res.json()
-                if (!res.ok) throw new Error(data?.detail || `HTTP ${res.status}`)
-                const d = data?.drivers || {}
-                const bySeries = d.by_series || {}
-                const cup = bySeries['nascar-cup'] ?? 0
-                const xfinity = bySeries['nascar-xfinity'] ?? 0
-                const trucks = bySeries['nascar-trucks'] ?? 0
-                const parts = [cup && `${cup} Cup`, xfinity && `${xfinity} Xfinity`, trucks && `${trucks} Trucks`].filter(Boolean)
-                const badges = d.badges_downloaded ?? 0
-                const headshots = d.headshots_downloaded ?? 0
-                const seriesLogos = d.series_logos_downloaded ?? 0
-                const imgParts = [badges && `${badges} badges`, headshots && `${headshots} headshots`, seriesLogos && `${seriesLogos} series logos`].filter(Boolean)
-                setNotice(`NASCAR sync complete — ${parts.join(', ')} drivers. ${imgParts.length ? `Downloaded: ${imgParts.join(', ')}.` : 'Images already cached.'}`)
-                loadLeagueLogoMeta('nascar-cup')
-                loadLeagueLogoMeta('nascar-xfinity')
-                loadLeagueLogoMeta('nascar-trucks')
-              } catch (e) {
-                setNotice(`NASCAR sync failed: ${e.message}`)
-              } finally {
-                setLogoSyncingLeagues((prev) => {
-                  const copy = { ...prev }
-                  delete copy[lid]
-                  return copy
-                })
-              }
-            }}
-          >
-            {logoSyncingLeagues[selectedTickerLeague.id] ? 'Syncing NASCAR drivers…' : 'Sync NASCAR Drivers & Assets'}
-          </button>
-        ) : null}
-
-        <button
-          type="button"
-          className="button-link"
-          onClick={async () => {
-            const leagueId = selectedTickerLeague.id
-            const leagueName = selectedTickerLeague.name
-            try {
-              await fetch(`/api/v1/logos/cache/${encodeURIComponent(leagueId)}`, { method: 'DELETE' })
-              setNotice(`Cleared cached logos for ${leagueName} (folder deleted from disk).`)
-            } catch (e) {
-              // still clear local even if server had issues
-            }
-
-            setLogoClearMessageById((prev) => ({
-              ...prev,
-              [leagueId]: `Cache cleared — logos folder + meta deleted from disk.`,
-            }))
-
-            setTimeout(() => {
-              setLogoClearMessageById((prev) => {
-                const next = { ...prev }
-                delete next[leagueId]
-                return next
-              })
-            }, 4500)
-
-            setLeagueLogoMetaById((current) => {
-              const copy = { ...current }
-              delete copy[leagueId]
-              return copy
-            })
-          }}
-        >
-          Clear Cached Logos
-        </button>
+        </div>
       </div>
 
+      {/* Status messages */}
       {logoClearMessageById[selectedTickerLeague.id] && (
-        <p style={{ color: '#4ade80', fontSize: '0.85em', margin: '4px 0 6px', fontWeight: 500 }}>
+        <p style={{ color: '#4ade80', fontSize: '0.85em', margin: '0 0 8px', fontWeight: 500 }}>
           {logoClearMessageById[selectedTickerLeague.id]}
         </p>
       )}
-
-      {selectedLeagueLoadState.loading ? <p>Loading team data from ESPN...</p> : null}
-      {selectedLeagueLoadState.error ? <p className="field-error">{selectedLeagueLoadState.error}</p> : null}
-
+      {selectedLeagueLoadState.loading && <p className="field-help">Loading team data from ESPN...</p>}
+      {selectedLeagueLoadState.error && <p className="field-error">{selectedLeagueLoadState.error}</p>}
       {logoSyncingLeagues[selectedTickerLeague.id] && (
-        <p style={{ color: '#666', fontStyle: 'italic' }}>
+        <p style={{ color: '#6b7480', fontStyle: 'italic', fontSize: '0.85rem', margin: '0 0 8px' }}>
           {typeof logoSyncingLeagues[selectedTickerLeague.id] === 'string'
             ? logoSyncingLeagues[selectedTickerLeague.id]
             : 'Downloading logo variants… (large leagues like NCAA can take a couple minutes)'}
         </p>
       )}
-
       {isNascarLeague && _ALL_NASCAR_CACHE_IDS.every((id) => !leagueLogoMetaById[id]) && (
         <p className="field-help">Loading driver data…</p>
       )}
 
-      <div className="team-logo-grid">
-        {isNascarLeague && nascarDriverList.length > 0
-          ? nascarDriverList.map((driver) => {
-              const localBadge = driver.logos?.badge ? `/logos/${driver.logos.badge}` : null
-              const badgeUrl = localBadge || null
-              const carNum = driver.remote_urls?.car_number || ''
-              const teamName = driver.remote_urls?.team_name || ''
-              return (
-                <div
-                  key={driver.key}
-                  className="team-logo-card"
-                  onClick={() => onSelectDriver && onSelectDriver(driver)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectDriver && onSelectDriver(driver) } }}
-                  role="button"
-                  tabIndex={0}
-                >
-                  {badgeUrl
-                    ? <img src={badgeUrl} alt={driver.display_name} />
-                    : <div className="team-logo-fallback">No badge</div>}
-                  <p>{driver.display_name}</p>
-                  {carNum ? <p style={{ fontSize: '0.75em', color: '#888', margin: '2px 0 0' }}>#{carNum}{teamName ? ` · ${teamName}` : ''}</p> : null}
-                </div>
-              )
-            })
-          : isNascarLeague ? [] : selectedLeagueTeams.map((team) => {
-              const cachedLogo = getCachedOrRemoteLogo(selectedTickerLeague.id, team)
-              const primaryLogoHref = cachedLogo || resolveTeamPrimaryLogo(team, selectedTickerLeague.id)
-              const includedTeamIds = Array.isArray(selectedTickerLeague.includedTeams)
-                ? selectedTickerLeague.includedTeams
-                : []
-              const isIncluded = includedTeamIds.includes(String(team.id))
-              return (
-                <div
-                  key={`${selectedTickerLeague.id}-${team.id}`}
-                  className="team-logo-card"
-                  onClick={() => {
+      {/* Driver grid — all racing leagues */}
+      {isRacingLeague && (
+        isNascarLeague
+          ? nascarDriverList.length > 0 && (
+            <div className="ld-driver-grid">
+              {nascarDriverList.map((driver) => {
+                const carNum = driver.remote_urls?.car_number || ''
+                const teamName = driver.remote_urls?.team_name || ''
+                const driverColor = String(driver.color || '').replace(/^#/, '')
+                const hexColor = driverColor ? `#${driverColor}` : 'rgba(255,255,255,0.45)'
+                const localBadge = driver.logos?.badge ? `/logos/${driver.logos.badge}` : null
+                return (
+                  <div key={driver.key} className="ld-driver-card"
+                    role="button" tabIndex={0}
+                    onClick={() => onSelectDriver?.(driver)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectDriver?.(driver) } }}
+                  >
+                    {localBadge
+                      ? <img src={localBadge} alt={driver.display_name} className="ld-driver-badge-img" />
+                      : <div className="ld-driver-num" style={{ color: hexColor }}>{carNum || driver.abbreviation || '?'}</div>}
+                    <div className="ld-driver-name">{driver.display_name}</div>
+                    {(carNum || teamName) && (
+                      <div className="ld-driver-meta">#{carNum || '?'}{teamName ? ` · ${teamName}` : ''}</div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )
+          : selectedLeagueTeams.length > 0 && (
+            <div className="ld-driver-grid">
+              {selectedLeagueTeams.map((team) => {
+                const carNum = team.remote_urls?.car_number || team.abbreviation || ''
+                const teamName = team.remote_urls?.team_name || team.name || ''
+                const driverColor = String(team.color || '').replace(/^#/, '')
+                const hexColor = driverColor ? `#${driverColor}` : 'rgba(255,255,255,0.45)'
+                const cachedLogo = getCachedOrRemoteLogo(selectedTickerLeague.id, team) || resolveTeamPrimaryLogo(team, selectedTickerLeague.id)
+                return (
+                  <div key={`${selectedTickerLeague.id}-${team.id}`} className="ld-driver-card"
+                    role="button" tabIndex={0}
+                    onClick={() => { onSelectDriver?.(team) }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectDriver?.(team) } }}
+                  >
+                    {cachedLogo
+                      ? <img src={cachedLogo} alt={team.name} className="ld-driver-badge-img" />
+                      : <div className="ld-driver-num" style={{ color: hexColor }}>{carNum || '?'}</div>}
+                    <div className="ld-driver-name">{team.name}</div>
+                    {teamName && teamName !== team.name && (
+                      <div className="ld-driver-meta">{teamName}</div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )
+      )}
+
+      {/* Team grid — all non-racing leagues */}
+      {!isRacingLeague && selectedLeagueTeams.length > 0 && (
+        <div className="ld-team-grid">
+          {selectedLeagueTeams.map((team) => {
+            const cachedMeta = leagueMeta?.teams?.[String(team.id)]
+            const rawColor = cachedMeta?.color || team.color || ''
+            const teamColor = rawColor ? (rawColor.startsWith('#') ? rawColor : `#${rawColor.replace(/^#/, '')}`) : ''
+            const abbr = (team.abbreviation || team.name?.slice(0, 3) || '?').toUpperCase()
+            const confName = cachedMeta?.conference_name || ''
+            const includedTeamIds = Array.isArray(selectedTickerLeague.includedTeams) ? selectedTickerLeague.includedTeams : []
+            const isIncluded = includedTeamIds.includes(String(team.id))
+            const cachedLogo = getCachedOrRemoteLogo(selectedTickerLeague.id, team)
+            return (
+              <div key={`${selectedTickerLeague.id}-${team.id}`}
+                className={`ld-team-card${isIncluded ? ' is-included' : ''}`}
+                role="button" tabIndex={0}
+                onClick={() => {
+                  onSelectTeam(team.id)
+                  loadTeamLogosForLeagueTeam(selectedTickerLeague, team)
+                  loadLeagueLogoMeta(selectedTickerLeague.id)
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
                     onSelectTeam(team.id)
                     loadTeamLogosForLeagueTeam(selectedTickerLeague, team)
-                    loadLeagueLogoMeta(selectedTickerLeague.id)
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault()
-                      onSelectTeam(team.id)
-                      loadTeamLogosForLeagueTeam(selectedTickerLeague, team)
-                    }
-                  }}
-                  role="button"
-                  tabIndex={0}
-                >
-                  {primaryLogoHref ? (
-                    <img src={primaryLogoHref} alt={team.abbreviation || team.name} />
-                  ) : (
-                    <div className="team-logo-fallback">No logo</div>
-                  )}
-                  <p>{team.name}</p>
-                  <label className="field field-checkbox">
-                    <span>Include in ticker</span>
-                    <input
-                      type="checkbox"
-                      checked={isIncluded}
-                      onChange={(event) => {
-                        event.stopPropagation()
-                        toggleLeagueIncludedTeam(selectedTickerLeagueIndex, String(team.id), event.target.checked)
-                      }}
-                      onClick={(event) => event.stopPropagation()}
-                    />
-                  </label>
+                  }
+                }}
+              >
+                <div className="ld-team-card-top">
+                  <div className="ld-team-avatar" style={{ background: teamColor || 'rgba(255,255,255,0.08)' }}>
+                    {cachedLogo
+                      ? <img src={cachedLogo} alt={abbr} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                      : abbr}
+                  </div>
+                  <div>
+                    <div className="ld-team-name">{team.name}</div>
+                    {confName && <div className="ld-team-conf">{confName}</div>}
+                  </div>
                 </div>
-              )
-            })
-        }
-      </div>
+                <div className="ld-team-include"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    toggleLeagueIncludedTeam(selectedTickerLeagueIndex, String(team.id), !isIncluded)
+                  }}
+                >
+                  <span className={`ld-team-check${isIncluded ? ' is-checked' : ''}`}>{isIncluded ? '✓' : ''}</span>
+                  <span className="ld-team-include-label">Include in ticker</span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </>
   )
 }

@@ -1,5 +1,15 @@
+function hexToRgba(hex, alpha) {
+  if (!hex || hex.length < 6) return `rgba(100,100,100,${alpha})`
+  const r = parseInt(hex.slice(0, 2), 16)
+  const g = parseInt(hex.slice(2, 4), 16)
+  const b = parseInt(hex.slice(4, 6), 16)
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return `rgba(100,100,100,${alpha})`
+  return `rgba(${r},${g},${b},${alpha})`
+}
+
 export default function DriverDetail({ selectedTickerLeague, driver, onBack }) {
   const color = String(driver.color || '').replace(/^#/, '')
+  const hexColor = color ? `#${color}` : '#888'
   const headshotPath = driver.logos?.headshot
   const renderPath = driver.logos?.render
   const badgePath = driver.logos?.badge
@@ -10,13 +20,24 @@ export default function DriverDetail({ selectedTickerLeague, driver, onBack }) {
   const manufacturerRaw = driver.remote_urls?.manufacturer || ''
   const manufacturer = manufacturerRaw.startsWith('http') ? '' : manufacturerRaw
 
+  const badgeStyle = {
+    color: hexColor,
+    borderColor: color ? hexToRgba(color, 0.4) : 'rgba(255,255,255,0.14)',
+    background: color ? hexToRgba(color, 0.12) : 'rgba(255,255,255,0.04)',
+  }
+
   return (
     <>
       <div className="section-heading">
-        <div>
-          <p className="section-kicker">Driver</p>
-          <h2>{driver.display_name}</h2>
-          <p className="section-note">{selectedTickerLeague.name}{teamName ? ` · ${teamName}` : ''}</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div className="driver-num-badge" style={badgeStyle}>
+            {carNum || driver.abbreviation || '?'}
+          </div>
+          <div>
+            <p className="section-kicker">Driver</p>
+            <h2>{driver.display_name}</h2>
+            <p className="section-note">{selectedTickerLeague.name}{teamName ? ` · ${teamName}` : ''}</p>
+          </div>
         </div>
         <button type="button" className="button-secondary" onClick={onBack}>
           Back
@@ -34,49 +55,61 @@ export default function DriverDetail({ selectedTickerLeague, driver, onBack }) {
             {series ? <p><strong>Series</strong><span>{series}</span></p> : null}
             {manufacturer ? <p><strong>Manufacturer</strong><span>{manufacturer}</span></p> : null}
             {color ? (
-              <p><strong>Colour</strong>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <i style={{ display: 'inline-block', width: 16, height: 16, borderRadius: 3, background: `#${color}` }} />
-                  {`#${color}`}
+              <p>
+                <strong>Colour</strong>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <i style={{ display: 'inline-block', width: 14, height: 14, borderRadius: 3, background: hexColor, flexShrink: 0 }} />
+                  {hexColor}
                 </span>
               </p>
             ) : null}
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {headshotPath ? (
-            <div>
-              <h3>Headshot</h3>
+        <div className="driver-assets-grid">
+          <div className="team-card-panel driver-headshot-panel">
+            <div className="team-card-panel-kicker">Headshot</div>
+            {headshotPath ? (
               <img
                 src={`/logos/${headshotPath}`}
                 alt={driver.display_name}
-                style={{ width: 160, height: 160, borderRadius: '50%', objectFit: 'cover', border: `4px solid #${color || '444'}`, display: 'block', marginBottom: 12 }}
+                className="driver-headshot-img"
+                style={{ borderColor: hexColor }}
               />
-            </div>
-          ) : (
-            <p className="team-explorer-subtitle">No headshot cached — run the sync from the league page.</p>
-          )}
-          {renderPath ? (
-            <div>
-              <h3>Full render</h3>
-              <img
-                src={`/logos/${renderPath}`}
-                alt={`${driver.display_name} render`}
-                style={{ height: 240, width: 'auto', objectFit: 'contain', display: 'block' }}
-              />
-            </div>
-          ) : null}
-          {badgePath ? (
-            <div>
-              <h3>Car Badge</h3>
+            ) : (
+              <div className="driver-asset-placeholder">no headshot cached</div>
+            )}
+          </div>
+
+          <div className="team-card-panel">
+            <div className="team-card-panel-kicker">Car badge</div>
+            {badgePath ? (
               <img
                 src={`/logos/${badgePath}`}
                 alt={`${driver.display_name} car badge`}
-                style={{ width: 120, height: 120, objectFit: 'contain', display: 'block' }}
+                style={{ width: 120, height: 120, objectFit: 'contain', display: 'block', margin: '0 auto' }}
               />
-            </div>
-          ) : null}
+            ) : (
+              <div className="driver-car-num-placeholder" style={{ color: hexColor }}>
+                {carNum || driver.abbreviation || '?'}
+              </div>
+            )}
+          </div>
+
+          <div className="team-card-panel driver-render-panel">
+            <div className="team-card-panel-kicker">Full render</div>
+            {renderPath ? (
+              <img
+                src={`/logos/${renderPath}`}
+                alt={`${driver.display_name} render`}
+                style={{ height: 200, width: 'auto', objectFit: 'contain', display: 'block', margin: '0 auto' }}
+              />
+            ) : (
+              <div className="driver-asset-placeholder" style={{ height: 180 }}>
+                car render — run sync from league page to download
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </>

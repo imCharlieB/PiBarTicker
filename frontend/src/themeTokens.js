@@ -292,21 +292,21 @@ export function deriveThemeTokens(theme, options = {}) {
   }
 
   return finalizeTokens({
-    pageBg: '#0a0b0e',
+    pageBg: '#0c0e12',
     pageGradient: 'linear-gradient(180deg, #13161c 0%, #0c0e12 100%)',
     panelBg: '#13161c',
-    panelBorder: '#232833',
-    textMain: '#ffffff',
-    textMuted: '#9aa3b1',
+    panelBorder: 'rgba(255,255,255,0.10)',
+    textMain: '#eef0f3',
+    textMuted: '#93969c',
     tickerBg: '#0c0e12',
-    tickerText: '#e7ebf2',
+    tickerText: '#eef0f3',
     tickerCardBg: '#13161c',
-    tickerCardBorder: '#232833',
+    tickerCardBorder: 'rgba(255,255,255,0.10)',
     lowerBg: '#13161c',
-    lowerText: '#e7ebf2',
+    lowerText: '#eef0f3',
     accent: resolvedAccentOverride || DARK_PRESET.accent,
     heroEyebrow: '#7cf29b',
-    buttonText: '#0c120e',
+    buttonText: '#08160d',
     modeClass: 'mode-dark',
   })
 }

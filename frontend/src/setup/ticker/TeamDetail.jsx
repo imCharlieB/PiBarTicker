@@ -2,6 +2,12 @@ import { useState, useEffect } from 'react'
 import { useAppContext } from '../../AppContext'
 import { getLeagueEntityType } from '../helpers'
 
+function sanitizeColor(raw) {
+  if (!raw) return ''
+  const s = String(raw).trim().replace(/^#/, '')
+  return /^[0-9a-f]{3}([0-9a-f]{3})?$/i.test(s) ? `#${s}` : ''
+}
+
 export default function TeamDetail({ selectedTickerLeague, selectedTickerTeam, onBack, onSelectDriver }) {
   const {
     leagueLogoMetaById, logoSyncingLeagues,
@@ -29,6 +35,7 @@ export default function TeamDetail({ selectedTickerLeague, selectedTickerTeam, o
       })
       .catch(() => setF1Drivers([]))
   }, [selectedTickerLeague.id, selectedTickerTeam.id, cachedTeamMeta?.color])
+
   const cachedVariants = cachedTeamMeta?.logos
     ? Object.entries(cachedTeamMeta.logos).map(([variant, relativePath]) => ({
         variant,
@@ -47,14 +54,24 @@ export default function TeamDetail({ selectedTickerLeague, selectedTickerTeam, o
     : ''
 
   const entityType = getLeagueEntityType(selectedTickerLeague)
+  const teamColor = sanitizeColor(cachedTeamMeta?.color || selectedTickerTeam?.color)
+  const abbr = (selectedTickerTeam.abbreviation || selectedTickerTeam.name?.slice(0, 3) || '?').toUpperCase()
 
   return (
     <>
       <div className="section-heading">
-        <div>
-          <p className="section-kicker">Team</p>
-          <h2>{selectedTickerTeam.name}</h2>
-          <p className="section-note">ESPN team info and logo variants.</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div
+            className="team-avatar-box"
+            style={{ background: teamColor || 'rgba(255,255,255,0.08)' }}
+          >
+            {abbr}
+          </div>
+          <div>
+            <p className="section-kicker">Team</p>
+            <h2>{selectedTickerTeam.name}</h2>
+            <p className="section-note">ESPN team info and logo variants.</p>
+          </div>
         </div>
         <button type="button" className="button-secondary" onClick={onBack}>
           Back to {selectedTickerLeague.name}
@@ -75,8 +92,17 @@ export default function TeamDetail({ selectedTickerLeague, selectedTickerTeam, o
 
           <h3>Team colors (from cache)</h3>
           <div className="team-meta-grid">
-            <p><strong>Primary color</strong><span>{cachedTeamMeta?.color || selectedTickerTeam?.color || 'N/A'}</span></p>
-            <p><strong>Alternate color</strong><span>{cachedTeamMeta?.alternate_color || selectedTickerTeam?.alternateColor || 'N/A'}</span></p>
+            <p>
+              <strong>Primary color</strong>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {teamColor && <i style={{ display: 'inline-block', width: 14, height: 14, borderRadius: 3, background: teamColor, flexShrink: 0 }} />}
+                {cachedTeamMeta?.color || selectedTickerTeam?.color || 'N/A'}
+              </span>
+            </p>
+            <p>
+              <strong>Alternate color</strong>
+              <span>{cachedTeamMeta?.alternate_color || selectedTickerTeam?.alternateColor || 'N/A'}</span>
+            </p>
           </div>
 
           <h3>Standings</h3>
@@ -100,14 +126,14 @@ export default function TeamDetail({ selectedTickerLeague, selectedTickerTeam, o
           </div>
         </div>
 
-        <div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {f1Drivers.length > 0 && (
-            <div style={{ marginBottom: 20 }}>
-              <h3 style={{ marginBottom: 6 }}>Drivers</h3>
+            <div className="team-card-panel">
+              <h3 style={{ margin: 0 }}>Drivers</h3>
               <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
                 {f1Drivers.map((d) => {
                   const headshotPath = d.logos?.headshot
-                  const color = String(d.color || '').replace(/^#/, '')
+                  const dColor = String(d.color || '').replace(/^#/, '')
                   return (
                     <div
                       key={d.id}
@@ -118,8 +144,8 @@ export default function TeamDetail({ selectedTickerLeague, selectedTickerTeam, o
                       style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 80, cursor: 'pointer' }}
                     >
                       {headshotPath
-                        ? <img src={`/logos/${headshotPath}`} alt={d.display_name} style={{ width: 72, height: 72, borderRadius: '50%', objectFit: 'cover', border: `3px solid #${color || '444'}` }} />
-                        : <div style={{ width: 72, height: 72, borderRadius: '50%', background: '#1a1f2a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 900, color: `#${color || 'fff'}` }}>{d.abbreviation}</div>}
+                        ? <img src={`/logos/${headshotPath}`} alt={d.display_name} style={{ width: 72, height: 72, borderRadius: '50%', objectFit: 'cover', border: `3px solid #${dColor || '444'}` }} />
+                        : <div style={{ width: 72, height: 72, borderRadius: '50%', background: '#1a1f2a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 900, color: `#${dColor || 'fff'}` }}>{d.abbreviation}</div>}
                       <span style={{ fontSize: 13, fontWeight: 700, textAlign: 'center' }}>{d.display_name}</span>
                       <span style={{ fontSize: 11, color: '#6b7480', fontWeight: 800, letterSpacing: '.06em' }}>{d.abbreviation}</span>
                     </div>
@@ -129,16 +155,15 @@ export default function TeamDetail({ selectedTickerLeague, selectedTickerTeam, o
             </div>
           )}
 
-          <div style={{ marginBottom: 16 }}>
-            <h3 style={{ marginBottom: 4 }}>More logo variants from ESPN</h3>
-            <p className="team-explorer-subtitle" style={{ marginBottom: 8 }}>
+          <div className="team-card-panel">
+            <h3 style={{ margin: 0 }}>More logo variants from ESPN</h3>
+            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
               The full set of logo variants is available from ESPN. Download them for this team only.
             </p>
-
             {logoSyncingLeagues[selectedTickerLeague.id] &&
             typeof logoSyncingLeagues[selectedTickerLeague.id] === 'string' &&
             logoSyncingLeagues[selectedTickerLeague.id].includes('extra') ? (
-              <p style={{ color: '#666', fontStyle: 'italic' }}>
+              <p style={{ margin: 0, color: '#666', fontStyle: 'italic', fontSize: '0.85rem' }}>
                 {logoSyncingLeagues[selectedTickerLeague.id]}
               </p>
             ) : (
@@ -153,20 +178,19 @@ export default function TeamDetail({ selectedTickerLeague, selectedTickerTeam, o
           </div>
 
           {cachedVariants.length > 0 ? (
-            <>
-              <h3>
-                Local Cached Logos
+            <div className="team-card-panel">
+              <div className="team-card-panel-header">
+                <h3 style={{ margin: 0 }}>Local cached logos</h3>
                 <button
                   type="button"
                   className="button-link"
-                  style={{ marginLeft: '12px', fontSize: '0.75em' }}
                   onClick={() => loadLeagueLogoMeta(selectedTickerLeague.id)}
                 >
                   Refresh
                 </button>
-              </h3>
-              <p className="team-explorer-subtitle">
-                These are the logos downloaded locally for this team. Click one to use it as the preferred variant in the ticker.
+              </div>
+              <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                Downloaded locally for this team. Click one to set it as the preferred variant in the ticker.
               </p>
               <div className="team-logo-variants">
                 {cachedVariants.map(({ variant, href }) => {
@@ -184,23 +208,29 @@ export default function TeamDetail({ selectedTickerLeague, selectedTickerTeam, o
                           .then(() => loadLeagueLogoMeta(selectedTickerLeague.id))
                           .catch(() => {})
                       }}
-                      style={{ cursor: 'pointer', border: isPreferred ? '2px solid var(--accent)' : '1px solid #444' }}
+                      style={{
+                        border: isPreferred ? '2px solid var(--accent)' : '1px solid var(--panel-border)',
+                      }}
                     >
+                      {isPreferred && <span className="team-variant-star">★</span>}
                       <img src={href} alt={variant} />
-                      <p>{variant}{isPreferred ? ' ★' : ''}</p>
+                      <p style={{ color: isPreferred ? 'var(--accent)' : 'var(--text-muted)' }}>
+                        {variant}
+                      </p>
                     </div>
                   )
                 })}
               </div>
-            </>
+            </div>
           ) : (
-            <p className="team-explorer-subtitle">
-              {logoSyncingLeagues[selectedTickerLeague.id]
-                ? 'Logos are still downloading for this league…'
-                : `No locally cached logos yet for this ${entityType.singular.toLowerCase()}.`}
-              <br />
-              Use "Sync Teams &amp; Logos" above to download logos.
-            </p>
+            <div className="team-card-panel">
+              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                {logoSyncingLeagues[selectedTickerLeague.id]
+                  ? 'Logos are still downloading for this league…'
+                  : `No locally cached logos yet for this ${entityType.singular.toLowerCase()}.`}
+                {' '}Use "Sync Teams &amp; Logos" from the league page to download logos.
+              </p>
+            </div>
           )}
         </div>
       </div>

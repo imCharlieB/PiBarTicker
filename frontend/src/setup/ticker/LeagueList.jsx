@@ -307,11 +307,12 @@ export default function LeagueList({ sportsBoard, onSelectLeague }) {
       <div className="league-summary-grid">
         {sportsBoard.leagues.map((league, leagueIndex) => {
           const teams = leagueTeamsById[league.id] || []
+          const edgeColor = league.enabled ? '#7cf29b' : 'rgba(255,255,255,0.08)'
           return (
             <button
               key={league.id}
               type="button"
-              className="league-summary-card"
+              className={`league-summary-card ${league.enabled ? 'is-enabled' : 'is-disabled'}`}
               onClick={async () => {
                 onSelectLeague(league.id)
                 if (!leagueTeamsById[league.id]) {
@@ -326,37 +327,42 @@ export default function LeagueList({ sportsBoard, onSelectLeague }) {
                 loadLeagueLogoMeta(league.id)
               }}
             >
+              <div className="league-edge" style={{ background: edgeColor }} />
               <div className="league-order-controls" aria-label={`League order controls for ${league.name}`}>
-                <span className="league-order-label">Order #{leagueIndex + 1}</span>
+                <span className="league-order-badge">#{leagueIndex + 1}</span>
                 <div className="inline-actions">
                   <button
                     type="button"
-                    className="button-link"
+                    className="button-link league-arrow-btn"
                     disabled={leagueIndex === 0}
                     onClick={(event) => {
                       event.stopPropagation()
                       moveLeague(leagueIndex, -1)
                     }}
                   >
-                    Up
+                    ↑
                   </button>
                   <button
                     type="button"
-                    className="button-link"
+                    className="button-link league-arrow-btn"
                     disabled={leagueIndex === sportsBoard.leagues.length - 1}
                     onClick={(event) => {
                       event.stopPropagation()
                       moveLeague(leagueIndex, 1)
                     }}
                   >
-                    Down
+                    ↓
                   </button>
                 </div>
               </div>
               <p className="league-id">{league.id}</p>
               <h3>{league.name}</h3>
-              <p>{league.enabled ? 'Enabled' : 'Disabled'}</p>
-              <p>Teams loaded: {teams.length}</p>
+              <div className="league-card-status-row">
+                <span className={`league-status-badge ${league.enabled ? 'is-enabled' : 'is-disabled'}`}>
+                  {league.enabled ? 'Enabled' : 'Disabled'}
+                </span>
+                <span className="league-teams-label">{teams.length} teams loaded</span>
+              </div>
               <div className="league-logo-strip">
                 {teams.slice(0, 4).map((team) => {
                   const cached = getCachedOrRemoteLogo(league.id, team)

@@ -96,9 +96,18 @@ apt-get install -y --no-install-recommends \
   rsync \
   "${CHROMIUM_PACKAGE}" \
   wlr-randr \
-  wlopm
+  wlopm \
+  ddcutil
 # X11-only packages (x11-xserver-utils, xdotool, unclutter) removed — not required
-# for Labwc/Wayland on current Pi OS. wlr-randr/wlopm and chromium are kept.
+# for Labwc/Wayland on current Pi OS. wlr-randr/wlopm/ddcutil and chromium are kept.
+
+# ddcutil: enable i2c so it can talk to monitors via DDC/CI over HDMI.
+# raspi-config do_i2c 0 enables the i2c_arm overlay and loads the module.
+echo "Enabling i2c for ddcutil display control..."
+raspi-config nonint do_i2c 0 2>/dev/null || true
+modprobe i2c-dev 2>/dev/null || true
+# Add pi user to i2c group so ddcutil runs without sudo.
+usermod -a -G i2c "${APP_USER}" 2>/dev/null || true
 
 # Stop any currently running services so we can safely update files.
 # They will be restarted at the end of the install.

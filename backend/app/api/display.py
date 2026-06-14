@@ -82,6 +82,52 @@ def get_display_power() -> dict:
     return {"on": _display_on}
 
 
+def _ddcutil_power(on: bool) -> bool:
+    """Control display via DDC/CI (VCP feature D6). Returns True on success.
+
+    This talks directly to the monitor hardware over HDMI, bypassing the
+    Wayland compositor and any idle daemon — so it works even after the
+    compositor has put the output to sleep.
+    """
+    if not shutil.which("ddcutil"):
+        return False
+    try:
+        value = "1" if on else "4"  # D6: 1=on, 4=off/standby
+        r = subprocess.run(
+            ["ddcutil", "setvcp", "0xD6", value],
+            capture_output=True, timeout=15,
+        )
+        if r.returncode == 0:
+            return True
+        # Retry with sudo in case user isn't in i2c group yet
+        r2 = subprocess.run(
+            ["sudo", "ddcutil", "setvcp", "0xD6", value],
+            capture_output=True, timeout=15,
+        )
+        return r2.returncode == 0
+    except Exception:
+        return False
+
+
+def _ddcutil_available() -> bool:
+    if not shutil.which("ddcutil"):
+        return False
+    try:
+        r = subprocess.run(
+            ["ddcutil", "getvcp", "0xD6", "--brief"],
+            capture_output=True, timeout=10,
+        )
+        if r.returncode == 0:
+            return True
+        r2 = subprocess.run(
+            ["sudo", "ddcutil", "getvcp", "0xD6", "--brief"],
+            capture_output=True, timeout=10,
+        )
+        return r2.returncode == 0
+    except Exception:
+        return False
+
+
 @router.get("/diagnose")
 def diagnose_display() -> dict:
     env = _wayland_env()
@@ -97,6 +143,8 @@ def diagnose_display() -> dict:
         "display_on": _display_on,
         "cached_outputs": _cached_outputs,
         "detected_outputs": detected,
+        "ddcutil_available": shutil.which("ddcutil") is not None,
+        "ddcutil_d6_supported": _ddcutil_available(),
         "wlopm_available": shutil.which("wlopm") is not None,
         "wayland_display": env.get("WAYLAND_DISPLAY"),
         "xdg_runtime_dir": env.get("XDG_RUNTIME_DIR"),
@@ -112,7 +160,24 @@ def set_display_power(body: DisplayPowerRequest) -> dict:
 
     env = _wayland_env()
 
-    # Refresh and persist output names while display is on
+    if not body.on:
+        # Kill Chromium first so the compositor has no active client.
+        subprocess.run(
+            ["pkill", "-f", "user-data-dir=/tmp/pibarticker-kiosk"],
+            timeout=5,
+        )
+
+    # ddcutil talks directly to the monitor over HDMI DDC/CI, bypassing the
+    # Wayland compositor and any idle daemon. Try it first — it works even after
+    # the compositor has put the output to sleep.
+    if _ddcutil_power(body.on):
+        _log.info("Display %s via ddcutil", "on" if body.on else "off")
+        _display_on = body.on
+        return {"on": _display_on}
+
+    # Fallback: wlopm / wlr-randr via Wayland compositor
+    _log.info("ddcutil unavailable or failed, falling back to wlopm/wlr-randr")
+
     live = _detect_outputs(env)
     if live:
         _cached_outputs = live
@@ -131,20 +196,10 @@ def set_display_power(body: DisplayPowerRequest) -> dict:
     if not has_wlopm and not has_wlr_randr:
         raise HTTPException(status_code=503, detail="Neither wlopm nor wlr-randr available")
 
-    if not body.on:
-        # Kill Chromium first so the compositor has no active client.
-        # Without this, the compositor re-enables the output almost immediately.
-        subprocess.run(
-            ["pkill", "-f", "user-data-dir=/tmp/pibarticker-kiosk"],
-            timeout=5,
-        )
-
     errors = []
     for output in outputs:
         try:
             if has_wlopm:
-                # wlopm = pure DPMS on/off — output stays registered in compositor,
-                # just the panel powers down. No mode management, always reversible.
                 flag = "--on" if body.on else "--off"
                 subprocess.run(
                     ["wlopm", flag, output],

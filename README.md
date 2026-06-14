@@ -88,6 +88,46 @@ Sections:
 
 ---
 
+## Home Assistant Integration
+
+PiBarTicker ships a custom Home Assistant integration that adds native HA entities — no REST command YAML required.
+
+**What it gives you:**
+
+- `switch.pibarticker_display` — turn the monitor on or off from a dashboard, automation, or voice command
+- `pibarticker.notify` service — send an alert message to the display from any automation (with optional severity level and auto-dismiss duration)
+- Sensor mirroring — pick any HA entities in the integration options and their values are pushed to the display automatically on state change. Configure where each sensor appears (ticker rotation or a corner widget) from the PiBarTicker setup UI under **Services**.
+
+### Install via HACS
+
+1. In Home Assistant, open **HACS → Integrations → ⋮ → Custom repositories**
+2. Add your PiBarTicker repo URL and set category to **Integration**
+3. Search for **PiBarTicker** in HACS and install it
+4. Restart Home Assistant
+5. Go to **Settings → Devices & Services → Add integration** and search for **PiBarTicker**
+6. Enter your Pi's URL (e.g. `http://192.168.1.x:8000`) — the integration will verify it can reach the backend
+7. Open the integration options to select which HA entities to mirror to the display
+
+### Manual install (no HACS)
+
+Copy the `ha-integration/custom_components/pibarticker/` folder into your Home Assistant `config/custom_components/` directory, then restart HA and follow steps 5–7 above.
+
+### Using the notify service
+
+From an automation action or Developer Tools → Services:
+
+```yaml
+service: pibarticker.notify
+data:
+  message: "Leak detected in basement"
+  level: warning      # info | warning | critical
+  ttl: 60             # seconds on screen; 0 = stays until next restart
+```
+
+The alert appears as a floating banner on the display and auto-dismisses when the TTL expires.
+
+---
+
 ## File Layout
 
 ```

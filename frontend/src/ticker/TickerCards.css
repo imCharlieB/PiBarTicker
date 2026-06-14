@@ -452,3 +452,149 @@
 .ticker-runtime-shell .l3-logo  { width: 52px; height: 52px; object-fit: contain; flex: 0 0 auto; background: rgba(245,248,252,.95); border-radius: 12px; padding: 6px; }
 .ticker-runtime-shell .l3-badge { font-weight: 900; font-size: 24px; letter-spacing: .07em; color: #0c120e; background: #cfd6e2; padding: 10px 16px; border-radius: 10px; }
 .ticker-runtime-shell .l3-time  { font-family: 'Spline Sans Mono', monospace; font-weight: 700; font-size: 30px; color: #e7edf6; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+
+/* ── Home Assistant overlays ─────────────────────────────────────────────── */
+
+/* Alert overlay — stacks at top of shell */
+.ticker-runtime-shell .ha-alert-overlay {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: auto;
+  max-width: 700px;
+  width: 90%;
+}
+
+.ticker-runtime-shell .ha-alert {
+  background: rgba(10,11,14,0.92);
+  border: 1.5px solid var(--alert-color, #7CF29B);
+  border-radius: 12px;
+  padding: 11px 18px;
+  box-shadow: 0 0 18px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04);
+}
+
+.ticker-runtime-shell .ha-alert-msg {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--alert-color, #7CF29B);
+  line-height: 1.3;
+}
+
+/* Corner sensor widgets */
+.ticker-runtime-shell .ha-corner-widget {
+  position: absolute;
+  z-index: 50;
+  background: rgba(7,9,12,0.75);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 8px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 120px;
+}
+
+.ticker-runtime-shell .ha-corner-widget-top-left    { top: 10px;    left: 14px; }
+.ticker-runtime-shell .ha-corner-widget-top-right   { top: 10px;    right: 14px; }
+.ticker-runtime-shell .ha-corner-widget-bottom-left { bottom: 72px; left: 14px; }
+.ticker-runtime-shell .ha-corner-widget-bottom-right{ bottom: 72px; right: 14px; }
+
+.ticker-runtime-shell .ha-corner-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ticker-runtime-shell .ha-corner-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.ticker-runtime-shell .ha-corner-value {
+  font-family: 'Spline Sans Mono', monospace;
+  font-size: 15px;
+  font-weight: 700;
+  color: #e7edf6;
+  white-space: nowrap;
+}
+
+.ticker-runtime-shell .ha-corner-unit {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.45);
+  margin-left: 2px;
+}
+
+/* Sensor ticker card — scrolls inline with sports cards */
+.ticker-runtime-shell .ha-ticker-card {
+  height: 100%;
+  padding: 0;
+  background: rgba(7,9,12,0.6);
+  border-left: 1px solid rgba(255,255,255,0.08);
+  border-right: 1px solid rgba(255,255,255,0.08);
+  flex-shrink: 0;
+}
+
+.ticker-runtime-shell .ha-ticker-inner {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+  padding: 16px 28px;
+  gap: 8px;
+}
+
+.ticker-runtime-shell .ha-ticker-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent, #7CF29B);
+  margin-bottom: 2px;
+}
+
+.ticker-runtime-shell .ha-ticker-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ticker-runtime-shell .ha-ticker-row {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+
+.ticker-runtime-shell .ha-ticker-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.5);
+  min-width: 90px;
+  white-space: nowrap;
+}
+
+.ticker-runtime-shell .ha-ticker-val {
+  font-family: 'Spline Sans Mono', monospace;
+  font-size: 18px;
+  font-weight: 700;
+  color: #e7edf6;
+  white-space: nowrap;
+}
+
+.ticker-runtime-shell .ha-ticker-unit {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.4);
+  margin-left: 3px;
+}

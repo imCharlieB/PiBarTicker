@@ -5,8 +5,11 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from .api.alerts import router as alerts_router
 from .api.config import router as config_router
+from .api.display import router as display_router
 from .api.espn import router as espn_router
+from .api.ha_sensors import router as ha_sensors_router
 from .api.logos.router import router as logos_router
 from .core.config import config_store
 from .core.paths import bootstrap_runtime_dirs, get_runtime_paths
@@ -19,6 +22,9 @@ app = FastAPI(
 )
 
 app.include_router(config_router)
+app.include_router(display_router)
+app.include_router(alerts_router)
+app.include_router(ha_sensors_router)
 app.include_router(espn_router)
 app.include_router(logos_router)
 

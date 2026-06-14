@@ -104,6 +104,121 @@ function LeagueMark({ league, logo }) {
   return null
 }
 
+// ── HA sensor polling ────────────────────────────────────────────────────────
+function useHASensors() {
+  const [values, setValues] = useState({})
+  useEffect(() => {
+    let cancelled = false
+    const poll = async () => {
+      try {
+        const res = await fetch('/api/v1/ha/sensors')
+        if (res.ok && !cancelled) {
+          const list = await res.json()
+          const map = {}
+          for (const s of list) map[s.entity_id] = s
+          setValues(map)
+        }
+      } catch {}
+    }
+    poll()
+    const id = setInterval(poll, 30000)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [])
+  return values
+}
+
+// ── Alert overlay ─────────────────────────────────────────────────────────────
+const ALERT_LEVEL_COLOR = { info: '#7CF29B', warning: '#f0b429', critical: '#e03344' }
+
+function AlertOverlay() {
+  const [alerts, setAlerts] = useState([])
+
+  useEffect(() => {
+    let cancelled = false
+    const poll = async () => {
+      try {
+        const res = await fetch('/api/v1/alerts')
+        if (res.ok && !cancelled) setAlerts(await res.json())
+      } catch {}
+    }
+    poll()
+    const id = setInterval(poll, 5000)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [])
+
+  if (alerts.length === 0) return null
+  return (
+    <div className="ha-alert-overlay" role="alert">
+      {alerts.slice(0, 3).map(alert => (
+        <div
+          key={alert.id}
+          className="ha-alert"
+          style={{ '--alert-color': ALERT_LEVEL_COLOR[alert.level] ?? ALERT_LEVEL_COLOR.info }}
+        >
+          <span className="ha-alert-msg">{alert.message}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── Corner sensor widgets ─────────────────────────────────────────────────────
+const CORNER_POSITIONS = ['top-left', 'top-right', 'bottom-left', 'bottom-right']
+
+function SensorCornerWidgets({ haSensors, sensorValues }) {
+  return CORNER_POSITIONS.map(pos => {
+    const sensors = haSensors.filter(s => s.position === pos)
+    if (sensors.length === 0) return null
+    return (
+      <div key={pos} className={`ha-corner-widget ha-corner-widget-${pos}`}>
+        {sensors.map(sensor => {
+          const live = sensorValues[sensor.entityId]
+          const label = sensor.label || sensor.entityId.split('.').pop().replace(/_/g, ' ')
+          const value = live ? live.state : '—'
+          const unit = sensor.unit || live?.unit || ''
+          return (
+            <div key={sensor.entityId} className="ha-corner-item">
+              <span className="ha-corner-label">{label}</span>
+              <span className="ha-corner-value">
+                {value}<span className="ha-corner-unit">{unit}</span>
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    )
+  })
+}
+
+// ── Sensor ticker card ────────────────────────────────────────────────────────
+function SensorTickerCard({ haSensors, sensorValues }) {
+  const sensors = haSensors.filter(s => s.position === 'ticker')
+  if (sensors.length === 0) return null
+  return (
+    <div className="ha-ticker-card ticker-runtime-card" role="listitem">
+      <div className="ha-ticker-inner">
+        <div className="ha-ticker-title">HOME</div>
+        <div className="ha-ticker-rows">
+          {sensors.map(sensor => {
+            const live = sensorValues[sensor.entityId]
+            const label = sensor.label || sensor.entityId.split('.').pop().replace(/_/g, ' ')
+            const value = live ? live.state : '—'
+            const unit = sensor.unit || live?.unit || ''
+            return (
+              <div key={sensor.entityId} className="ha-ticker-row">
+                <span className="ha-ticker-label">{label}</span>
+                <span className="ha-ticker-val">
+                  {value}<span className="ha-ticker-unit">{unit}</span>
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function LowerThird({ clockFormat }) {
   const [now, setNow] = useState(() => new Date())
   const [cur, setCur] = useState({ league: '', logo: '' })
@@ -229,6 +344,8 @@ function TickerRuntime({
   onHandoffCheck,
 }) {
   const [watermarkSize, setWatermarkSize] = useState('82%')
+  const sensorValues = useHASensors()
+  const haSensors = homeAssistantBoard?.haSensors ?? []
   const trackRef = useRef(null)
   const windowRef = useRef(null)
   const firstCardRef = useRef(null)
@@ -384,6 +501,7 @@ function TickerRuntime({
 
   return (
     <main className={`ticker-runtime-shell ${themeTokens.modeClass}`} style={{ ...shellStyle, '--ticker-watermark-size': watermarkSize }}>
+      <AlertOverlay />
       {!hasEnabledLeagues ? (
         <p className="ticker-runtime-empty">Enable at least one league.</p>
       ) : (
@@ -439,10 +557,12 @@ function TickerRuntime({
                   />
                 )
               })}
+              <SensorTickerCard haSensors={haSensors} sensorValues={sensorValues} />
             </div>
           </div>
 
           <LowerThird clockFormat={config?.theme?.clockFormat ?? '12h'} />
+          <SensorCornerWidgets haSensors={haSensors} sensorValues={sensorValues} />
         </section>
       )}
     </main>

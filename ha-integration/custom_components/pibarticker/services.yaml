@@ -1,0 +1,31 @@
+notify:
+  name: Send alert
+  description: Send an alert message to the PiBarTicker display.
+  fields:
+    message:
+      name: Message
+      description: The alert text to display.
+      required: true
+      selector:
+        text:
+    level:
+      name: Level
+      description: "Alert severity: info, warning, or critical."
+      required: false
+      default: info
+      selector:
+        select:
+          options:
+            - info
+            - warning
+            - critical
+    ttl:
+      name: Duration (seconds)
+      description: How long the alert stays on screen. 0 = until manually dismissed.
+      required: false
+      default: 30
+      selector:
+        number:
+          min: 0
+          max: 3600
+          unit_of_measurement: s

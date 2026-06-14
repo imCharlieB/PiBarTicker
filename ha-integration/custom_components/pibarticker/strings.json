@@ -1,0 +1,50 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to PiBarTicker",
+        "description": "Enter the URL of your PiBarTicker backend (e.g. {example})",
+        "data": {
+          "url": "PiBarTicker URL"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not connect. Check the URL and make sure the Pi is online."
+    },
+    "abort": {
+      "already_configured": "This PiBarTicker is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Sensor mirroring",
+        "description": "Pick Home Assistant entities to mirror to the PiBarTicker display. Configure display position in the PiBarTicker setup UI.",
+        "data": {
+          "sensors": "Entities to mirror"
+        }
+      }
+    }
+  },
+  "services": {
+    "notify": {
+      "name": "Send alert",
+      "description": "Send an alert message to the PiBarTicker display.",
+      "fields": {
+        "message": {
+          "name": "Message",
+          "description": "The alert text to display."
+        },
+        "level": {
+          "name": "Level",
+          "description": "Alert severity: info, warning, or critical."
+        },
+        "ttl": {
+          "name": "Duration (seconds)",
+          "description": "How long the alert stays on screen. 0 = until manually dismissed."
+        }
+      }
+    }
+  }
+}

@@ -103,12 +103,19 @@ class SportsBoardConfig(AppBaseModel):
     leagues: list[LeagueConfig] = Field(default_factory=list)
 
 
+class HASensorConfig(AppBaseModel):
+    entityId: str
+    label: str = ""
+    unit: str = ""
+    position: Literal["ticker", "top-left", "top-right", "bottom-left", "bottom-right"] = "ticker"
+
+
 class HomeAssistantBoardConfig(AppBaseModel):
     id: str = "ha-bar"
     type: Literal["home-assistant"] = "home-assistant"
     name: str = "Home Assistant"
     enabled: bool = True
-    haSensors: list[str] = Field(default_factory=list)
+    haSensors: list[HASensorConfig] = Field(default_factory=list)
 
 
 BoardConfig = Annotated[
@@ -214,6 +221,20 @@ class ConfigStore:
                                     if key in league:
                                         league.pop(key)
                                         changed = True
+
+            # Migrate haSensors from list[str] to list[HASensorConfig]
+            boards = data.get("boards")
+            if isinstance(boards, list):
+                for board in boards:
+                    if isinstance(board, dict) and board.get("type") == "home-assistant":
+                        sensors = board.get("haSensors")
+                        if isinstance(sensors, list) and any(isinstance(s, str) for s in sensors):
+                            board["haSensors"] = [
+                                {"entityId": s, "label": "", "unit": "", "position": "ticker"}
+                                if isinstance(s, str) else s
+                                for s in sensors
+                            ]
+                            changed = True
 
             if changed:
                 self._path.write_text(json.dumps(data, indent=2), encoding="utf-8")

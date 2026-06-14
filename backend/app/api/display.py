@@ -7,7 +7,6 @@ import subprocess
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from ..core.config import config_store
 from ..core.paths import get_runtime_paths
 
 router = APIRouter(prefix="/api/v1/display", tags=["display"])
@@ -25,7 +24,7 @@ def _load_cached_outputs() -> list[str]:
             if isinstance(data, list):
                 return data
             if isinstance(data, str):
-                return [data]  # migrate old single-string format
+                return [data]
     except Exception:
         pass
     return []
@@ -60,7 +59,6 @@ def _wayland_env() -> dict:
 
 
 def _detect_outputs(env: dict) -> list[str]:
-    """Return names of all currently active Wayland outputs."""
     try:
         result = subprocess.run(
             ["wlr-randr"], capture_output=True, text=True, timeout=5, env=env
@@ -73,32 +71,6 @@ def _detect_outputs(env: dict) -> list[str]:
     except Exception:
         pass
     return []
-
-
-def _turn_on(output: str, env: dict) -> None:
-    """Try every known-good wlr-randr approach to re-enable a disabled output.
-
-    The correct command depends on the compositor version and whether a custom
-    mode was previously set. We try in order until one exits 0.
-    """
-    cfg = config_store.load()
-    w, h = cfg.monitor.width, cfg.monitor.height
-    attempts = [
-        ["wlr-randr", "--output", output, "--on", "--preferred"],          # use display's native preferred mode
-        ["wlr-randr", "--output", output, "--on", "--mode", f"{w}x{h}"],   # select existing mode by resolution
-        ["wlr-randr", "--output", output, "--custom-mode", f"{w}x{h}"],    # set custom mode (implicitly enables)
-        ["wlr-randr", "--output", output, "--on"],                          # last resort: let compositor pick
-    ]
-    last_exc = None
-    for cmd in attempts:
-        try:
-            subprocess.run(cmd, check=True, timeout=10, env=env)
-            _log.info("Display turned on with: %s", " ".join(cmd))
-            return
-        except subprocess.CalledProcessError as exc:
-            _log.debug("Turn-on attempt failed %s: %s", cmd, exc)
-            last_exc = exc
-    raise last_exc
 
 
 class DisplayPowerRequest(BaseModel):
@@ -125,6 +97,7 @@ def diagnose_display() -> dict:
         "display_on": _display_on,
         "cached_outputs": _cached_outputs,
         "detected_outputs": detected,
+        "wlopm_available": shutil.which("wlopm") is not None,
         "wayland_display": env.get("WAYLAND_DISPLAY"),
         "xdg_runtime_dir": env.get("XDG_RUNTIME_DIR"),
         "wlr_randr_rc": wlr_rc,
@@ -137,25 +110,30 @@ def diagnose_display() -> dict:
 def set_display_power(body: DisplayPowerRequest) -> dict:
     global _display_on, _cached_outputs
 
-    if not shutil.which("wlr-randr"):
-        raise HTTPException(status_code=503, detail="wlr-randr not available")
-
     env = _wayland_env()
-    outputs = _detect_outputs(env) or _cached_outputs
+
+    # Refresh and persist output names while display is on
+    live = _detect_outputs(env)
+    if live:
+        _cached_outputs = live
+        _save_cached_outputs(live)
+
+    outputs = live or _cached_outputs
     if not outputs:
         raise HTTPException(
             status_code=503,
-            detail=f"No outputs detected and no cached output names (WAYLAND_DISPLAY={env.get('WAYLAND_DISPLAY')})",
+            detail=f"No outputs detected and no cached names (WAYLAND_DISPLAY={env.get('WAYLAND_DISPLAY')})",
         )
 
-    # Persist whenever we have fresh data from wlr-randr
-    if _detect_outputs(env):
-        _cached_outputs = outputs
-        _save_cached_outputs(outputs)
+    has_wlopm = shutil.which("wlopm") is not None
+    has_wlr_randr = shutil.which("wlr-randr") is not None
+
+    if not has_wlopm and not has_wlr_randr:
+        raise HTTPException(status_code=503, detail="Neither wlopm nor wlr-randr available")
 
     if not body.on:
-        # Kill the kiosk Chromium before disabling the output — if Chromium is still
-        # connected the compositor immediately re-enables the output after --off.
+        # Kill Chromium first so the compositor has no active client.
+        # Without this, the compositor re-enables the output almost immediately.
         subprocess.run(
             ["pkill", "-f", "user-data-dir=/tmp/pibarticker-kiosk"],
             timeout=5,
@@ -164,20 +142,33 @@ def set_display_power(body: DisplayPowerRequest) -> dict:
     errors = []
     for output in outputs:
         try:
-            if body.on:
-                _turn_on(output, env)
-            else:
+            if has_wlopm:
+                # wlopm = pure DPMS on/off — output stays registered in compositor,
+                # just the panel powers down. No mode management, always reversible.
+                flag = "--on" if body.on else "--off"
                 subprocess.run(
-                    ["wlr-randr", "--output", output, "--off"],
+                    ["wlopm", flag, output],
                     check=True, timeout=10, env=env,
+                    capture_output=True,
                 )
+            else:
+                flag = "--on" if body.on else "--off"
+                r = subprocess.run(
+                    ["wlr-randr", "--output", output, flag],
+                    timeout=10, env=env,
+                    capture_output=True,
+                )
+                if r.returncode != 0:
+                    _log.warning("wlr-randr %s stderr: %s", flag, r.stderr.decode())
         except subprocess.CalledProcessError as exc:
+            errors.append(f"{output}: {exc}")
+        except Exception as exc:
             errors.append(f"{output}: {exc}")
 
     if errors and not body.on:
         raise HTTPException(status_code=500, detail=f"Display off failed: {'; '.join(errors)}")
     if errors:
-        _log.warning("Display turn-on errors (kiosk will still restart): %s", errors)
+        _log.warning("Display turn-on had errors (kiosk will restart anyway): %s", errors)
 
     _display_on = body.on
     return {"on": _display_on}

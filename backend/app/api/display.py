@@ -187,17 +187,13 @@ def set_display_power(body: DisplayPowerRequest) -> dict:
     env = _wayland_env()
 
     if not body.on:
-        # Kill Chromium so the compositor has no active client.
-        subprocess.run(
-            ["pkill", "-f", "user-data-dir=/tmp/pibarticker-kiosk"],
-            timeout=5,
-        )
-        # Use ddcutil only for turn-off — it puts the monitor in VCP standby
-        # while keeping the HDMI/DDC channel alive so future wake commands work.
-        # Never run wlopm --off here: that makes labwc cut the TMDS signal at the
-        # GPU, which kills the DDC channel and makes the monitor unresponsive.
+        # Do NOT kill Chromium. Keeping Chromium running keeps the Wayland
+        # compositor active and the HDMI/DDC channel alive. If Chromium is killed,
+        # the compositor has no clients and cuts the TMDS signal within seconds —
+        # after that, ddcutil has no DDC channel and can never wake the monitor.
+        # (This matches how TouchKio works: ddcutil-only, compositor always running.)
         if _ddcutil_power(False):
-            _log.info("Display off via ddcutil")
+            _log.info("Display off via ddcutil (Chromium still running)")
         else:
             _log.warning("ddcutil off failed — falling back to wlopm (HDMI signal will drop)")
             _wlopm_outputs(False, env)

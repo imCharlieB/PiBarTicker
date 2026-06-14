@@ -7,7 +7,8 @@ from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/v1/display", tags=["display"])
 
-_display_on: bool = True  # assumed on at startup
+_display_on: bool = True   # assumed on at startup
+_cached_output: str | None = None  # last known output name; reused when display is off
 
 
 def _wayland_env() -> dict:
@@ -61,16 +62,19 @@ def get_display_power() -> dict:
 
 @router.post("/power")
 def set_display_power(body: DisplayPowerRequest) -> dict:
-    global _display_on
+    global _display_on, _cached_output
     if not _wlr_randr_available():
         raise HTTPException(status_code=503, detail="wlr-randr not available")
     env = _wayland_env()
-    output = _detect_output(env)
+    # Detection may return None when the display is already off (output not listed).
+    # Fall back to the last known output name so "turn on" still works.
+    output = _detect_output(env) or _cached_output
     if not output:
         raise HTTPException(
             status_code=503,
             detail=f"No Wayland output detected (WAYLAND_DISPLAY={env.get('WAYLAND_DISPLAY')}, XDG_RUNTIME_DIR={env.get('XDG_RUNTIME_DIR')})",
         )
+    _cached_output = output  # keep fresh for future "turn on" calls
     flag = "--on" if body.on else "--off"
     try:
         subprocess.run(

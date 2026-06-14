@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useAppContext } from '../AppContext'
 import { computeServicesErrors } from './helpers'
 
@@ -9,27 +10,37 @@ const POSITION_OPTIONS = [
   { value: 'bottom-right', label: 'Bottom right' },
 ]
 
-function emptySensor() {
-  return { entityId: '', label: '', unit: '', position: 'ticker' }
-}
-
 export default function ServicesPage() {
   const { config, updateConfigSection, updateBoard } = useAppContext()
   const homeAssistantBoard = config.boards.find((b) => b.type === 'home-assistant')
   const servicesErrors = computeServicesErrors(config)
-  const sensors = homeAssistantBoard?.haSensors ?? []
+  const savedSensors = homeAssistantBoard?.haSensors ?? []
 
-  function updateSensor(index, patch) {
-    const updated = sensors.map((s, i) => (i === index ? { ...s, ...patch } : s))
+  const [pushedSensors, setPushedSensors] = useState([])
+  const [loadingState, setLoadingState] = useState('loading') // 'loading' | 'done' | 'error'
+
+  useEffect(() => {
+    fetch('/api/v1/ha/sensors')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((list) => { setPushedSensors(list); setLoadingState('done') })
+      .catch(() => setLoadingState('error'))
+  }, [])
+
+  function getSavedConfig(entityId) {
+    return savedSensors.find((s) => s.entityId === entityId) ?? {
+      entityId,
+      label: '',
+      unit: '',
+      position: 'ticker',
+    }
+  }
+
+  function updateSensor(entityId, patch) {
+    const exists = savedSensors.some((s) => s.entityId === entityId)
+    const updated = exists
+      ? savedSensors.map((s) => s.entityId === entityId ? { ...s, ...patch } : s)
+      : [...savedSensors, { entityId, label: '', unit: '', position: 'ticker', ...patch }]
     updateBoard('home-assistant', { haSensors: updated })
-  }
-
-  function addSensor() {
-    updateBoard('home-assistant', { haSensors: [...sensors, emptySensor()] })
-  }
-
-  function removeSensor(index) {
-    updateBoard('home-assistant', { haSensors: sensors.filter((_, i) => i !== index) })
   }
 
   return (
@@ -96,66 +107,72 @@ export default function ServicesPage() {
             <div>
               <div className="ha-sensor-title">Display sensors</div>
               <div className="ha-sensor-desc">
-                Pick HA entities to show on the display. The HA integration will push their values here automatically.
+                Pick entities in the PiBarTicker integration options in Home Assistant — they'll appear here automatically. Then choose where each one shows on the display.
               </div>
             </div>
-            <button className="btn-add-sensor" type="button" onClick={addSensor}>
-              + Add sensor
-            </button>
           </div>
 
-          {sensors.length > 0 && (
-            <div className="ha-sensor-list">
-              <div className="ha-sensor-list-head">
-                <span>Entity ID</span>
-                <span>Label</span>
-                <span>Unit</span>
-                <span>Position</span>
-                <span />
-              </div>
-              {sensors.map((sensor, i) => (
-                <div className="ha-sensor-row" key={i}>
-                  <input
-                    type="text"
-                    placeholder="sensor.living_room_temp"
-                    value={sensor.entityId}
-                    onChange={(e) => updateSensor(i, { entityId: e.target.value })}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Living Room"
-                    value={sensor.label}
-                    onChange={(e) => updateSensor(i, { label: e.target.value })}
-                  />
-                  <input
-                    type="text"
-                    placeholder="°F"
-                    value={sensor.unit}
-                    onChange={(e) => updateSensor(i, { unit: e.target.value })}
-                  />
-                  <select
-                    value={sensor.position}
-                    onChange={(e) => updateSensor(i, { position: e.target.value })}
-                  >
-                    {POSITION_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                  <button
-                    className="btn-remove-sensor"
-                    type="button"
-                    onClick={() => removeSensor(i)}
-                    aria-label="Remove sensor"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
+          {loadingState === 'loading' && (
+            <p className="ha-sensor-empty">Loading…</p>
           )}
 
-          {sensors.length === 0 && (
-            <p className="ha-sensor-empty">No sensors configured. Click &ldquo;+ Add sensor&rdquo; to start.</p>
+          {loadingState === 'done' && pushedSensors.length === 0 && (
+            <p className="ha-sensor-empty">
+              No sensors received yet. Open the PiBarTicker integration in Home Assistant, go to <strong>Configure</strong>, and select entities to mirror.
+            </p>
+          )}
+
+          {loadingState === 'error' && (
+            <p className="ha-sensor-empty">Could not reach the backend to load sensor data.</p>
+          )}
+
+          {loadingState === 'done' && pushedSensors.length > 0 && (
+            <div className="ha-sensor-list">
+              <div className="ha-sensor-list-head ha-sensor-list-head-pushed">
+                <span>Sensor</span>
+                <span>Current value</span>
+                <span>Label override</span>
+                <span>Unit</span>
+                <span>Position</span>
+              </div>
+              {pushedSensors.map((sensor) => {
+                const cfg = getSavedConfig(sensor.entity_id)
+                return (
+                  <div className="ha-sensor-row ha-sensor-row-pushed" key={sensor.entity_id}>
+                    <div className="ha-sensor-entity">
+                      <span className="ha-sensor-entity-name">
+                        {sensor.friendly_name || sensor.entity_id}
+                      </span>
+                      <span className="ha-sensor-entity-id">{sensor.entity_id}</span>
+                    </div>
+                    <span className="ha-sensor-live">
+                      {sensor.state}
+                      {sensor.unit ? <span className="ha-sensor-live-unit">{sensor.unit}</span> : null}
+                    </span>
+                    <input
+                      type="text"
+                      placeholder={sensor.friendly_name || 'Label'}
+                      value={cfg.label}
+                      onChange={(e) => updateSensor(sensor.entity_id, { label: e.target.value })}
+                    />
+                    <input
+                      type="text"
+                      placeholder={sensor.unit || 'Unit'}
+                      value={cfg.unit}
+                      onChange={(e) => updateSensor(sensor.entity_id, { unit: e.target.value })}
+                    />
+                    <select
+                      value={cfg.position}
+                      onChange={(e) => updateSensor(sensor.entity_id, { position: e.target.value })}
+                    >
+                      {POSITION_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                )
+              })}
+            </div>
           )}
         </div>
       ) : null}

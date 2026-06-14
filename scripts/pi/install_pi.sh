@@ -241,6 +241,65 @@ ${APP_DIR}/scripts/pi/launch-kiosk.sh &
 LABWC_EOF
 chmod +x "${LABWC_AUTOSTART}"
 
+# Disable lxqt-powermanagement DPMS via its config file. Even though we kill it at
+# kiosk start, the Pi OS system autostart may relaunch it. Setting EnableDPMS=false
+# means it can run but will never fire DPMS-off or drop the HDMI signal.
+echo "Disabling lxqt-powermanagement DPMS via config..."
+mkdir -p "${APP_HOME}/.config/lxqt"
+python3 - "${APP_HOME}/.config/lxqt/lxqt-powermanagement.conf" <<'PY'
+import sys, os, re
+path = sys.argv[1]
+content = open(path).read() if os.path.exists(path) else ''
+if '[Monitor]' in content:
+    if 'EnableDPMS' in content:
+        content = re.sub(r'(EnableDPMS\s*=\s*).*', r'\1false', content)
+    else:
+        content = content.replace('[Monitor]', '[Monitor]\nEnableDPMS=false')
+else:
+    content = content.rstrip('\n') + '\n\n[Monitor]\nEnableDPMS=false\n'
+open(path, 'w').write(content)
+print("lxqt-powermanagement: EnableDPMS=false")
+PY
+chown "${APP_USER}:${APP_USER}" "${APP_HOME}/.config/lxqt/lxqt-powermanagement.conf"
+
+# Disable labwc's own built-in dpmsTimeout. Even with lxqt dead, labwc can fire
+# its own DRM DPMS-off via rc.xml <dpmsTimeout>, which also cuts the HDMI signal.
+# swayidle+ddcutil handles all idle sleep, so labwc's timer must be 0 (disabled).
+echo "Setting labwc dpmsTimeout=0 in rc.xml..."
+LABWC_RC="${APP_HOME}/.config/labwc/rc.xml"
+SYS_RC="/etc/xdg/labwc/rc.xml"
+if [ ! -f "${LABWC_RC}" ] && [ -f "${SYS_RC}" ]; then
+  cp "${SYS_RC}" "${LABWC_RC}"
+  chown "${APP_USER}:${APP_USER}" "${LABWC_RC}"
+fi
+if [ -f "${LABWC_RC}" ]; then
+  python3 - "${LABWC_RC}" <<'PY'
+import sys, re
+path = sys.argv[1]
+content = open(path).read()
+if '<dpmsTimeout>' in content:
+    content = re.sub(r'<dpmsTimeout>\d+</dpmsTimeout>', '<dpmsTimeout>0</dpmsTimeout>', content)
+elif '<core>' in content:
+    content = content.replace('<core>', '<core>\n    <dpmsTimeout>0</dpmsTimeout>', 1)
+elif '</labwc_config>' in content:
+    content = content.replace('</labwc_config>', '  <core>\n    <dpmsTimeout>0</dpmsTimeout>\n  </core>\n</labwc_config>')
+open(path, 'w').write(content)
+print("labwc rc.xml: dpmsTimeout=0")
+PY
+else
+  # No rc.xml anywhere — write a minimal one.
+  cat > "${LABWC_RC}" <<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<labwc_config>
+  <core>
+    <dpmsTimeout>0</dpmsTimeout>
+  </core>
+</labwc_config>
+XML
+  chown "${APP_USER}:${APP_USER}" "${LABWC_RC}"
+  echo "Created minimal labwc rc.xml with dpmsTimeout=0"
+fi
+
 # Hide the cursor for kiosk mode.
 # XCURSOR_SIZE=0 is not reliable — wlroots treats 0 as "use default size."
 # The correct approach is a blank cursor theme: all cursor files are valid Xcursor

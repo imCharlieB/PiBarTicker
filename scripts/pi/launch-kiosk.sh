@@ -178,20 +178,28 @@ if [ "$IS_WAYLAND" = "1" ] && command -v wlopm >/dev/null 2>&1; then
   done
 fi
 
-if [ "$IS_WAYLAND" = "1" ]; then
-  if command -v wlr-randr >/dev/null 2>&1; then
-    # Wayland / Labwc custom resolution for bar displays (e.g. 1920x380 or 3840x380)
-    OUTPUT=$(wlr-randr 2>/dev/null | grep -E '^[A-Z]' | head -1 | awk '{print $1}' || echo "")
-    if [ -n "$OUTPUT" ]; then
-      CURRENT=$(wlr-randr 2>/dev/null | grep -A1 "^$OUTPUT" | grep -o '[0-9]\+x[0-9]\+' | head -1 || echo "")
-      if [ "$CURRENT" != "${DISPLAY_MODE}" ]; then
-        echo "Setting Wayland custom mode ${DISPLAY_MODE} on $OUTPUT"
-        wlr-randr --output "$OUTPUT" --custom-mode "${WIDTH}x${HEIGHT}" || true
-        sleep 2
-      else
-        echo "Wayland output already at desired mode"
+# Re-applies the custom bar resolution on the Wayland output. Called at startup
+# and after each display-on cycle because wlopm --off/--on resets the output to
+# the monitor's native mode, which leaves the desktop/ticker uncropped and off-center.
+apply_display_mode() {
+  if [ "$IS_WAYLAND" = "1" ] && command -v wlr-randr >/dev/null 2>&1; then
+    local out
+    out=$(wlr-randr 2>/dev/null | grep -E '^[A-Z]' | head -1 | awk '{print $1}' || echo "")
+    if [ -n "$out" ]; then
+      local cur
+      cur=$(wlr-randr 2>/dev/null | grep -A1 "^${out}" | grep -o '[0-9]\+x[0-9]\+' | head -1 || echo "")
+      if [ "$cur" != "${DISPLAY_MODE}" ]; then
+        echo "Applying custom mode ${DISPLAY_MODE} on ${out}"
+        wlr-randr --output "$out" --custom-mode "${WIDTH}x${HEIGHT}" || true
+        sleep 1
       fi
     fi
+  fi
+}
+
+if [ "$IS_WAYLAND" = "1" ]; then
+  if command -v wlr-randr >/dev/null 2>&1; then
+    apply_display_mode
   else
     echo "wlr-randr not found; cannot set custom resolution on Wayland"
   fi
@@ -278,6 +286,10 @@ while true; do
   while display_explicitly_off; do
     sleep 3
   done
+
+  # Re-apply the custom bar mode — wlopm --off/--on resets the output to the
+  # monitor's native resolution, which would leave Chromium uncropped/off-center.
+  apply_display_mode
 
   sleep 5
 done

@@ -54,6 +54,31 @@ def get_display_power() -> dict:
     return {"on": _display_on}
 
 
+@router.get("/diagnose")
+def diagnose_display() -> dict:
+    env = _wayland_env()
+    detected = _detect_output(env)
+    try:
+        raw = subprocess.run(["wlr-randr"], capture_output=True, text=True, timeout=5, env=env)
+        wlr_stdout = raw.stdout
+        wlr_stderr = raw.stderr
+        wlr_rc = raw.returncode
+    except Exception as e:
+        wlr_stdout, wlr_stderr, wlr_rc = "", str(e), -1
+    cfg = config_store.load()
+    return {
+        "display_on": _display_on,
+        "cached_output": _cached_output,
+        "detected_output": detected,
+        "monitor_config": {"width": cfg.monitor.width, "height": cfg.monitor.height},
+        "wayland_display": env.get("WAYLAND_DISPLAY"),
+        "xdg_runtime_dir": env.get("XDG_RUNTIME_DIR"),
+        "wlr_randr_rc": wlr_rc,
+        "wlr_randr_stdout": wlr_stdout,
+        "wlr_randr_stderr": wlr_stderr,
+    }
+
+
 @router.post("/power")
 def set_display_power(body: DisplayPowerRequest) -> dict:
     global _display_on, _cached_output
@@ -75,7 +100,7 @@ def set_display_power(body: DisplayPowerRequest) -> dict:
             cfg = config_store.load()
             w, h = cfg.monitor.width, cfg.monitor.height
             subprocess.run(
-                ["wlr-randr", "--output", output, "--custom-mode", f"{w}x{h}"],
+                ["wlr-randr", "--output", output, "--on", "--custom-mode", f"{w}x{h}"],
                 check=True, timeout=10, env=env,
             )
         else:

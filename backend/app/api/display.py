@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import shutil
@@ -6,13 +7,34 @@ import subprocess
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from ..core.config import config_store
+from ..core.paths import get_runtime_paths
 
 router = APIRouter(prefix="/api/v1/display", tags=["display"])
 
 _log = logging.getLogger(__name__)
 _display_on: bool = True
-_cached_output: str | None = None
+
+_OUTPUT_CACHE_FILE = get_runtime_paths().runtime_cache / "display_output.json"
+
+
+def _load_cached_output() -> str | None:
+    try:
+        if _OUTPUT_CACHE_FILE.exists():
+            return json.loads(_OUTPUT_CACHE_FILE.read_text())
+    except Exception:
+        pass
+    return None
+
+
+def _save_cached_output(name: str) -> None:
+    try:
+        _OUTPUT_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _OUTPUT_CACHE_FILE.write_text(json.dumps(name))
+    except Exception:
+        pass
+
+
+_cached_output: str | None = _load_cached_output()
 
 
 def _wayland_env() -> dict:
@@ -65,12 +87,10 @@ def diagnose_display() -> dict:
         wlr_rc = raw.returncode
     except Exception as e:
         wlr_stdout, wlr_stderr, wlr_rc = "", str(e), -1
-    cfg = config_store.load()
     return {
         "display_on": _display_on,
         "cached_output": _cached_output,
         "detected_output": detected,
-        "monitor_config": {"width": cfg.monitor.width, "height": cfg.monitor.height},
         "wayland_display": env.get("WAYLAND_DISPLAY"),
         "xdg_runtime_dir": env.get("XDG_RUNTIME_DIR"),
         "wlr_randr_rc": wlr_rc,
@@ -91,29 +111,24 @@ def set_display_power(body: DisplayPowerRequest) -> dict:
     if not output:
         raise HTTPException(
             status_code=503,
-            detail=f"No Wayland output detected (WAYLAND_DISPLAY={env.get('WAYLAND_DISPLAY')}, XDG_RUNTIME_DIR={env.get('XDG_RUNTIME_DIR')})",
+            detail=f"No output detected and no cached output name (WAYLAND_DISPLAY={env.get('WAYLAND_DISPLAY')})",
         )
-    _cached_output = output
+
+    # Always save the output name — persists across backend restarts
+    if output != _cached_output:
+        _cached_output = output
+        _save_cached_output(output)
 
     try:
-        if body.on:
-            cfg = config_store.load()
-            w, h = cfg.monitor.width, cfg.monitor.height
-            subprocess.run(
-                ["wlr-randr", "--output", output, "--on", "--custom-mode", f"{w}x{h}"],
-                check=True, timeout=10, env=env,
-            )
-        else:
-            subprocess.run(
-                ["wlr-randr", "--output", output, "--off"],
-                check=True, timeout=10, env=env,
-            )
+        flag = "--on" if body.on else "--off"
+        subprocess.run(
+            ["wlr-randr", "--output", output, flag],
+            check=True, timeout=10, env=env,
+        )
     except subprocess.CalledProcessError as exc:
         if not body.on:
             raise HTTPException(status_code=500, detail=f"Display off failed: {exc}")
-        # --custom-mode failed; still mark on so kiosk loop unblocks and
-        # Chromium restarts — reconnecting to the compositor may restore the output
-        _log.warning("Display turn-on command failed (kiosk will restart anyway): %s", exc)
+        _log.warning("Display turn-on failed (kiosk will still restart): %s", exc)
 
     _display_on = body.on
     return {"on": _display_on}

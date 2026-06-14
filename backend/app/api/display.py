@@ -154,29 +154,9 @@ def diagnose_display() -> dict:
     }
 
 
-@router.post("/power")
-def set_display_power(body: DisplayPowerRequest) -> dict:
-    global _display_on, _cached_outputs
-
-    env = _wayland_env()
-
-    if not body.on:
-        # Kill Chromium first so the compositor has no active client.
-        subprocess.run(
-            ["pkill", "-f", "user-data-dir=/tmp/pibarticker-kiosk"],
-            timeout=5,
-        )
-
-    # ddcutil talks directly to the monitor over HDMI DDC/CI, bypassing the
-    # Wayland compositor and any idle daemon. Try it first — it works even after
-    # the compositor has put the output to sleep.
-    if _ddcutil_power(body.on):
-        _log.info("Display %s via ddcutil", "on" if body.on else "off")
-        _display_on = body.on
-        return {"on": _display_on}
-
-    # Fallback: wlopm / wlr-randr via Wayland compositor
-    _log.info("ddcutil unavailable or failed, falling back to wlopm/wlr-randr")
+def _wlopm_outputs(on: bool, env: dict) -> list[str]:
+    """Run wlopm --on/--off on all known outputs. Returns list of errors."""
+    global _cached_outputs
 
     live = _detect_outputs(env)
     if live:
@@ -184,46 +164,61 @@ def set_display_power(body: DisplayPowerRequest) -> dict:
         _save_cached_outputs(live)
 
     outputs = live or _cached_outputs
-    if not outputs:
-        raise HTTPException(
-            status_code=503,
-            detail=f"No outputs detected and no cached names (WAYLAND_DISPLAY={env.get('WAYLAND_DISPLAY')})",
-        )
+    if not outputs or not shutil.which("wlopm"):
+        return []
 
-    has_wlopm = shutil.which("wlopm") is not None
-    has_wlr_randr = shutil.which("wlr-randr") is not None
-
-    if not has_wlopm and not has_wlr_randr:
-        raise HTTPException(status_code=503, detail="Neither wlopm nor wlr-randr available")
-
+    flag = "--on" if on else "--off"
     errors = []
     for output in outputs:
         try:
-            if has_wlopm:
-                flag = "--on" if body.on else "--off"
-                subprocess.run(
-                    ["wlopm", flag, output],
-                    check=True, timeout=10, env=env,
-                    capture_output=True,
-                )
-            else:
-                flag = "--on" if body.on else "--off"
-                r = subprocess.run(
-                    ["wlr-randr", "--output", output, flag],
-                    timeout=10, env=env,
-                    capture_output=True,
-                )
-                if r.returncode != 0:
-                    _log.warning("wlr-randr %s stderr: %s", flag, r.stderr.decode())
-        except subprocess.CalledProcessError as exc:
-            errors.append(f"{output}: {exc}")
+            subprocess.run(
+                ["wlopm", flag, output],
+                check=True, timeout=10, env=env, capture_output=True,
+            )
         except Exception as exc:
             errors.append(f"{output}: {exc}")
+    return errors
 
-    if errors and not body.on:
-        raise HTTPException(status_code=500, detail=f"Display off failed: {'; '.join(errors)}")
+
+@router.post("/power")
+def set_display_power(body: DisplayPowerRequest) -> dict:
+    global _display_on, _cached_outputs
+
+    env = _wayland_env()
+
+    if not body.on:
+        # Kill Chromium so the compositor has no active client.
+        subprocess.run(
+            ["pkill", "-f", "user-data-dir=/tmp/pibarticker-kiosk"],
+            timeout=5,
+        )
+        # Use ddcutil only for turn-off — it puts the monitor in VCP standby
+        # while keeping the HDMI/DDC channel alive so future wake commands work.
+        # Never run wlopm --off here: that makes labwc cut the TMDS signal at the
+        # GPU, which kills the DDC channel and makes the monitor unresponsive.
+        if _ddcutil_power(False):
+            _log.info("Display off via ddcutil")
+        else:
+            _log.warning("ddcutil off failed — falling back to wlopm (HDMI signal will drop)")
+            _wlopm_outputs(False, env)
+        _display_on = False
+        return {"on": _display_on}
+
+    # Turning ON: two steps are both required.
+    # 1. ddcutil D6=1 — wakes the monitor hardware from VCP standby.
+    # 2. wlopm --on  — tells labwc to re-enable its DRM output so the GPU
+    #    starts driving the HDMI signal again. This is needed because labwc
+    #    may have DPMS-off'd the output (via lxqt or its own idle timer) even
+    #    if we killed lxqt — ddcutil alone wakes the monitor but leaves the GPU
+    #    output dark, causing "No Signal" on the monitor OSD.
+    ddcutil_ok = _ddcutil_power(True)
+    _log.info("ddcutil turn-on: %s", "ok" if ddcutil_ok else "failed/unavailable")
+
+    errors = _wlopm_outputs(True, env)
     if errors:
-        _log.warning("Display turn-on had errors (kiosk will restart anyway): %s", errors)
+        _log.warning("wlopm --on had errors: %s", errors)
+    else:
+        _log.info("wlopm --on sent to all outputs")
 
-    _display_on = body.on
+    _display_on = True
     return {"on": _display_on}

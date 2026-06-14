@@ -169,6 +169,15 @@ fi
 # makes it impossible to wake the monitor via ddcutil or the HA switch.
 pkill -f lxqt-powermanagement 2>/dev/null || true
 
+# Re-enable compositor output in case lxqt had already fired DPMS-off before we
+# killed it. Without this, the GPU stays in DRM DPMS-off and the monitor shows
+# "No Signal" even after ddcutil D6=1 wakes the panel hardware.
+if [ "$IS_WAYLAND" = "1" ] && command -v wlopm >/dev/null 2>&1; then
+  wlr-randr 2>/dev/null | grep -E '^[A-Za-z]' | awk '{print $1}' | while read -r OUT; do
+    wlopm --on "$OUT" 2>/dev/null || true
+  done
+fi
+
 # Replace lxqt idle sleep with swayidle + ddcutil. ddcutil talks directly to the
 # monitor hardware over HDMI DDC/CI, keeping the HDMI signal alive so HA can always
 # wake the display. timeout=1800s (30 min); resume re-lights the panel on any input.

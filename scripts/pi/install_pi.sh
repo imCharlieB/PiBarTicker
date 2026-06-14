@@ -96,7 +96,8 @@ apt-get install -y --no-install-recommends \
   rsync \
   "${CHROMIUM_PACKAGE}" \
   wlr-randr \
-  wlopm
+  wlopm \
+  swayidle
 # X11-only packages (x11-xserver-utils, xdotool, unclutter) removed — not required
 # for Labwc/Wayland on current Pi OS. wlr-randr/wlopm and chromium are kept.
 

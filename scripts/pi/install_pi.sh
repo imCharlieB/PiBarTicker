@@ -95,10 +95,10 @@ apt-get install -y --no-install-recommends \
   curl \
   rsync \
   "${CHROMIUM_PACKAGE}" \
-  wlr-randr
+  wlr-randr \
+  wlopm
 # X11-only packages (x11-xserver-utils, xdotool, unclutter) removed — not required
-# for Labwc/Wayland on current Pi OS. wlr-randr and chromium (or chromium-browser)
-# are kept. The launcher skips X11-only tools via `command -v` guards if absent.
+# for Labwc/Wayland on current Pi OS. wlr-randr/wlopm and chromium are kept.
 
 # Stop any currently running services so we can safely update files.
 # They will be restarted at the end of the install.

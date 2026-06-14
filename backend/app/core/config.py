@@ -107,7 +107,7 @@ class HASensorConfig(AppBaseModel):
     entityId: str
     label: str = ""
     unit: str = ""
-    position: Literal["ticker", "top-left", "top-right", "bottom-left", "bottom-right"] = "ticker"
+    position: Literal["none", "ticker", "top-left", "top-right", "bottom-left", "bottom-right"] = "ticker"
 
 
 class HomeAssistantBoardConfig(AppBaseModel):

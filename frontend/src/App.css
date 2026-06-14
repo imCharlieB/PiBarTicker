@@ -1450,6 +1450,11 @@
   border-color: var(--accent, #7CF29B);
 }
 
+.ha-sensor-row select option {
+  background-color: var(--input-bg, #11151f);
+  color: var(--text-main);
+}
+
 .ha-sensor-empty {
   font-size: 13px;
   color: #6b7077;

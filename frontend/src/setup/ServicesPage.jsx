@@ -3,6 +3,7 @@ import { useAppContext } from '../AppContext'
 import { computeServicesErrors } from './helpers'
 
 const POSITION_OPTIONS = [
+  { value: 'none', label: "Don't show" },
   { value: 'ticker', label: 'Ticker (rotation)' },
   { value: 'top-left', label: 'Top left' },
   { value: 'top-right', label: 'Top right' },

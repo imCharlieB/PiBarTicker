@@ -5,6 +5,8 @@ import subprocess
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from ..core.config import config_store
+
 router = APIRouter(prefix="/api/v1/display", tags=["display"])
 
 _display_on: bool = True   # assumed on at startup
@@ -12,11 +14,6 @@ _cached_output: str | None = None  # last known output name; reused when display
 
 
 def _wayland_env() -> dict:
-    """Return an env dict with correct WAYLAND_DISPLAY and XDG_RUNTIME_DIR.
-
-    Auto-detects wayland-0 vs wayland-1 so the service unit doesn't need to
-    hardcode the socket name (it varies across Pi OS versions).
-    """
     env = os.environ.copy()
     xdg = env.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
     env["XDG_RUNTIME_DIR"] = xdg
@@ -25,17 +22,12 @@ def _wayland_env() -> dict:
             if os.path.exists(os.path.join(xdg, name)):
                 env["WAYLAND_DISPLAY"] = name
                 break
-    # If the env var is set but the socket doesn't exist under that name, try the other
     elif not os.path.exists(os.path.join(xdg, env["WAYLAND_DISPLAY"])):
         for name in ("wayland-1", "wayland-0"):
             if os.path.exists(os.path.join(xdg, name)):
                 env["WAYLAND_DISPLAY"] = name
                 break
     return env
-
-
-def _wlr_randr_available() -> bool:
-    return shutil.which("wlr-randr") is not None
 
 
 def _detect_output(env: dict) -> str | None:
@@ -51,6 +43,21 @@ def _detect_output(env: dict) -> str | None:
     return None
 
 
+def _set_power_wlopm(output: str, on: bool, env: dict) -> None:
+    flag = "--on" if on else "--off"
+    subprocess.run(["wlopm", flag, output], check=True, timeout=10, env=env)
+
+
+def _set_power_wlr_randr(output: str, on: bool, env: dict) -> None:
+    if on:
+        cfg = config_store.load()
+        w, h = cfg.monitor.width, cfg.monitor.height
+        cmd = ["wlr-randr", "--output", output, "--on", "--custom-mode", f"{w}x{h}@60"]
+    else:
+        cmd = ["wlr-randr", "--output", output, "--off"]
+    subprocess.run(cmd, check=True, timeout=10, env=env)
+
+
 class DisplayPowerRequest(BaseModel):
     on: bool
 
@@ -63,24 +70,30 @@ def get_display_power() -> dict:
 @router.post("/power")
 def set_display_power(body: DisplayPowerRequest) -> dict:
     global _display_on, _cached_output
-    if not _wlr_randr_available():
-        raise HTTPException(status_code=503, detail="wlr-randr not available")
+
+    has_wlopm = shutil.which("wlopm") is not None
+    has_wlr_randr = shutil.which("wlr-randr") is not None
+
+    if not has_wlopm and not has_wlr_randr:
+        raise HTTPException(status_code=503, detail="Neither wlopm nor wlr-randr is available")
+
     env = _wayland_env()
-    # Detection may return None when the display is already off (output not listed).
-    # Fall back to the last known output name so "turn on" still works.
+
     output = _detect_output(env) or _cached_output
     if not output:
         raise HTTPException(
             status_code=503,
             detail=f"No Wayland output detected (WAYLAND_DISPLAY={env.get('WAYLAND_DISPLAY')}, XDG_RUNTIME_DIR={env.get('XDG_RUNTIME_DIR')})",
         )
-    _cached_output = output  # keep fresh for future "turn on" calls
-    flag = "--on" if body.on else "--off"
+    _cached_output = output
+
     try:
-        subprocess.run(
-            ["wlr-randr", "--output", output, flag], check=True, timeout=10, env=env
-        )
+        if has_wlopm:
+            _set_power_wlopm(output, body.on, env)
+        else:
+            _set_power_wlr_randr(output, body.on, env)
     except subprocess.CalledProcessError as exc:
-        raise HTTPException(status_code=500, detail=f"wlr-randr failed: {exc}")
+        raise HTTPException(status_code=500, detail=f"Display command failed: {exc}")
+
     _display_on = body.on
     return {"on": _display_on}

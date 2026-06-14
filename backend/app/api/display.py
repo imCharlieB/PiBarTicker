@@ -7,6 +7,7 @@ import subprocess
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from ..core.config import config_store
 from ..core.paths import get_runtime_paths
 
 router = APIRouter(prefix="/api/v1/display", tags=["display"])
@@ -74,6 +75,32 @@ def _detect_outputs(env: dict) -> list[str]:
     return []
 
 
+def _turn_on(output: str, env: dict) -> None:
+    """Try every known-good wlr-randr approach to re-enable a disabled output.
+
+    The correct command depends on the compositor version and whether a custom
+    mode was previously set. We try in order until one exits 0.
+    """
+    cfg = config_store.load()
+    w, h = cfg.monitor.width, cfg.monitor.height
+    attempts = [
+        ["wlr-randr", "--output", output, "--on", "--preferred"],          # use display's native preferred mode
+        ["wlr-randr", "--output", output, "--on", "--mode", f"{w}x{h}"],   # select existing mode by resolution
+        ["wlr-randr", "--output", output, "--custom-mode", f"{w}x{h}"],    # set custom mode (implicitly enables)
+        ["wlr-randr", "--output", output, "--on"],                          # last resort: let compositor pick
+    ]
+    last_exc = None
+    for cmd in attempts:
+        try:
+            subprocess.run(cmd, check=True, timeout=10, env=env)
+            _log.info("Display turned on with: %s", " ".join(cmd))
+            return
+        except subprocess.CalledProcessError as exc:
+            _log.debug("Turn-on attempt failed %s: %s", cmd, exc)
+            last_exc = exc
+    raise last_exc
+
+
 class DisplayPowerRequest(BaseModel):
     on: bool
 
@@ -134,14 +161,16 @@ def set_display_power(body: DisplayPowerRequest) -> dict:
             timeout=5,
         )
 
-    flag = "--on" if body.on else "--off"
     errors = []
     for output in outputs:
         try:
-            subprocess.run(
-                ["wlr-randr", "--output", output, flag],
-                check=True, timeout=10, env=env,
-            )
+            if body.on:
+                _turn_on(output, env)
+            else:
+                subprocess.run(
+                    ["wlr-randr", "--output", output, "--off"],
+                    check=True, timeout=10, env=env,
+                )
         except subprocess.CalledProcessError as exc:
             errors.append(f"{output}: {exc}")
 

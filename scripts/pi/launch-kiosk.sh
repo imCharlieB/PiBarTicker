@@ -210,13 +210,6 @@ elif command -v xrandr >/dev/null 2>&1; then
   fi
 fi
 
-# Kill idle/DPMS daemons. lxqt-powermanagement (from /etc/xdg/labwc/autostart)
-# uses the same Wayland output-power protocol as wlopm and drops the HDMI signal
-# when its idle timer fires, making it impossible to wake the monitor via software.
-# The HA switch controls display power; the idle daemon must not interfere.
-pkill -x lxqt-powermanagement 2>/dev/null || true
-pkill -x swayidle 2>/dev/null || true
-
 # Wait for backend before starting Chromium.
 echo "Waiting for backend /health (up to 60s) before launching the ticker Chromium..."
 for _ in $(seq 1 60); do

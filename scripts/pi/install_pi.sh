@@ -235,37 +235,10 @@ LABWC_AUTOSTART="${APP_HOME}/.config/labwc/autostart"
 cat > "${LABWC_AUTOSTART}" <<LABWC_EOF
 #!/bin/sh
 # PiBarTicker kiosk autostart for labwc (Wayland).
-# Kill idle/DPMS daemons before the kiosk starts. lxqt-powermanagement is launched
-# from /etc/xdg/labwc/autostart and will independently sleep the display via the
-# same Wayland protocol as wlopm, dropping the HDMI signal and making it impossible
-# to wake the monitor via software. The HA switch is the sole display power control.
-pkill -x lxqt-powermanagement 2>/dev/null || true
-pkill -x swayidle 2>/dev/null || true
+# We exec the launcher in background so the compositor can finish initializing.
 ${APP_DIR}/scripts/pi/launch-kiosk.sh &
 LABWC_EOF
 chmod +x "${LABWC_AUTOSTART}"
-
-# Write lxqt-powermanagement config with everything disabled so even if the process
-# restarts it won't blank or sleep the display.
-mkdir -p "${APP_HOME}/.config/lxqt"
-cat > "${APP_HOME}/.config/lxqt/lxqt-powermanagement.conf" <<'LXQT_EOF'
-[General]
-enabled=false
-
-[AC]
-dpmsEnable=false
-screenBlankEnabled=false
-screenBlankTime=0
-suspendEnabled=false
-suspendTime=0
-
-[Battery]
-dpmsEnable=false
-screenBlankEnabled=false
-screenBlankTime=0
-suspendEnabled=false
-suspendTime=0
-LXQT_EOF
 
 # Hide the cursor for kiosk mode.
 # XCURSOR_SIZE=0 is not reliable — wlroots treats 0 as "use default size."

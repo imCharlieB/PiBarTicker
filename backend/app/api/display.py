@@ -109,41 +109,37 @@ def _ddcutil_d6(value: int) -> bool:
 
 
 def _wlopm(on: bool, env: dict) -> None:
-    """Control display using wlopm + wlr-randr fallback."""
     global _cached_outputs
 
-    outputs = ["HDMI-A-2"]  # Hardcoded fallback (your known output)
-
-    try:
-        live = _detect_outputs(env)
-        if live:
-            outputs = live
-            _cached_outputs = live
-            _save_cached_outputs(live)
-    except Exception:
-        pass
+    output = "HDMI-A-2"   # Your known output name
 
     if on:
-        # Use wlr-randr to turn on (more reliable for waking)
-        for output in outputs:
-            try:
-                subprocess.run(
-                    ["wlr-randr", "--output", output, "--on"],
-                    timeout=10, env=env, capture_output=True
-                )
-            except Exception:
-                pass
+        # Force the output back on with explicit mode (most reliable)
+        try:
+            subprocess.run(
+                [
+                    "wlr-randr",
+                    "--output", output,
+                    "--on",
+                    "--mode", "1920x380"
+                ],
+                timeout=10,
+                env=env,
+                capture_output=True
+            )
+        except Exception as e:
+            _log.warning(f"Failed to turn on with wlr-randr: {e}")
     else:
-        # Use wlopm to turn off
-        for output in outputs:
-            try:
-                subprocess.run(
-                    ["wlopm", "--off", output],
-                    timeout=10, env=env, capture_output=True
-                )
-            except Exception:
-                pass
-
+        # Turn off using wlopm
+        try:
+            subprocess.run(
+                ["wlopm", "--off", output],
+                timeout=10,
+                env=env,
+                capture_output=True
+            )
+        except Exception as e:
+            _log.warning(f"Failed to turn off with wlopm: {e}")
 
 class DisplayPowerRequest(BaseModel):
     on: bool
@@ -209,12 +205,12 @@ def set_display_power(body: DisplayPowerRequest) -> dict:
         _log.info("Display turned OFF via wlopm")
         return {"on": _display_on}
 
-        # TURN ON
+    # TURN ON
     _display_on = True
     _wlopm(True, env)
 
     import time
-    time.sleep(2)   # Give monitor time to wake
+    time.sleep(2)
 
     _log.info("Display turned ON")
     return {"on": _display_on}

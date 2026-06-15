@@ -3,9 +3,9 @@ import logging
 import os
 import shutil
 import subprocess
-import time
+from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 
 from ..core.paths import get_runtime_paths
@@ -40,6 +40,18 @@ def _save_cached_outputs(names: list[str]) -> None:
 
 
 _cached_outputs: list[str] = _load_cached_outputs()
+
+
+def _pi_version() -> int:
+    """Return Pi major version (4, 5, …) or 0 if not running on a Raspberry Pi."""
+    try:
+        model = Path("/proc/device-tree/model").read_bytes().rstrip(b"\x00").decode()
+        for ver in (5, 4, 3, 2, 1):
+            if f"Raspberry Pi {ver}" in model:
+                return ver
+    except Exception:
+        pass
+    return 0
 
 
 def _wayland_env() -> dict:
@@ -83,62 +95,57 @@ def get_display_power() -> dict:
     return {"on": _display_on}
 
 
-def _ddcutil_power(on: bool) -> bool:
-    """Control display via DDC/CI (VCP feature D6). Returns True on success."""
-    if not shutil.which("ddcutil"):
-        return False
-
-    if on:
-        # Retry turn-on — monitor may need a moment after waking from standby.
-        for attempt in range(3):
-            for cmd in (["ddcutil", "setvcp", "0xD6", "1"],
-                        ["sudo", "ddcutil", "setvcp", "0xD6", "1"]):
-                try:
-                    if subprocess.run(cmd, capture_output=True, timeout=15).returncode == 0:
-                        return True
-                except Exception:
-                    pass
-            if attempt < 2:
-                time.sleep(1)
-        return False
-
-    # Turn off: try D6=5 (soft standby) first, then D6=4 (hard off).
-    # D6=5 keeps the monitor's DDC microcontroller more responsive on some hardware.
-    for value in ("5", "4"):
-        for cmd in (["ddcutil", "setvcp", "0xD6", value],
-                    ["sudo", "ddcutil", "setvcp", "0xD6", value]):
-            try:
-                if subprocess.run(cmd, capture_output=True, timeout=15).returncode == 0:
-                    _log.info("Display off via ddcutil D6=%s", value)
-                    return True
-            except Exception:
-                pass
-    return False
+def _wlopm(on: bool, env: dict) -> None:
+    """Run wlopm --on/--off on all detected outputs."""
+    global _cached_outputs
+    live = _detect_outputs(env)
+    if live:
+        _cached_outputs = live
+        _save_cached_outputs(live)
+    outputs = live or _cached_outputs
+    flag = "--on" if on else "--off"
+    for output in outputs:
+        try:
+            subprocess.run(
+                ["wlopm", flag, output],
+                timeout=10, env=env, capture_output=True,
+            )
+        except Exception:
+            pass
 
 
-def _ddcutil_available() -> bool:
-    if not shutil.which("ddcutil"):
+def _vcgencmd_display_on() -> bool:
+    """
+    Trigger HDMI re-init via VideoCore firmware — Pi-native wake that doesn't
+    need a Wayland session. Returns True if vcgencmd was found and ran.
+
+    Pi 4/5 HDMI display IDs for vcgencmd:
+      no ID  → default / primary display
+      2      → HDMI0 (first port)
+      7      → HDMI1 (second port, Pi 4+)
+    We fire all three so whichever port the monitor is on gets the HPD pulse.
+    """
+    if shutil.which("vcgencmd") is None:
         return False
-    try:
-        r = subprocess.run(
-            ["ddcutil", "getvcp", "0xD6", "--brief"],
-            capture_output=True, timeout=10,
-        )
-        if r.returncode == 0:
-            return True
-        r2 = subprocess.run(
-            ["sudo", "ddcutil", "getvcp", "0xD6", "--brief"],
-            capture_output=True, timeout=10,
-        )
-        return r2.returncode == 0
-    except Exception:
-        return False
+    # Display IDs to try: no-ID (primary), HDMI0 (2), HDMI1 (7)
+    display_ids: list[list[str]] = [
+        ["vcgencmd", "display_power", "1"],
+        ["vcgencmd", "display_power", "1", "2"],
+        ["vcgencmd", "display_power", "1", "7"],
+    ]
+    for cmd in display_ids:
+        try:
+            subprocess.run(cmd, timeout=5, capture_output=True)
+        except Exception:
+            return False
+    return True
 
 
 @router.get("/diagnose")
 def diagnose_display() -> dict:
     env = _wayland_env()
     detected = _detect_outputs(env)
+    pi_ver = _pi_version()
     try:
         raw = subprocess.run(["wlr-randr"], capture_output=True, text=True, timeout=5, env=env)
         wlr_stdout = raw.stdout
@@ -148,10 +155,11 @@ def diagnose_display() -> dict:
         wlr_stdout, wlr_stderr, wlr_rc = "", str(e), -1
     return {
         "display_on": _display_on,
+        "pi_version": pi_ver,
         "cached_outputs": _cached_outputs,
         "detected_outputs": detected,
         "ddcutil_available": shutil.which("ddcutil") is not None,
-        "ddcutil_d6_supported": _ddcutil_available(),
+        "vcgencmd_available": shutil.which("vcgencmd") is not None,
         "wlopm_available": shutil.which("wlopm") is not None,
         "wayland_display": env.get("WAYLAND_DISPLAY"),
         "xdg_runtime_dir": env.get("XDG_RUNTIME_DIR"),
@@ -161,58 +169,39 @@ def diagnose_display() -> dict:
     }
 
 
-def _wlopm_outputs(on: bool, env: dict) -> list[str]:
-    """Run wlopm --on/--off on all known outputs. Returns list of errors."""
-    global _cached_outputs
-
-    live = _detect_outputs(env)
-    if live:
-        _cached_outputs = live
-        _save_cached_outputs(live)
-
-    outputs = live or _cached_outputs
-    if not outputs or not shutil.which("wlopm"):
-        return []
-
-    flag = "--on" if on else "--off"
-    errors = []
-    for output in outputs:
-        try:
-            subprocess.run(
-                ["wlopm", flag, output],
-                check=True, timeout=10, env=env, capture_output=True,
-            )
-        except Exception as exc:
-            errors.append(f"{output}: {exc}")
-    return errors
-
-
 @router.post("/power")
 def set_display_power(body: DisplayPowerRequest) -> dict:
-    global _display_on, _cached_outputs
+    global _display_on
 
     env = _wayland_env()
+    pi_ver = _pi_version()
 
     if not body.on:
-        # ddcutil D6=5/4: puts monitor in standby. Chromium and compositor keep
-        # running so the HDMI signal stays alive on the GPU side.
-        _ddcutil_power(False)
+        # Set state first so the kiosk restart loop blocks immediately when
+        # Chromium exits — prevents race where Chromium dies before wlopm finishes.
         _display_on = False
+        subprocess.run(
+            ["pkill", "-f", "user-data-dir=/tmp/pibarticker-kiosk"],
+            timeout=5,
+        )
+        # wlopm --off drops the HDMI signal. The monitor enters deep sleep naturally
+        # from loss of signal. Do NOT call ddcutil D6=4 here — combining VCP standby
+        # with signal drop puts this monitor into unrecoverable deep sleep requiring
+        # a physical power cycle.
+        _wlopm(False, env)
+        _log.info("Display off via wlopm (Pi %s)", pi_ver or "?")
         return {"on": _display_on}
 
-    # Turn on strategy:
-    # 1. wlopm signal cycle — drops HMDI signal then restores it. The monitor's
-    #    hardware auto-detect circuit sees the signal return and powers on. This is
-    #    reliable even when the monitor's DDC microcontroller is asleep in standby.
-    #    lxqt and labwc dpmsTimeout are both disabled so wlopm --on sticks.
-    # 2. ddcutil D6=1 — quick attempt after signal is restored, in case the
-    #    monitor also needs an explicit DDC wake command.
-    _log.info("Display turn-on: wlopm signal cycle")
-    _wlopm_outputs(False, env)
-    time.sleep(2)
-    _wlopm_outputs(True, env)
-    time.sleep(0.5)
-    _ddcutil_power(True)  # best-effort DDC wake after signal restored
-
+    # Turn on:
+    # 1. vcgencmd fires an HPD pulse at the firmware level, waking the monitor
+    #    without needing the Wayland session environment (works from systemd).
+    #    Tries primary + HDMI0 (ID 2) + HDMI1 (ID 7) to cover both Pi 4 and Pi 5
+    #    regardless of which port the monitor is on.
+    # 2. The kiosk script then calls wlopm --on and relaunches Chromium from
+    #    within the graphical session for a clean compositor connection.
     _display_on = True
+    if _vcgencmd_display_on():
+        _log.info("Display on via vcgencmd (Pi %s)", pi_ver or "?")
+    else:
+        _log.info("vcgencmd not available (Pi %s) — kiosk script handles wlopm --on", pi_ver or "?")
     return {"on": _display_on}

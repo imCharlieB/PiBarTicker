@@ -194,23 +194,25 @@ def set_display_power(body: DisplayPowerRequest) -> dict:
     env = _wayland_env()
 
     if not body.on:
-        # ddcutil D6=4/5: puts monitor panel in standby via DDC/CI over HDMI.
-        # Chromium and compositor keep running so the HDMI signal stays alive.
-        # No wlopm, no pkill — keeps the DDC channel active for turn-on.
+        # ddcutil D6=5/4: puts monitor in standby. Chromium and compositor keep
+        # running so the HDMI signal stays alive on the GPU side.
         _ddcutil_power(False)
         _display_on = False
         return {"on": _display_on}
 
-    # Turn on: try ddcutil D6=1 first (fast, DDC-based wake).
-    # If the monitor's DDC microcontroller is unresponsive in standby (common on
-    # cheap/generic displays), fall back to a brief wlopm signal cycle — dropping
-    # then restoring the HDMI signal triggers the monitor's hardware auto-wake
-    # circuit. lxqt and labwc dpmsTimeout are both disabled so wlopm --on sticks.
-    if not _ddcutil_power(True):
-        _log.info("ddcutil wake failed, falling back to wlopm signal cycle")
-        _wlopm_outputs(False, env)
-        time.sleep(0.5)
-        _wlopm_outputs(True, env)
+    # Turn on strategy:
+    # 1. wlopm signal cycle — drops HMDI signal then restores it. The monitor's
+    #    hardware auto-detect circuit sees the signal return and powers on. This is
+    #    reliable even when the monitor's DDC microcontroller is asleep in standby.
+    #    lxqt and labwc dpmsTimeout are both disabled so wlopm --on sticks.
+    # 2. ddcutil D6=1 — quick attempt after signal is restored, in case the
+    #    monitor also needs an explicit DDC wake command.
+    _log.info("Display turn-on: wlopm signal cycle")
+    _wlopm_outputs(False, env)
+    time.sleep(2)
+    _wlopm_outputs(True, env)
+    time.sleep(0.5)
+    _ddcutil_power(True)  # best-effort DDC wake after signal restored
 
     _display_on = True
     return {"on": _display_on}

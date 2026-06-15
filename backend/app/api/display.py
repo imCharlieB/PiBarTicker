@@ -176,38 +176,28 @@ def diagnose_display() -> dict:
 def set_display_power(body: DisplayPowerRequest) -> dict:
     global _display_on
 
-    ddcutil_ok = shutil.which("ddcutil") is not None
     env = _wayland_env()
 
     if not body.on:
-        # Kill Chromium first so there is no active video content when D6=4
-        # is sent — active content causes the monitor to auto-wake from standby.
-        # With only the static compositor wallpaper remaining, D6=4 sticks.
+        # === TURN OFF ===
         _display_on = False
-        subprocess.run(
-            ["pkill", "-f", "user-data-dir=/tmp/pibarticker-kiosk"],
-            timeout=5,
-        )
-        if ddcutil_ok:
-            # D6=4: panel standby via DDC. HDMI signal stays live so HPD never
-            # drops — DDC remains reachable for the wake command.
-            _ddcutil_d6(4)
-            _log.info("Display off via ddcutil D6=4")
-        else:
-            # No ddcutil: fall back to wlopm (note: on Pi 5 this drops HPD and
-            # prevents reliable software wake — ddcutil is strongly preferred).
-            _wlopm(False, env)
-            _log.info("Display off via wlopm (ddcutil not available)")
+
+        # Try ddcutil first (bonus, usually fails on this monitor)
+        if shutil.which("ddcutil"):
+            _ddcutil_d6(5) or _ddcutil_d6(4)
+
+        # Main method - wlopm
+        _wlopm(False, env)
+        _log.info("Display turned OFF via wlopm")
         return {"on": _display_on}
 
-    # Turn on: wake the panel via DDC. Because HDMI signal was kept alive
-    # (never dropped by wlopm), DDC is still reachable regardless of how long
-    # the display has been off. The kiosk script restarts Chromium once
-    # display_explicitly_off returns false.
+    # === TURN ON ===
     _display_on = True
-    if ddcutil_ok:
+    _wlopm(True, env)
+    _log.info("Display turned ON via wlopm")
+
+    # Optional: still attempt ddcutil
+    if shutil.which("ddcutil"):
         _ddcutil_d6(1)
-        _log.info("Display on via ddcutil D6=1")
-    else:
-        _log.info("ddcutil not available — kiosk script handles wlopm --on")
+
     return {"on": _display_on}

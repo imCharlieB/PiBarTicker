@@ -187,29 +187,18 @@ def set_display_power(body: DisplayPowerRequest) -> dict:
     env = _wayland_env()
 
     if not body.on:
-        # Mark off FIRST so the kiosk restart loop sees on:false immediately when
-        # Chromium exits from the pkill below — avoids a race where Chromium dies
-        # before wlopm finishes and the loop relaunches it before we're done.
+        # ddcutil D6=4: puts monitor panel in standby via DDC/CI over HDMI.
+        # Chromium and the compositor keep running — HDMI signal stays alive so
+        # ddcutil can always reach the monitor for the turn-on command.
+        # No wlopm, no pkill — this is exactly how TouchKio handles display-off.
+        _ddcutil_power(False)
         _display_on = False
-        subprocess.run(
-            ["pkill", "-f", "user-data-dir=/tmp/pibarticker-kiosk"],
-            timeout=5,
-        )
-        errors = _wlopm_outputs(False, env)
-        if errors:
-            _log.warning("wlopm --off errors: %s", errors)
-        else:
-            _log.info("Display off via wlopm")
+        _log.info("Display off via ddcutil D6=4")
         return {"on": _display_on}
 
-    # Turning ON: wlopm --on re-enables the GPU output and drives the HDMI signal.
-    # The monitor auto-wakes when it detects the signal. lxqt is disabled so nothing
-    # races wlopm and re-asserts DPMS-off. Chromium relaunches via the kiosk loop.
-    errors = _wlopm_outputs(True, env)
-    if errors:
-        _log.warning("wlopm --on errors: %s", errors)
-    else:
-        _log.info("Display on via wlopm")
-
+    # ddcutil D6=1: wakes monitor panel. HDMI was never dropped so DDC channel
+    # is always available regardless of how long the display has been off.
+    _ddcutil_power(True)
     _display_on = True
+    _log.info("Display on via ddcutil D6=1")
     return {"on": _display_on}

@@ -287,16 +287,6 @@ while true; do
     sleep 3
   done
 
-  # On Pi, vcgencmd display_power handles signal restore from the backend so
-  # wlopm is not needed here. On non-Pi Wayland systems (no vcgencmd), the
-  # backend used wlopm --off and the compositor output needs re-enabling here.
-  if [ "$IS_WAYLAND" = "1" ] && command -v wlopm >/dev/null 2>&1 && ! command -v vcgencmd >/dev/null 2>&1; then
-    wlr-randr 2>/dev/null | grep -E '^[A-Za-z]' | awk '{print $1}' | while read -r OUT; do
-      wlopm --on "$OUT" 2>/dev/null || true
-    done
-    sleep 2
-  fi
-
   # Re-apply the custom bar mode — wlopm --off/--on resets the output to the
   # monitor's native resolution, which would leave Chromium uncropped/off-center.
   apply_display_mode

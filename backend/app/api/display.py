@@ -109,22 +109,40 @@ def _ddcutil_d6(value: int) -> bool:
 
 
 def _wlopm(on: bool, env: dict) -> None:
-    """Fallback display control when ddcutil is not available."""
+    """Control display using wlopm + wlr-randr fallback."""
     global _cached_outputs
-    live = _detect_outputs(env)
-    if live:
-        _cached_outputs = live
-        _save_cached_outputs(live)
-    outputs = live or _cached_outputs
-    flag = "--on" if on else "--off"
-    for output in outputs:
-        try:
-            subprocess.run(
-                ["wlopm", flag, output],
-                timeout=10, env=env, capture_output=True,
-            )
-        except Exception:
-            pass
+
+    outputs = ["HDMI-A-2"]  # Hardcoded fallback (your known output)
+
+    try:
+        live = _detect_outputs(env)
+        if live:
+            outputs = live
+            _cached_outputs = live
+            _save_cached_outputs(live)
+    except Exception:
+        pass
+
+    if on:
+        # Use wlr-randr to turn on (more reliable for waking)
+        for output in outputs:
+            try:
+                subprocess.run(
+                    ["wlr-randr", "--output", output, "--on"],
+                    timeout=10, env=env, capture_output=True
+                )
+            except Exception:
+                pass
+    else:
+        # Use wlopm to turn off
+        for output in outputs:
+            try:
+                subprocess.run(
+                    ["wlopm", "--off", output],
+                    timeout=10, env=env, capture_output=True
+                )
+            except Exception:
+                pass
 
 
 class DisplayPowerRequest(BaseModel):
@@ -191,10 +209,15 @@ def set_display_power(body: DisplayPowerRequest) -> dict:
         _log.info("Display turned OFF via wlopm")
         return {"on": _display_on}
 
-    # === TURN ON ===
+        # TURN ON
     _display_on = True
     _wlopm(True, env)
-    _log.info("Display turned ON via wlopm")
+
+    import time
+    time.sleep(2)   # Give monitor time to wake
+
+    _log.info("Display turned ON")
+    return {"on": _display_on}
 
     # Optional: still attempt ddcutil
     if shutil.which("ddcutil"):

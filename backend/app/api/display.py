@@ -15,7 +15,9 @@ router = APIRouter(prefix="/api/v1/display", tags=["display"])
 _log = logging.getLogger(__name__)
 _display_on: bool = True
 
-_OUTPUT_CACHE_FILE = get_runtime_paths().runtime_cache / "display_output.json"
+_paths = get_runtime_paths()
+_OUTPUT_CACHE_FILE = _paths.runtime_cache / "display_output.json"
+_MODES_CACHE_FILE = _paths.runtime_cache / "display_modes.json"
 
 
 def _load_cached_outputs() -> list[str]:
@@ -39,11 +41,30 @@ def _save_cached_outputs(names: list[str]) -> None:
         pass
 
 
+def _load_cached_modes() -> dict[str, str]:
+    try:
+        if _MODES_CACHE_FILE.exists():
+            data = json.loads(_MODES_CACHE_FILE.read_text())
+            if isinstance(data, dict):
+                return {str(k): str(v) for k, v in data.items()}
+    except Exception:
+        pass
+    return {}
+
+
+def _save_cached_modes(modes: dict[str, str]) -> None:
+    try:
+        _MODES_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _MODES_CACHE_FILE.write_text(json.dumps(modes))
+    except Exception:
+        pass
+
+
 _cached_outputs: list[str] = _load_cached_outputs()
+_cached_modes: dict[str, str] = _load_cached_modes()  # output -> "WxH@hz"
 
 
 def _pi_version() -> int:
-    """Return Pi major version (4, 5, …) or 0 if not running on a Raspberry Pi."""
     try:
         model = Path("/proc/device-tree/model").read_bytes().rstrip(b"\x00").decode()
         for ver in (5, 4, 3, 2, 1):
@@ -71,19 +92,40 @@ def _wayland_env() -> dict:
     return env
 
 
-def _detect_outputs(env: dict) -> list[str]:
+def _parse_wlr_randr(stdout: str) -> tuple[list[str], dict[str, str]]:
+    """
+    Parse wlr-randr stdout.
+    Returns (output_names, preferred_modes) where preferred_modes maps
+    output name -> "WxH@hz" string for the mode tagged (preferred).
+    """
+    outputs: list[str] = []
+    modes: dict[str, str] = {}
+    current = None
+    for line in stdout.splitlines():
+        if line and not line[0].isspace():
+            current = line.split()[0]
+            outputs.append(current)
+        elif current and "(preferred)" in line and " Hz" in line:
+            # "    1920x380 px, 57.933998 Hz (preferred)"
+            parts = line.split()
+            try:
+                res = parts[0]           # "1920x380"
+                hz = f"{float(parts[2]):.3f}"  # "57.934"
+                modes[current] = f"{res}@{hz}"
+            except (ValueError, IndexError):
+                pass
+    return outputs, modes
+
+
+def _query_wlr_randr(env: dict) -> tuple[list[str], dict[str, str]]:
     try:
-        result = subprocess.run(
+        r = subprocess.run(
             ["wlr-randr"], capture_output=True, text=True, timeout=5, env=env
         )
-        return [
-            line.split()[0]
-            for line in result.stdout.splitlines()
-            if line and not line[0].isspace()
-        ]
+        return _parse_wlr_randr(r.stdout)
     except Exception:
         pass
-    return []
+    return [], {}
 
 
 class DisplayPowerRequest(BaseModel):
@@ -95,46 +137,31 @@ def get_display_power() -> dict:
     return {"on": _display_on}
 
 
-def _vcgencmd_power(state: int) -> bool:
-    """
-    Control HDMI at VideoCore firmware level — no Wayland session required.
-    state: 1 = on, 0 = off.
-
-    Fires on all known display IDs so whichever port is active gets the signal:
-      (no ID) = default / primary output
-      2       = HDMI0 (first port, Pi 4/5)
-      7       = HDMI1 (second port, Pi 4/5) — HDMI-A-2 in Wayland naming
-
-    Returns True if vcgencmd was found and called.
-    """
-    if shutil.which("vcgencmd") is None:
-        return False
-    s = str(state)
-    for cmd in (
-        ["vcgencmd", "display_power", s],
-        ["vcgencmd", "display_power", s, "2"],
-        ["vcgencmd", "display_power", s, "7"],
-    ):
-        try:
-            subprocess.run(cmd, timeout=5, capture_output=True)
-        except Exception:
-            return False
-    return True
-
-
-def _wlopm(on: bool, env: dict) -> None:
-    """Fallback for non-Pi: run wlopm --on/--off on all detected outputs."""
-    global _cached_outputs
-    live = _detect_outputs(env)
-    if live:
-        _cached_outputs = live
-        _save_cached_outputs(live)
-    outputs = live or _cached_outputs
-    flag = "--on" if on else "--off"
+def _wlopm_off(outputs: list[str], env: dict) -> None:
     for output in outputs:
         try:
             subprocess.run(
-                ["wlopm", flag, output],
+                ["wlopm", "--off", output],
+                timeout=10, env=env, capture_output=True,
+            )
+        except Exception:
+            pass
+
+
+def _wlr_randr_on(outputs: list[str], modes: dict[str, str], env: dict) -> None:
+    """Re-apply the preferred mode for each output to restore HDMI signal.
+
+    On Pi 5, wlopm --on after wlopm --off does not trigger signal re-negotiation.
+    Re-applying the mode via wlr-randr forces the compositor to re-enable the
+    CRTC with a full modeset, which wakes the monitor.
+    """
+    for output in outputs:
+        mode = modes.get(output)
+        if not mode:
+            continue
+        try:
+            subprocess.run(
+                ["wlr-randr", "--output", output, "--mode", mode],
                 timeout=10, env=env, capture_output=True,
             )
         except Exception:
@@ -144,20 +171,20 @@ def _wlopm(on: bool, env: dict) -> None:
 @router.get("/diagnose")
 def diagnose_display() -> dict:
     env = _wayland_env()
-    detected = _detect_outputs(env)
-    pi_ver = _pi_version()
     try:
-        raw = subprocess.run(["wlr-randr"], capture_output=True, text=True, timeout=5, env=env)
-        wlr_stdout = raw.stdout
-        wlr_stderr = raw.stderr
-        wlr_rc = raw.returncode
+        r = subprocess.run(["wlr-randr"], capture_output=True, text=True, timeout=5, env=env)
+        detected, detected_modes = _parse_wlr_randr(r.stdout)
+        wlr_stdout, wlr_stderr, wlr_rc = r.stdout, r.stderr, r.returncode
     except Exception as e:
+        detected, detected_modes = [], {}
         wlr_stdout, wlr_stderr, wlr_rc = "", str(e), -1
     return {
         "display_on": _display_on,
-        "pi_version": pi_ver,
+        "pi_version": _pi_version(),
         "cached_outputs": _cached_outputs,
+        "cached_modes": _cached_modes,
         "detected_outputs": detected,
+        "detected_modes": detected_modes,
         "ddcutil_available": shutil.which("ddcutil") is not None,
         "vcgencmd_available": shutil.which("vcgencmd") is not None,
         "wlopm_available": shutil.which("wlopm") is not None,
@@ -171,36 +198,40 @@ def diagnose_display() -> dict:
 
 @router.post("/power")
 def set_display_power(body: DisplayPowerRequest) -> dict:
-    global _display_on
-    pi_ver = _pi_version()
+    global _display_on, _cached_outputs, _cached_modes
+
+    env = _wayland_env()
 
     if not body.on:
+        # Snapshot outputs and preferred modes while display is on so we have
+        # them available for turn-on (wlr-randr may return less info when off).
+        live_outputs, live_modes = _query_wlr_randr(env)
+        if live_outputs:
+            _cached_outputs = live_outputs
+            _save_cached_outputs(live_outputs)
+        if live_modes:
+            _cached_modes = live_modes
+            _save_cached_modes(live_modes)
+
         _display_on = False
-
-        if _vcgencmd_power(0):
-            # Pi: cut HDMI signal at firmware level. The compositor keeps running
-            # so Chromium stays alive — signal returns instantly on turn-on with
-            # no kiosk restart needed.
-            _log.info("Display off via vcgencmd (Pi %s)", pi_ver or "?")
-        else:
-            # Non-Pi fallback: kill Chromium then drop signal via compositor.
-            subprocess.run(
-                ["pkill", "-f", "user-data-dir=/tmp/pibarticker-kiosk"],
-                timeout=5,
-            )
-            _wlopm(False, _wayland_env())
-            _log.info("Display off via wlopm (non-Pi)")
-
+        subprocess.run(
+            ["pkill", "-f", "user-data-dir=/tmp/pibarticker-kiosk"],
+            timeout=5,
+        )
+        _wlopm_off(_cached_outputs, env)
+        _log.info("Display off via wlopm; cached modes: %s", _cached_modes)
         return {"on": _display_on}
 
+    # Turn on: re-apply the preferred mode via wlr-randr.
+    # On Pi 5, wlopm --on alone does not re-negotiate the HDMI signal after
+    # wlopm --off. Re-applying the mode forces a full modeset which wakes the
+    # monitor. The kiosk script then relaunches Chromium.
     _display_on = True
-
-    if _vcgencmd_power(1):
-        # Pi: firmware re-initializes HDMI and sends HPD pulse — monitor wakes
-        # and immediately shows the running Chromium compositor output.
-        _log.info("Display on via vcgencmd (Pi %s)", pi_ver or "?")
-    else:
-        # Non-Pi: kiosk script handles wlopm --on from the graphical session.
-        _log.info("vcgencmd not available (Pi %s) — kiosk script handles wlopm --on", pi_ver or "?")
-
+    outputs = _cached_outputs
+    modes = _cached_modes
+    if not modes:
+        # Fallback: try to detect live (works if display came back some other way)
+        outputs, modes = _query_wlr_randr(env)
+    _wlr_randr_on(outputs, modes, env)
+    _log.info("Display on via wlr-randr mode reapplication: %s", modes)
     return {"on": _display_on}

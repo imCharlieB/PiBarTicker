@@ -86,26 +86,26 @@ def _detect_outputs(env: dict) -> list[str]:
 
 
 def _ddcutil_d6(value: int) -> bool:
-    """
-    Send VCP D6 command via ddcutil.
-    value=1 (on), value=4 (standby/off).
-
-    DDC operates over the HDMI cable while the signal stays live — HPD never
-    drops, so DDC is always reachable. This avoids the Pi 5 issue where
-    wlopm --off drops HPD and makes the monitor unreachable via software.
-
-    Returns True if the command ran without error.
-    """
+    """Try to control power via ddcutil (usually fails on this monitor)."""
     if shutil.which("ddcutil") is None:
         return False
-    try:
-        r = subprocess.run(
-            ["ddcutil", "setvcp", "0xD6", str(value)],
-            timeout=10, capture_output=True,
-        )
-        return r.returncode == 0
-    except Exception:
-        return False
+
+    strategies = [
+        ["--bus", "14", "--noverify", "setvcp", "0xD6", str(value)],
+        ["--bus", "14", "--noverify", "--maxtries", "15", "setvcp", "0xD6", str(value)],
+        ["setvcp", "0xD6", str(value)],
+    ]
+
+    for use_sudo in [True, False]:
+        for extra_args in strategies:
+            cmd = (["sudo"] if use_sudo else []) + ["ddcutil"] + extra_args
+            try:
+                r = subprocess.run(cmd, capture_output=True, timeout=12)
+                if r.returncode == 0:
+                    return True
+            except Exception:
+                pass
+    return False
 
 
 def _wlopm(on: bool, env: dict) -> None:

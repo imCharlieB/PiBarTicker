@@ -190,33 +190,11 @@ def diagnose_display() -> dict:
 def set_display_power(body: DisplayPowerRequest) -> dict:
     global _display_on
 
-    env = _wayland_env()
+    _display_on = body.on
 
-    if not body.on:
-        # === TURN OFF ===
-        _display_on = False
-
-        # Try ddcutil first (bonus, usually fails on this monitor)
-        if shutil.which("ddcutil"):
-            _ddcutil_d6(5) or _ddcutil_d6(4)
-
-        # Main method - wlopm
-        _wlopm(False, env)
-        _log.info("Display turned OFF via wlopm")
-        return {"on": _display_on}
-
-    # TURN ON
-    _display_on = True
-    _wlopm(True, env)
-
-    import time
-    time.sleep(2)
-
-    _log.info("Display turned ON")
-    return {"on": _display_on}
-
-    # Optional: still attempt ddcutil
-    if shutil.which("ddcutil"):
-        _ddcutil_d6(1)
+    if body.on:
+        _log.info("Display turned ON (black overlay will be hidden)")
+    else:
+        _log.info("Display turned OFF (black overlay should be shown)")
 
     return {"on": _display_on}

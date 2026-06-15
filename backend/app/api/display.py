@@ -194,18 +194,23 @@ def set_display_power(body: DisplayPowerRequest) -> dict:
     env = _wayland_env()
 
     if not body.on:
-        # ddcutil D6=4: puts monitor panel in standby via DDC/CI over HDMI.
-        # Chromium and the compositor keep running — HDMI signal stays alive so
-        # ddcutil can always reach the monitor for the turn-on command.
-        # No wlopm, no pkill — this is exactly how TouchKio handles display-off.
+        # ddcutil D6=4/5: puts monitor panel in standby via DDC/CI over HDMI.
+        # Chromium and compositor keep running so the HDMI signal stays alive.
+        # No wlopm, no pkill — keeps the DDC channel active for turn-on.
         _ddcutil_power(False)
         _display_on = False
-        _log.info("Display off via ddcutil D6=4")
         return {"on": _display_on}
 
-    # ddcutil D6=1: wakes monitor panel. HDMI was never dropped so DDC channel
-    # is always available regardless of how long the display has been off.
-    _ddcutil_power(True)
+    # Turn on: try ddcutil D6=1 first (fast, DDC-based wake).
+    # If the monitor's DDC microcontroller is unresponsive in standby (common on
+    # cheap/generic displays), fall back to a brief wlopm signal cycle — dropping
+    # then restoring the HDMI signal triggers the monitor's hardware auto-wake
+    # circuit. lxqt and labwc dpmsTimeout are both disabled so wlopm --on sticks.
+    if not _ddcutil_power(True):
+        _log.info("ddcutil wake failed, falling back to wlopm signal cycle")
+        _wlopm_outputs(False, env)
+        time.sleep(0.5)
+        _wlopm_outputs(True, env)
+
     _display_on = True
-    _log.info("Display on via ddcutil D6=1")
     return {"on": _display_on}

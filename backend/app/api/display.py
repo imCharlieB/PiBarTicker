@@ -95,8 +95,35 @@ def get_display_power() -> dict:
     return {"on": _display_on}
 
 
+def _vcgencmd_power(state: int) -> bool:
+    """
+    Control HDMI at VideoCore firmware level — no Wayland session required.
+    state: 1 = on, 0 = off.
+
+    Fires on all known display IDs so whichever port is active gets the signal:
+      (no ID) = default / primary output
+      2       = HDMI0 (first port, Pi 4/5)
+      7       = HDMI1 (second port, Pi 4/5) — HDMI-A-2 in Wayland naming
+
+    Returns True if vcgencmd was found and called.
+    """
+    if shutil.which("vcgencmd") is None:
+        return False
+    s = str(state)
+    for cmd in (
+        ["vcgencmd", "display_power", s],
+        ["vcgencmd", "display_power", s, "2"],
+        ["vcgencmd", "display_power", s, "7"],
+    ):
+        try:
+            subprocess.run(cmd, timeout=5, capture_output=True)
+        except Exception:
+            return False
+    return True
+
+
 def _wlopm(on: bool, env: dict) -> None:
-    """Run wlopm --on/--off on all detected outputs."""
+    """Fallback for non-Pi: run wlopm --on/--off on all detected outputs."""
     global _cached_outputs
     live = _detect_outputs(env)
     if live:
@@ -112,33 +139,6 @@ def _wlopm(on: bool, env: dict) -> None:
             )
         except Exception:
             pass
-
-
-def _vcgencmd_display_on() -> bool:
-    """
-    Trigger HDMI re-init via VideoCore firmware — Pi-native wake that doesn't
-    need a Wayland session. Returns True if vcgencmd was found and ran.
-
-    Pi 4/5 HDMI display IDs for vcgencmd:
-      no ID  → default / primary display
-      2      → HDMI0 (first port)
-      7      → HDMI1 (second port, Pi 4+)
-    We fire all three so whichever port the monitor is on gets the HPD pulse.
-    """
-    if shutil.which("vcgencmd") is None:
-        return False
-    # Display IDs to try: no-ID (primary), HDMI0 (2), HDMI1 (7)
-    display_ids: list[list[str]] = [
-        ["vcgencmd", "display_power", "1"],
-        ["vcgencmd", "display_power", "1", "2"],
-        ["vcgencmd", "display_power", "1", "7"],
-    ]
-    for cmd in display_ids:
-        try:
-            subprocess.run(cmd, timeout=5, capture_output=True)
-        except Exception:
-            return False
-    return True
 
 
 @router.get("/diagnose")
@@ -172,36 +172,35 @@ def diagnose_display() -> dict:
 @router.post("/power")
 def set_display_power(body: DisplayPowerRequest) -> dict:
     global _display_on
-
-    env = _wayland_env()
     pi_ver = _pi_version()
 
     if not body.on:
-        # Set state first so the kiosk restart loop blocks immediately when
-        # Chromium exits — prevents race where Chromium dies before wlopm finishes.
         _display_on = False
-        subprocess.run(
-            ["pkill", "-f", "user-data-dir=/tmp/pibarticker-kiosk"],
-            timeout=5,
-        )
-        # wlopm --off drops the HDMI signal. The monitor enters deep sleep naturally
-        # from loss of signal. Do NOT call ddcutil D6=4 here — combining VCP standby
-        # with signal drop puts this monitor into unrecoverable deep sleep requiring
-        # a physical power cycle.
-        _wlopm(False, env)
-        _log.info("Display off via wlopm (Pi %s)", pi_ver or "?")
+
+        if _vcgencmd_power(0):
+            # Pi: cut HDMI signal at firmware level. The compositor keeps running
+            # so Chromium stays alive — signal returns instantly on turn-on with
+            # no kiosk restart needed.
+            _log.info("Display off via vcgencmd (Pi %s)", pi_ver or "?")
+        else:
+            # Non-Pi fallback: kill Chromium then drop signal via compositor.
+            subprocess.run(
+                ["pkill", "-f", "user-data-dir=/tmp/pibarticker-kiosk"],
+                timeout=5,
+            )
+            _wlopm(False, _wayland_env())
+            _log.info("Display off via wlopm (non-Pi)")
+
         return {"on": _display_on}
 
-    # Turn on:
-    # 1. vcgencmd fires an HPD pulse at the firmware level, waking the monitor
-    #    without needing the Wayland session environment (works from systemd).
-    #    Tries primary + HDMI0 (ID 2) + HDMI1 (ID 7) to cover both Pi 4 and Pi 5
-    #    regardless of which port the monitor is on.
-    # 2. The kiosk script then calls wlopm --on and relaunches Chromium from
-    #    within the graphical session for a clean compositor connection.
     _display_on = True
-    if _vcgencmd_display_on():
+
+    if _vcgencmd_power(1):
+        # Pi: firmware re-initializes HDMI and sends HPD pulse — monitor wakes
+        # and immediately shows the running Chromium compositor output.
         _log.info("Display on via vcgencmd (Pi %s)", pi_ver or "?")
     else:
+        # Non-Pi: kiosk script handles wlopm --on from the graphical session.
         _log.info("vcgencmd not available (Pi %s) — kiosk script handles wlopm --on", pi_ver or "?")
+
     return {"on": _display_on}

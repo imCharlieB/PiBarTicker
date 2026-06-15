@@ -187,10 +187,10 @@ def set_display_power(body: DisplayPowerRequest) -> dict:
     env = _wayland_env()
 
     if not body.on:
-        # Kill Chromium so the compositor has no active client, then wlopm --off
-        # drops the HDMI signal. The monitor enters deep sleep on its own once the
-        # signal is gone. lxqt-powermanagement is permanently disabled via config
-        # (install_pi.sh), so nothing will race wlopm --on at wake time.
+        # Mark off FIRST so the kiosk restart loop sees on:false immediately when
+        # Chromium exits from the pkill below — avoids a race where Chromium dies
+        # before wlopm finishes and the loop relaunches it before we're done.
+        _display_on = False
         subprocess.run(
             ["pkill", "-f", "user-data-dir=/tmp/pibarticker-kiosk"],
             timeout=5,
@@ -200,7 +200,6 @@ def set_display_power(body: DisplayPowerRequest) -> dict:
             _log.warning("wlopm --off errors: %s", errors)
         else:
             _log.info("Display off via wlopm")
-        _display_on = False
         return {"on": _display_on}
 
     # Turning ON: wlopm --on re-enables the GPU output and drives the HDMI signal.

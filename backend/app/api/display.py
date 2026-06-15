@@ -3,6 +3,7 @@ import logging
 import os
 import shutil
 import subprocess
+import time
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -83,30 +84,36 @@ def get_display_power() -> dict:
 
 
 def _ddcutil_power(on: bool) -> bool:
-    """Control display via DDC/CI (VCP feature D6). Returns True on success.
-
-    This talks directly to the monitor hardware over HDMI, bypassing the
-    Wayland compositor and any idle daemon — so it works even after the
-    compositor has put the output to sleep.
-    """
+    """Control display via DDC/CI (VCP feature D6). Returns True on success."""
     if not shutil.which("ddcutil"):
         return False
-    try:
-        value = "1" if on else "4"  # D6: 1=on, 4=off/standby
-        r = subprocess.run(
-            ["ddcutil", "setvcp", "0xD6", value],
-            capture_output=True, timeout=15,
-        )
-        if r.returncode == 0:
-            return True
-        # Retry with sudo in case user isn't in i2c group yet
-        r2 = subprocess.run(
-            ["sudo", "ddcutil", "setvcp", "0xD6", value],
-            capture_output=True, timeout=15,
-        )
-        return r2.returncode == 0
-    except Exception:
+
+    if on:
+        # Retry turn-on — monitor may need a moment after waking from standby.
+        for attempt in range(3):
+            for cmd in (["ddcutil", "setvcp", "0xD6", "1"],
+                        ["sudo", "ddcutil", "setvcp", "0xD6", "1"]):
+                try:
+                    if subprocess.run(cmd, capture_output=True, timeout=15).returncode == 0:
+                        return True
+                except Exception:
+                    pass
+            if attempt < 2:
+                time.sleep(1)
         return False
+
+    # Turn off: try D6=5 (soft standby) first, then D6=4 (hard off).
+    # D6=5 keeps the monitor's DDC microcontroller more responsive on some hardware.
+    for value in ("5", "4"):
+        for cmd in (["ddcutil", "setvcp", "0xD6", value],
+                    ["sudo", "ddcutil", "setvcp", "0xD6", value]):
+            try:
+                if subprocess.run(cmd, capture_output=True, timeout=15).returncode == 0:
+                    _log.info("Display off via ddcutil D6=%s", value)
+                    return True
+            except Exception:
+                pass
+    return False
 
 
 def _ddcutil_available() -> bool:

@@ -193,16 +193,14 @@ function buildTickerScoreboardQuery(league, {
   const effectiveUseWeek = useWeekFilterOverride ?? league?.useWeekFilter ?? false
   if (effectiveUseWeek) query.set('use_week_filter', 'true')
 
-  if (gameFilterOverride !== 'all') {
-    const includedTeams = Array.isArray(league?.includedTeams) ? league.includedTeams : []
-    if (includedTeams.length) query.set('included_teams', includedTeams.join(','))
+  const includedTeams = Array.isArray(league?.includedTeams) ? league.includedTeams : []
+  if (includedTeams.length) query.set('included_teams', includedTeams.join(','))
 
-    const includedGroups = Array.isArray(league?.includedGroups) ? league.includedGroups : []
-    if (includedGroups.length) query.set('included_groups', includedGroups.join(','))
+  const includedGroups = Array.isArray(league?.includedGroups) ? league.includedGroups : []
+  if (includedGroups.length) query.set('included_groups', includedGroups.join(','))
 
-    const rankingsFilter = league?.rankingsFilter ?? null
-    if (rankingsFilter) query.set('rankings_limit', String(rankingsFilter))
-  }
+  const rankingsFilter = league?.rankingsFilter ?? null
+  if (rankingsFilter) query.set('rankings_limit', String(rankingsFilter))
 
   return query.toString()
 }

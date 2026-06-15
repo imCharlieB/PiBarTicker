@@ -193,8 +193,8 @@ def set_display_power(body: DisplayPowerRequest) -> dict:
     _display_on = body.on
 
     if body.on:
-        _log.info("Display turned ON (black overlay will be hidden)")
+        _log.info("Display ON requested")
     else:
-        _log.info("Display turned OFF (black overlay should be shown)")
+        _log.info("Display OFF requested (black overlay)")
 
     return {"on": _display_on}

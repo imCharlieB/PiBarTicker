@@ -386,36 +386,54 @@ echo "Set XCURSOR_THEME=kiosk-no-cursor in labwc environment."
 # Without this, Chromium's spanning window lands on whatever output Labwc picks
 # (typically the last active one) instead of the left edge of the virtual desktop.
 # A kiosk device only ever has one window, so matching identifier="*" is safe.
-echo "Adding Labwc window placement rule (force 0,0) to rc.xml..."
+echo "Adding Labwc window placement rule to rc.xml..."
 LABWC_RC="${APP_HOME}/.config/labwc/rc.xml"
 if [ -f "${LABWC_RC}" ]; then
-  python3 - "${LABWC_RC}" <<'PY'
-import sys
-path = sys.argv[1]
-content = open(path).read()
+  python3 - "${LABWC_RC}" "${APP_DIR}/config.json" <<'PY'
+import sys, json, os, re
+rc_path = sys.argv[1]
+config_path = sys.argv[2]
 
-RULE_INNER = '    <windowRule identifier="*">\n      <action name="MoveTo"><x>0</x><y>0</y></action>\n    </windowRule>'
+monitor = {}
+if os.path.exists(config_path):
+    try:
+        monitor = json.loads(open(config_path).read()).get('monitor', {})
+    except Exception:
+        pass
 
-if 'action name="MoveTo"' in content:
-    print("MoveTo window rule already present in rc.xml.")
-elif '<windowRules>' in content:
-    content = content.replace('<windowRules>', '<windowRules>\n' + RULE_INNER)
-    open(path, 'w').write(content)
-    print("Injected MoveTo rule into existing windowRules.")
-else:
-    inserted = False
-    for tag in ('</openbox_config>', '</labwc_config>'):
-        if tag in content:
-            content = content.replace(tag, '  <windowRules>\n' + RULE_INNER + '\n  </windowRules>\n' + tag)
-            inserted = True
-            break
-    if not inserted:
-        content = content.rstrip() + '\n  <windowRules>\n' + RULE_INNER + '\n  </windowRules>\n'
-    open(path, 'w').write(content)
-    print("Added windowRules section with MoveTo rule.")
+mode = str(monitor.get('mode', 'single')).strip().lower()
+width = int(monitor.get('width', 1920) or 1920)
+height = int(monitor.get('height', 380) or 380)
+total_width = width * 2 if mode == 'dual' else width
+
+# MoveTo forces position (Wayland ignores --window-position hints).
+# ResizeTo forces size in dual mode (Labwc otherwise constrains the window
+# to the work area of the output it lands on, i.e. 1920px instead of 3840px).
+actions = '      <action name="MoveTo"><x>0</x><y>0</y></action>\n'
+if mode == 'dual':
+    actions += f'      <action name="ResizeTo"><width>{total_width}</width><height>{height}</height></action>\n'
+
+RULE_INNER = '    <windowRule identifier="*">\n' + actions + '    </windowRule>'
+
+content = open(rc_path).read()
+# Replace any windowRules block written by a previous install
+content = re.sub(r'\s*<windowRules>.*?</windowRules>', '', content, flags=re.DOTALL)
+
+inserted = False
+for tag in ('</openbox_config>', '</labwc_config>'):
+    if tag in content:
+        content = content.replace(tag, '  <windowRules>\n' + RULE_INNER + '\n  </windowRules>\n' + tag)
+        inserted = True
+        break
+if not inserted:
+    content = content.rstrip() + '\n  <windowRules>\n' + RULE_INNER + '\n  </windowRules>\n'
+
+open(rc_path, 'w').write(content)
+label = f"ResizeTo {total_width}x{height}" if mode == 'dual' else "MoveTo only"
+print(f"labwc rc.xml: window rule ({mode} mode — MoveTo 0,0" + (f", ResizeTo {total_width}x{height}" if mode == 'dual' else "") + ")")
 PY
 else
-  echo "labwc rc.xml not found; skipping window placement rule (will apply on next install)."
+  echo "labwc rc.xml not found; skipping window placement rule."
 fi
 
 chown -R "${APP_USER}:${APP_USER}" "${APP_HOME}/.config"

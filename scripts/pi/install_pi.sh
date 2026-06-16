@@ -277,12 +277,13 @@ if [ -f "${LABWC_RC}" ]; then
 import sys, re
 path = sys.argv[1]
 content = open(path).read()
+
+# Set dpmsTimeout=0
 if '<dpmsTimeout>' in content:
     content = re.sub(r'<dpmsTimeout>\d+</dpmsTimeout>', '<dpmsTimeout>0</dpmsTimeout>', content)
 elif '<core>' in content:
     content = content.replace('<core>', '<core>\n    <dpmsTimeout>0</dpmsTimeout>', 1)
 else:
-    # File may use <openbox_config> (Pi OS default) or <labwc_config> as root.
     for closing_tag in ('</openbox_config>', '</labwc_config>'):
         if closing_tag in content:
             content = content.replace(
@@ -290,8 +291,17 @@ else:
                 '  <core>\n    <dpmsTimeout>0</dpmsTimeout>\n  </core>\n' + closing_tag,
             )
             break
+
+# Set decoration=server so Labwc tells Chromium to use SSD mode, which makes
+# Chromium drop its own CSD title bar. The windowRule serverDecoration="no" then
+# stops Labwc from adding its own SSD. Net result: zero window decorations.
+if '<decoration>' in content:
+    content = re.sub(r'<decoration>[^<]*</decoration>', '<decoration>server</decoration>', content)
+elif '<core>' in content:
+    content = content.replace('<core>', '<core>\n    <decoration>server</decoration>', 1)
+
 open(path, 'w').write(content)
-print("labwc rc.xml: dpmsTimeout=0")
+print("labwc rc.xml: dpmsTimeout=0, decoration=server")
 PY
 else
   # No rc.xml anywhere — write a minimal one.
@@ -406,16 +416,14 @@ width = int(monitor.get('width', 1920) or 1920)
 height = int(monitor.get('height', 380) or 380)
 total_width = width * 2 if mode == 'dual' else width
 
-# Dual mode: --app=URL (not --kiosk) is used so the window can span both outputs.
-# --app mode draws a Chromium CSD title bar (~38px). We shift the window up by that
-# amount so the title bar is above the screen edge and the ticker fills the full display.
-# ResizeTo height includes the title bar offset so the content area stays at config height.
-# Single mode: --kiosk fullscreens automatically — no window rule needed.
+# Dual mode: --app=URL spans both outputs. serverDecoration="no" stops Labwc adding
+# its own SSD. Combined with <decoration>server</decoration> in core (which tells
+# Chromium to drop its CSD), the window has zero decorations — no title bar.
+# Single mode: --kiosk fullscreens automatically — no rule needed.
 if mode == 'dual':
-    TITLE_BAR_H = 38
-    actions = f'      <action name="MoveTo"><x>0</x><y>-{TITLE_BAR_H}</y></action>\n'
-    actions += f'      <action name="ResizeTo"><width>{total_width}</width><height>{height + TITLE_BAR_H}</height></action>\n'
-    RULE_INNER = '    <windowRule identifier="*">\n' + actions + '    </windowRule>'
+    actions = '      <action name="MoveTo"><x>0</x><y>0</y></action>\n'
+    actions += f'      <action name="ResizeTo"><width>{total_width}</width><height>{height}</height></action>\n'
+    RULE_INNER = f'    <windowRule identifier="*" serverDecoration="no">\n' + actions + '    </windowRule>'
 else:
     RULE_INNER = None
 
@@ -435,7 +443,7 @@ if RULE_INNER is not None:
 
 open(rc_path, 'w').write(content)
 if RULE_INNER is not None:
-    print(f"labwc rc.xml: window rule ({mode} mode — MoveTo 0,-{TITLE_BAR_H}, ResizeTo {total_width}x{height + TITLE_BAR_H})")
+    print(f"labwc rc.xml: window rule ({mode} mode — serverDecoration=no, MoveTo 0,0, ResizeTo {total_width}x{height})")
 else:
     print(f"labwc rc.xml: no window rule ({mode} mode — --kiosk handles fullscreen)")
 PY

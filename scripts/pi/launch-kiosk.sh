@@ -95,6 +95,7 @@ monitor = cfg.get("monitor", {})
 
 auto_start = str(kiosk.get("autoStart", "autostart")).strip().lower()
 mode = str(monitor.get("mode", "single")).strip().lower()
+swap_outputs = bool(monitor.get("swapOutputs", False))
 width = int(monitor.get("width", 1920) or 1920)
 height = int(monitor.get("height", 380) or 380)
 flags = kiosk.get("chromiumFlags", [])
@@ -123,6 +124,7 @@ flags = cleaned
 
 print(auto_start)
 print(mode)
+print("true" if swap_outputs else "false")
 print(f"{width}x{height}")
 for flag in flags:
     text = str(flag).strip()
@@ -133,8 +135,9 @@ PY
 
 AUTO_START="${CONFIG_LINES[0]:-autostart}"
 MONITOR_MODE="${CONFIG_LINES[1]:-single}"
-DISPLAY_MODE="${CONFIG_LINES[2]:-1920x380}"
-CHROMIUM_FLAGS=("${CONFIG_LINES[@]:3}")
+SWAP_OUTPUTS="${CONFIG_LINES[2]:-false}"
+DISPLAY_MODE="${CONFIG_LINES[3]:-1920x380}"
+CHROMIUM_FLAGS=("${CONFIG_LINES[@]:4}")
 
 # Parse width/height for explicit window sizing (helps Chromium match the xrandr mode exactly on bar displays)
 WIDTH=$(echo "$DISPLAY_MODE" | cut -d'x' -f1)
@@ -195,16 +198,18 @@ apply_display_mode() {
     if [ "$MONITOR_MODE" = "dual" ]; then
       local outputs=()
       mapfile -t outputs < <(wlr-randr 2>/dev/null | grep -E '^[A-Z][A-Za-z0-9_-]+' | awk '{print $1}')
+      # Swap output order when cables are plugged in "backwards" relative to compositor default.
+      if [ "${SWAP_OUTPUTS:-false}" = "true" ] && [ "${#outputs[@]}" -ge 2 ]; then
+        local tmp="${outputs[0]}"
+        outputs[0]="${outputs[1]}"
+        outputs[1]="$tmp"
+      fi
+      local xpos=0
       for out in "${outputs[@]}"; do
-        local cur
-        cur=$(wlr-randr 2>/dev/null | grep -A2 "^${out}" | grep -o '[0-9]\+x[0-9]\+' | head -1 || echo "")
-        if [ "$cur" != "${WIDTH}x${HEIGHT}" ]; then
-          echo "Dual: resetting ${out} from ${cur} to ${WIDTH}x${HEIGHT}"
-          # Use --mode to switch to an existing listed mode (avoids stacking custom modes).
-          # Fall back to --custom-mode if the mode isn't in the display's mode list.
-          wlr-randr --output "$out" --mode "${WIDTH}x${HEIGHT}" 2>/dev/null || \
-            wlr-randr --output "$out" --custom-mode "${WIDTH}x${HEIGHT}" 2>/dev/null || true
-        fi
+        echo "Dual: setting ${out} to ${WIDTH}x${HEIGHT} at pos ${xpos},0"
+        wlr-randr --output "$out" --mode "${WIDTH}x${HEIGHT}" --pos "${xpos},0" 2>/dev/null || \
+          wlr-randr --output "$out" --custom-mode "${WIDTH}x${HEIGHT}" --pos "${xpos},0" 2>/dev/null || true
+        xpos=$((xpos + WIDTH))
       done
       [ ${#outputs[@]} -gt 0 ] && sleep 1
     else

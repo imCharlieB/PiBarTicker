@@ -406,31 +406,38 @@ width = int(monitor.get('width', 1920) or 1920)
 height = int(monitor.get('height', 380) or 380)
 total_width = width * 2 if mode == 'dual' else width
 
-# MoveTo forces position (Wayland ignores --window-position hints).
-# ResizeTo forces size in dual mode (Labwc otherwise constrains the window
-# to the work area of the output it lands on, i.e. 1920px instead of 3840px).
-actions = '      <action name="MoveTo"><x>0</x><y>0</y></action>\n'
+# Dual mode: --app=URL (not --kiosk) is used so the window can span both outputs.
+# --app mode draws a Chromium CSD title bar (~38px). We shift the window up by that
+# amount so the title bar is above the screen edge and the ticker fills the full display.
+# ResizeTo height includes the title bar offset so the content area stays at config height.
+# Single mode: --kiosk fullscreens automatically — no window rule needed.
 if mode == 'dual':
-    actions += f'      <action name="ResizeTo"><width>{total_width}</width><height>{height}</height></action>\n'
-
-RULE_INNER = '    <windowRule identifier="*">\n' + actions + '    </windowRule>'
+    TITLE_BAR_H = 38
+    actions = f'      <action name="MoveTo"><x>0</x><y>-{TITLE_BAR_H}</y></action>\n'
+    actions += f'      <action name="ResizeTo"><width>{total_width}</width><height>{height + TITLE_BAR_H}</height></action>\n'
+    RULE_INNER = '    <windowRule identifier="*">\n' + actions + '    </windowRule>'
+else:
+    RULE_INNER = None
 
 content = open(rc_path).read()
-# Replace any windowRules block written by a previous install
+# Remove any windowRules block written by a previous install
 content = re.sub(r'\s*<windowRules>.*?</windowRules>', '', content, flags=re.DOTALL)
 
-inserted = False
-for tag in ('</openbox_config>', '</labwc_config>'):
-    if tag in content:
-        content = content.replace(tag, '  <windowRules>\n' + RULE_INNER + '\n  </windowRules>\n' + tag)
-        inserted = True
-        break
-if not inserted:
-    content = content.rstrip() + '\n  <windowRules>\n' + RULE_INNER + '\n  </windowRules>\n'
+if RULE_INNER is not None:
+    inserted = False
+    for tag in ('</openbox_config>', '</labwc_config>'):
+        if tag in content:
+            content = content.replace(tag, '  <windowRules>\n' + RULE_INNER + '\n  </windowRules>\n' + tag)
+            inserted = True
+            break
+    if not inserted:
+        content = content.rstrip() + '\n  <windowRules>\n' + RULE_INNER + '\n  </windowRules>\n'
 
 open(rc_path, 'w').write(content)
-label = f"ResizeTo {total_width}x{height}" if mode == 'dual' else "MoveTo only"
-print(f"labwc rc.xml: window rule ({mode} mode — MoveTo 0,0" + (f", ResizeTo {total_width}x{height}" if mode == 'dual' else "") + ")")
+if RULE_INNER is not None:
+    print(f"labwc rc.xml: window rule ({mode} mode — MoveTo 0,-{TITLE_BAR_H}, ResizeTo {total_width}x{height + TITLE_BAR_H})")
+else:
+    print(f"labwc rc.xml: no window rule ({mode} mode — --kiosk handles fullscreen)")
 PY
 else
   echo "labwc rc.xml not found; skipping window placement rule."

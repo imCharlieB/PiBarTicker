@@ -18,6 +18,7 @@ class MonitorConfig(AppBaseModel):
     mode: Literal["single", "dual"] = "single"
     width: int = 1920
     height: int = 380
+    swapOutputs: bool = False
 
 
 class HomeAssistantConfig(AppBaseModel):

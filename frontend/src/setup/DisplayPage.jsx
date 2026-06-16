@@ -32,6 +32,17 @@ export default function DisplayPage() {
           </select>
         </label>
 
+        {config.monitor.mode === 'dual' ? (
+          <label className="field">
+            <span>Swap outputs</span>
+            <select value={config.monitor.swapOutputs ? 'true' : 'false'} onChange={(event) => updateConfigSection('monitor', 'swapOutputs', event.target.value === 'true')}>
+              <option value="false">Default order</option>
+              <option value="true">Swapped (flip left/right)</option>
+            </select>
+            <small className="field-help">Toggle if the ticker scrolls backward — swaps which physical monitor is treated as "left".</small>
+          </label>
+        ) : null}
+
         <label className="field">
           <span>{config.monitor.mode === 'dual' ? 'Width (per monitor)' : 'Width'}</span>
           <input type="number" value={config.monitor.width} onChange={(event) => updateConfigSection('monitor', 'width', Number(event.target.value))} />

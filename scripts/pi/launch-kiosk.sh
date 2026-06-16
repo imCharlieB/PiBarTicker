@@ -275,15 +275,6 @@ display_explicitly_off() {
   echo "$body" | grep -q '"on":false'
 }
 
-# In dual mode --kiosk fullscreens to one output only; strip it so the window spans both
-if [ "$MONITOR_MODE" = "dual" ]; then
-  FILTERED_FLAGS=()
-  for f in "${CHROMIUM_FLAGS[@]}"; do
-    [ "$f" != "--kiosk" ] && FILTERED_FLAGS+=("$f")
-  done
-  CHROMIUM_FLAGS=("${FILTERED_FLAGS[@]}")
-fi
-
 while true; do
   # Launch Chromium with Wayland-specific flags required for clean operation
   # under the current official Raspberry Pi OS Labwc compositor.
@@ -305,6 +296,7 @@ while true; do
     --password-store=basic \
     --window-size=${CHROMIUM_WINDOW_WIDTH},${HEIGHT} \
     --window-position=0,0 \
+    --kiosk \
     --ozone-platform=wayland \
     --use-gl=egl \
     --enable-features=OverlayScrollbar,VaapiVideoDecoder,WaylandWindowDecorations \

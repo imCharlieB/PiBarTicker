@@ -76,7 +76,11 @@ function App() {
     [sportsBoard?.leagues], // eslint-disable-line react-hooks/exhaustive-deps
   )
   const runtimeLeagueIdsKey = runtimeLeagues.map((league) => league.id).join('|')
-  const runtimeBoardWidth = Math.max(320, Number(config?.monitor?.width) || 1920)
+  const runtimeBoardWidth = Math.max(320,
+    config?.monitor?.mode === 'dual'
+      ? (Number(config?.monitor?.width) || 1920) * 2
+      : (Number(config?.monitor?.width) || 1920)
+  )
 
   const activeRuntimeLeague = runtimeLeagues.length
     ? runtimeLeagues[runtimeLeagueIndex % runtimeLeagues.length]

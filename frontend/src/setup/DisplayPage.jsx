@@ -33,9 +33,10 @@ export default function DisplayPage() {
         </label>
 
         <label className="field">
-          <span>Width</span>
+          <span>{config.monitor.mode === 'dual' ? 'Width (per monitor)' : 'Width'}</span>
           <input type="number" value={config.monitor.width} onChange={(event) => updateConfigSection('monitor', 'width', Number(event.target.value))} />
           {displayErrors.width ? <small className="field-error">{displayErrors.width}</small> : null}
+          {config.monitor.mode === 'dual' ? <small className="field-help">Total span: {config.monitor.width * 2}px</small> : null}
         </label>
 
         <label className="field">

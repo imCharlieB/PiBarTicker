@@ -94,6 +94,7 @@ kiosk = cfg.get("kiosk", {})
 monitor = cfg.get("monitor", {})
 
 auto_start = str(kiosk.get("autoStart", "autostart")).strip().lower()
+mode = str(monitor.get("mode", "single")).strip().lower()
 width = int(monitor.get("width", 1920) or 1920)
 height = int(monitor.get("height", 380) or 380)
 flags = kiosk.get("chromiumFlags", [])
@@ -121,6 +122,7 @@ if to_add:
 flags = cleaned
 
 print(auto_start)
+print(mode)
 print(f"{width}x{height}")
 for flag in flags:
     text = str(flag).strip()
@@ -130,12 +132,19 @@ PY
 )
 
 AUTO_START="${CONFIG_LINES[0]:-autostart}"
-DISPLAY_MODE="${CONFIG_LINES[1]:-1920x380}"
-CHROMIUM_FLAGS=("${CONFIG_LINES[@]:2}")
+MONITOR_MODE="${CONFIG_LINES[1]:-single}"
+DISPLAY_MODE="${CONFIG_LINES[2]:-1920x380}"
+CHROMIUM_FLAGS=("${CONFIG_LINES[@]:3}")
 
 # Parse width/height for explicit window sizing (helps Chromium match the xrandr mode exactly on bar displays)
 WIDTH=$(echo "$DISPLAY_MODE" | cut -d'x' -f1)
 HEIGHT=$(echo "$DISPLAY_MODE" | cut -d'x' -f2)
+
+if [ "$MONITOR_MODE" = "dual" ]; then
+  CHROMIUM_WINDOW_WIDTH=$((WIDTH * 2))
+else
+  CHROMIUM_WINDOW_WIDTH=$WIDTH
+fi
 
 if [[ "${AUTO_START}" != "autostart" ]]; then
   echo "Kiosk startup is disabled in Setup > Display; skipping Chromium launch."
@@ -183,15 +192,29 @@ fi
 # the monitor's native mode, which leaves the desktop/ticker uncropped and off-center.
 apply_display_mode() {
   if [ "$IS_WAYLAND" = "1" ] && command -v wlr-randr >/dev/null 2>&1; then
-    local out
-    out=$(wlr-randr 2>/dev/null | grep -E '^[A-Z]' | head -1 | awk '{print $1}' || echo "")
-    if [ -n "$out" ]; then
-      local cur
-      cur=$(wlr-randr 2>/dev/null | grep -A1 "^${out}" | grep -o '[0-9]\+x[0-9]\+' | head -1 || echo "")
-      if [ "$cur" != "${DISPLAY_MODE}" ]; then
-        echo "Applying custom mode ${DISPLAY_MODE} on ${out}"
-        wlr-randr --output "$out" --custom-mode "${WIDTH}x${HEIGHT}" || true
-        sleep 1
+    if [ "$MONITOR_MODE" = "dual" ]; then
+      local outputs=()
+      mapfile -t outputs < <(wlr-randr 2>/dev/null | grep -E '^[A-Z][A-Za-z0-9_-]+' | awk '{print $1}')
+      for out in "${outputs[@]}"; do
+        local cur
+        cur=$(wlr-randr 2>/dev/null | grep -A2 "^${out}" | grep -o '[0-9]\+x[0-9]\+' | head -1 || echo "")
+        if [ "$cur" != "${WIDTH}x${HEIGHT}" ]; then
+          echo "Dual: setting ${out} to ${WIDTH}x${HEIGHT}"
+          wlr-randr --output "$out" --custom-mode "${WIDTH}x${HEIGHT}" 2>/dev/null || true
+        fi
+      done
+      [ ${#outputs[@]} -gt 0 ] && sleep 1
+    else
+      local out
+      out=$(wlr-randr 2>/dev/null | grep -E '^[A-Z]' | head -1 | awk '{print $1}' || echo "")
+      if [ -n "$out" ]; then
+        local cur
+        cur=$(wlr-randr 2>/dev/null | grep -A1 "^${out}" | grep -o '[0-9]\+x[0-9]\+' | head -1 || echo "")
+        if [ "$cur" != "${DISPLAY_MODE}" ]; then
+          echo "Applying custom mode ${DISPLAY_MODE} on ${out}"
+          wlr-randr --output "$out" --custom-mode "${WIDTH}x${HEIGHT}" || true
+          sleep 1
+        fi
       fi
     fi
   fi
@@ -252,6 +275,15 @@ display_explicitly_off() {
   echo "$body" | grep -q '"on":false'
 }
 
+# In dual mode --kiosk fullscreens to one output only; strip it so the window spans both
+if [ "$MONITOR_MODE" = "dual" ]; then
+  FILTERED_FLAGS=()
+  for f in "${CHROMIUM_FLAGS[@]}"; do
+    [ "$f" != "--kiosk" ] && FILTERED_FLAGS+=("$f")
+  done
+  CHROMIUM_FLAGS=("${FILTERED_FLAGS[@]}")
+fi
+
 while true; do
   # Launch Chromium with Wayland-specific flags required for clean operation
   # under the current official Raspberry Pi OS Labwc compositor.
@@ -271,9 +303,8 @@ while true; do
     --no-first-run \
     --no-default-browser-check \
     --password-store=basic \
-    --window-size=${WIDTH},${HEIGHT} \
+    --window-size=${CHROMIUM_WINDOW_WIDTH},${HEIGHT} \
     --window-position=0,0 \
-    --kiosk \
     --ozone-platform=wayland \
     --use-gl=egl \
     --enable-features=OverlayScrollbar,VaapiVideoDecoder,WaylandWindowDecorations \

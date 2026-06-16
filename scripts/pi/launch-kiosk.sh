@@ -275,7 +275,29 @@ display_explicitly_off() {
   echo "$body" | grep -q '"on":false'
 }
 
+# In dual mode, --kiosk fullscreens per-output (one screen only).
+# Strip it and use --app mode so the window spans both outputs as one 3840px canvas.
+# Single mode keeps --kiosk via CHROMIUM_FLAGS (it's in the RECOMMENDED list above).
+CHROMIUM_APP_ARG="${URL}"
+if [ "$MONITOR_MODE" = "dual" ]; then
+  FILTERED_FLAGS=()
+  for f in "${CHROMIUM_FLAGS[@]}"; do
+    [ "$f" != "--kiosk" ] && FILTERED_FLAGS+=("$f")
+  done
+  CHROMIUM_FLAGS=("${FILTERED_FLAGS[@]}")
+  CHROMIUM_APP_ARG="--app=${URL}"
+fi
+
 while true; do
+  # In dual mode, kill the Pi OS desktop panel before each launch so the spanning
+  # window isn't obscured (without --kiosk the panel sits on top of regular windows).
+  if [ "$MONITOR_MODE" = "dual" ]; then
+    pkill -f wf-panel-pi 2>/dev/null || true
+    pkill -f sfwbar 2>/dev/null || true
+    pkill -f waybar 2>/dev/null || true
+    sleep 0.5
+  fi
+
   # Launch Chromium with Wayland-specific flags required for clean operation
   # under the current official Raspberry Pi OS Labwc compositor.
   "${CHROMIUM_BIN}" \
@@ -296,13 +318,12 @@ while true; do
     --password-store=basic \
     --window-size=${CHROMIUM_WINDOW_WIDTH},${HEIGHT} \
     --window-position=0,0 \
-    --kiosk \
     --ozone-platform=wayland \
     --use-gl=egl \
     --enable-features=OverlayScrollbar,VaapiVideoDecoder,WaylandWindowDecorations \
     --disable-webgpu \
     "${CHROMIUM_FLAGS[@]}" \
-    "${URL}" >> /tmp/pibarticker-kiosk.log 2>&1 || true
+    "${CHROMIUM_APP_ARG}" >> /tmp/pibarticker-kiosk.log 2>&1 || true
 
   # If display was explicitly turned off, hold until it's back on.
   # Only blocks when backend is up and says on:false — never blocks on unreachable.

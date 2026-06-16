@@ -199,8 +199,11 @@ apply_display_mode() {
         local cur
         cur=$(wlr-randr 2>/dev/null | grep -A2 "^${out}" | grep -o '[0-9]\+x[0-9]\+' | head -1 || echo "")
         if [ "$cur" != "${WIDTH}x${HEIGHT}" ]; then
-          echo "Dual: setting ${out} to ${WIDTH}x${HEIGHT}"
-          wlr-randr --output "$out" --custom-mode "${WIDTH}x${HEIGHT}" 2>/dev/null || true
+          echo "Dual: resetting ${out} from ${cur} to ${WIDTH}x${HEIGHT}"
+          # Use --mode to switch to an existing listed mode (avoids stacking custom modes).
+          # Fall back to --custom-mode if the mode isn't in the display's mode list.
+          wlr-randr --output "$out" --mode "${WIDTH}x${HEIGHT}" 2>/dev/null || \
+            wlr-randr --output "$out" --custom-mode "${WIDTH}x${HEIGHT}" 2>/dev/null || true
         fi
       done
       [ ${#outputs[@]} -gt 0 ] && sleep 1

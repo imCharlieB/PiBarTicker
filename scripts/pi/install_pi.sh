@@ -381,6 +381,43 @@ sed -i '/^XCURSOR_SIZE=/d; /^XCURSOR_THEME=/d' "${LABWC_ENV}" 2>/dev/null || tru
 printf 'XCURSOR_THEME=kiosk-no-cursor\nXCURSOR_SIZE=24\n' >> "${LABWC_ENV}"
 echo "Set XCURSOR_THEME=kiosk-no-cursor in labwc environment."
 
+# Add a Labwc window rule that forces every new window to position 0,0.
+# In Wayland, apps cannot set their own position — the compositor decides placement.
+# Without this, Chromium's spanning window lands on whatever output Labwc picks
+# (typically the last active one) instead of the left edge of the virtual desktop.
+# A kiosk device only ever has one window, so matching identifier="*" is safe.
+echo "Adding Labwc window placement rule (force 0,0) to rc.xml..."
+LABWC_RC="${APP_HOME}/.config/labwc/rc.xml"
+if [ -f "${LABWC_RC}" ]; then
+  python3 - "${LABWC_RC}" <<'PY'
+import sys
+path = sys.argv[1]
+content = open(path).read()
+
+RULE_INNER = '    <windowRule identifier="*">\n      <action name="MoveTo"><x>0</x><y>0</y></action>\n    </windowRule>'
+
+if 'action name="MoveTo"' in content:
+    print("MoveTo window rule already present in rc.xml.")
+elif '<windowRules>' in content:
+    content = content.replace('<windowRules>', '<windowRules>\n' + RULE_INNER)
+    open(path, 'w').write(content)
+    print("Injected MoveTo rule into existing windowRules.")
+else:
+    inserted = False
+    for tag in ('</openbox_config>', '</labwc_config>'):
+        if tag in content:
+            content = content.replace(tag, '  <windowRules>\n' + RULE_INNER + '\n  </windowRules>\n' + tag)
+            inserted = True
+            break
+    if not inserted:
+        content = content.rstrip() + '\n  <windowRules>\n' + RULE_INNER + '\n  </windowRules>\n'
+    open(path, 'w').write(content)
+    print("Added windowRules section with MoveTo rule.")
+PY
+else
+  echo "labwc rc.xml not found; skipping window placement rule (will apply on next install)."
+fi
+
 chown -R "${APP_USER}:${APP_USER}" "${APP_HOME}/.config"
 chmod +x "${APP_DIR}/scripts/pi/launch-kiosk.sh"
 

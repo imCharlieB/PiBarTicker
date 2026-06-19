@@ -95,11 +95,9 @@ apt-get install -y --no-install-recommends \
   curl \
   rsync \
   "${CHROMIUM_PACKAGE}" \
-  wlr-randr \
-  wlopm \
-  swayidle
-# X11-only packages (x11-xserver-utils, xdotool, unclutter) removed — not required
-# for Labwc/Wayland on current Pi OS. wlr-randr/wlopm and chromium are kept.
+  openbox \
+  x11-xserver-utils \
+  unclutter
 
 # ddcutil: talks directly to monitor hardware over HDMI DDC/CI, bypassing the
 # Wayland compositor idle daemon. Not in Pi OS default repos — fetch from Debian
@@ -169,7 +167,11 @@ kiosk = cfg.setdefault("kiosk", {})
 flags = kiosk.get("chromiumFlags", [])
 if not isinstance(flags, list):
     flags = []
-BAD_FLAGS = ["--no-decommit-pooled-pages"]
+BAD_FLAGS = [
+    "--no-decommit-pooled-pages",
+    "--ozone-platform=wayland",
+    "--ozone-platform=x11",
+]
 RECOMMENDED = [
     "--kiosk",
     "--noerrdialogs",
@@ -181,11 +183,8 @@ RECOMMENDED = [
     "--overscroll-history-navigation=0",
     "--disable-translate",
     "--disable-features=TranslateUI",
-    # Wayland/Labwc specific for current Pi OS (fixes Dawn/Vulkan init errors,
-    # on_device_model backend, and improves compatibility)
-    "--ozone-platform=wayland",
     "--use-gl=egl",
-    "--enable-features=OverlayScrollbar,VaapiVideoDecoder,WaylandWindowDecorations",
+    "--enable-features=OverlayScrollbar,VaapiVideoDecoder",
     "--disable-webgpu",
 ]
 cleaned = [f for f in flags if f not in BAD_FLAGS]
@@ -217,29 +216,16 @@ systemctl daemon-reload
 systemctl enable "${SERVICE_NAME}.service"
 systemctl restart "${SERVICE_NAME}.service"
 
-echo "Configuring kiosk autostart for user ${APP_USER} (Labwc/Wayland)..."
-# For current official Raspberry Pi OS (Labwc on Wayland), the proper place for
-# session autostart is ~/.config/labwc/autostart — this is a plain executable
-# shell script that labwc sources/executes when the compositor starts the desktop
-# session after autologin.
-# We deliberately do NOT use ~/.config/autostart/*.desktop (XDG autostart) as it
-# is not reliably honored under bare labwc.
-#
-# We also remove any stale .desktop from previous installs to prevent double-launch
-# (which was observed to cause the launcher to be killed/restarted rapidly,
-# resulting in the "Loading setup configuration..." UI flashing repeatedly
-# as new Chromium instances start and load the frontend).
+echo "Configuring kiosk autostart for user ${APP_USER} (X11/openbox)..."
 rm -f "${APP_HOME}/.config/autostart/pibarticker-kiosk.desktop" 2>/dev/null || true
 
-mkdir -p "${APP_HOME}/.config/labwc"
-LABWC_AUTOSTART="${APP_HOME}/.config/labwc/autostart"
-cat > "${LABWC_AUTOSTART}" <<LABWC_EOF
+mkdir -p "${APP_HOME}/.config/openbox"
+OPENBOX_AUTOSTART="${APP_HOME}/.config/openbox/autostart"
+cat > "${OPENBOX_AUTOSTART}" <<OPENBOX_EOF
 #!/bin/sh
-# PiBarTicker kiosk autostart for labwc (Wayland).
-# We exec the launcher in background so the compositor can finish initializing.
 ${APP_DIR}/scripts/pi/launch-kiosk.sh &
-LABWC_EOF
-chmod +x "${LABWC_AUTOSTART}"
+OPENBOX_EOF
+chmod +x "${OPENBOX_AUTOSTART}"
 
 # Disable lxqt-powermanagement DPMS via its config file. Even though we kill it at
 # kiosk start, the Pi OS system autostart may relaunch it. Setting EnableDPMS=false
@@ -303,217 +289,28 @@ else
   echo "  No EDID data found — monitors may be off. Run the installer again with displays on to enable EDID firmware."
 fi
 
-# Disable labwc's own built-in dpmsTimeout. Even with lxqt dead, labwc can fire
-# its own DRM DPMS-off via rc.xml <dpmsTimeout>, which also cuts the HDMI signal.
-# swayidle+ddcutil handles all idle sleep, so labwc's timer must be 0 (disabled).
-echo "Setting labwc dpmsTimeout=0 in rc.xml..."
-LABWC_RC="${APP_HOME}/.config/labwc/rc.xml"
-SYS_RC="/etc/xdg/labwc/rc.xml"
-if [ ! -f "${LABWC_RC}" ] && [ -f "${SYS_RC}" ]; then
-  cp "${SYS_RC}" "${LABWC_RC}"
-  chown "${APP_USER}:${APP_USER}" "${LABWC_RC}"
-fi
-if [ -f "${LABWC_RC}" ]; then
-  python3 - "${LABWC_RC}" <<'PY'
-import sys, re
-path = sys.argv[1]
-content = open(path).read()
-
-# Set dpmsTimeout=0
-if '<dpmsTimeout>' in content:
-    content = re.sub(r'<dpmsTimeout>\d+</dpmsTimeout>', '<dpmsTimeout>0</dpmsTimeout>', content)
-elif '<core>' in content:
-    content = content.replace('<core>', '<core>\n    <dpmsTimeout>0</dpmsTimeout>', 1)
-else:
-    for closing_tag in ('</openbox_config>', '</labwc_config>'):
-        if closing_tag in content:
-            content = content.replace(
-                closing_tag,
-                '  <core>\n    <dpmsTimeout>0</dpmsTimeout>\n  </core>\n' + closing_tag,
-            )
-            break
-
-# Set decoration=server so Labwc tells Chromium to use SSD mode, which makes
-# Chromium drop its own CSD title bar. The windowRule serverDecoration="no" then
-# stops Labwc from adding its own SSD. Net result: zero window decorations.
-if '<decoration>' in content:
-    content = re.sub(r'<decoration>[^<]*</decoration>', '<decoration>server</decoration>', content)
-elif '<core>' in content:
-    content = content.replace('<core>', '<core>\n    <decoration>server</decoration>', 1)
-
-open(path, 'w').write(content)
-print("labwc rc.xml: dpmsTimeout=0, decoration=server")
-PY
-else
-  # No rc.xml anywhere — write a minimal one.
-  cat > "${LABWC_RC}" <<'XML'
-<?xml version="1.0" encoding="UTF-8"?>
-<labwc_config>
-  <core>
-    <dpmsTimeout>0</dpmsTimeout>
-  </core>
-</labwc_config>
-XML
-  chown "${APP_USER}:${APP_USER}" "${LABWC_RC}"
-  echo "Created minimal labwc rc.xml with dpmsTimeout=0"
-fi
-
-# Hide the cursor for kiosk mode.
-# XCURSOR_SIZE=0 is not reliable — wlroots treats 0 as "use default size."
-# The correct approach is a blank cursor theme: all cursor files are valid Xcursor
-# binaries but contain a single 1x1 fully-transparent pixel. When wlroots renders
-# any cursor from this theme it displays nothing. We generate the theme with Python
-# (no extra packages) and point labwc at it via the environment file and rc.xml.
-echo "Creating blank cursor theme for kiosk (hides cursor on Wayland)..."
-BLANK_THEME_DIR="/usr/share/icons/kiosk-no-cursor"
-BLANK_CURSOR_DIR="${BLANK_THEME_DIR}/cursors"
-mkdir -p "${BLANK_CURSOR_DIR}"
-python3 - "${BLANK_CURSOR_DIR}" <<'PY'
-import struct, sys, os
-
-cursor_dir = sys.argv[1]
-
-def make_xcursor():
-    """Minimal Xcursor file: one 1x1 fully-transparent image frame."""
-    IMAGE_TYPE = 0xfffd0002
-    nominal = 1
-    # Image chunk: header (36 bytes) + 1 ARGB pixel (4 bytes)
-    chunk = struct.pack('<IIIIIIIII', 36, IMAGE_TYPE, nominal, 1, 1, 1, 0, 0, 50)
-    chunk += struct.pack('<I', 0x00000000)          # transparent pixel
-    file_header = b'Xcur' + struct.pack('<III', 16, 1, 1)
-    toc = struct.pack('<III', IMAGE_TYPE, nominal, 28)  # image starts at byte 28
-    return file_header + toc + chunk
-
-data = make_xcursor()
-names = [
-    'default', 'left_ptr', 'text', 'xterm', 'ibeam',
-    'hand1', 'hand2', 'pointing_hand', 'pointer',
-    'move', 'fleur', 'crosshair', 'cross',
-    'wait', 'watch', 'progress', 'half-busy',
-    'n-resize', 's-resize', 'e-resize', 'w-resize',
-    'nw-resize', 'ne-resize', 'sw-resize', 'se-resize',
-    'ns-resize', 'ew-resize', 'nwse-resize', 'nesw-resize',
-    'col-resize', 'row-resize', 'all-scroll',
-    'not-allowed', 'no-drop', 'grabbing', 'grab',
-    'zoom-in', 'zoom-out',
-]
-for name in names:
-    with open(os.path.join(cursor_dir, name), 'wb') as f:
-        f.write(data)
-print(f"Created {len(names)} blank cursor files in {cursor_dir}")
-PY
-printf '[Icon Theme]\nName=kiosk-no-cursor\nComment=Blank cursor theme for kiosk\n' \
-  > "${BLANK_THEME_DIR}/index.theme"
-echo "Blank cursor theme ready at ${BLANK_THEME_DIR}."
-
-# rc.xml: tell labwc to use the blank cursor theme (only create if not already present)
-LABWC_RC="${APP_HOME}/.config/labwc/rc.xml"
-if [[ ! -f "${LABWC_RC}" ]]; then
-  cat > "${LABWC_RC}" <<'LABWC_RC_EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<openbox_config xmlns="http://openbox.org/3.4/rc">
-  <theme>
-    <cursor>
-      <theme>kiosk-no-cursor</theme>
-      <size>24</size>
-    </cursor>
-  </theme>
-</openbox_config>
-LABWC_RC_EOF
-  echo "Created labwc rc.xml pointing to blank cursor theme."
-else
-  echo "labwc rc.xml already exists; skipping rc.xml cursor config."
-fi
-
-# environment file: set XCURSOR_THEME so every Wayland client also picks up the blank theme
-LABWC_ENV="${APP_HOME}/.config/labwc/environment"
-touch "${LABWC_ENV}"
-sed -i '/^XCURSOR_SIZE=/d; /^XCURSOR_THEME=/d' "${LABWC_ENV}" 2>/dev/null || true
-printf 'XCURSOR_THEME=kiosk-no-cursor\nXCURSOR_SIZE=24\n' >> "${LABWC_ENV}"
-echo "Set XCURSOR_THEME=kiosk-no-cursor in labwc environment."
-
-# Add a Labwc window rule that forces every new window to position 0,0.
-# In Wayland, apps cannot set their own position — the compositor decides placement.
-# Without this, Chromium's spanning window lands on whatever output Labwc picks
-# (typically the last active one) instead of the left edge of the virtual desktop.
-# A kiosk device only ever has one window, so matching identifier="*" is safe.
-echo "Adding Labwc window placement rule to rc.xml..."
-LABWC_RC="${APP_HOME}/.config/labwc/rc.xml"
-if [ -f "${LABWC_RC}" ]; then
-  python3 - "${LABWC_RC}" "${APP_DIR}/config.json" <<'PY'
-import sys, json, os, re
-rc_path = sys.argv[1]
-config_path = sys.argv[2]
-
-monitor = {}
-if os.path.exists(config_path):
-    try:
-        monitor = json.loads(open(config_path).read()).get('monitor', {})
-    except Exception:
-        pass
-
-mode = str(monitor.get('mode', 'single')).strip().lower()
-width = int(monitor.get('width', 1920) or 1920)
-height = int(monitor.get('height', 380) or 380)
-total_width = width * 2 if mode == 'dual' else width
-
-# Dual mode: --app=URL spans both outputs. serverDecoration="no" stops Labwc adding
-# its own SSD. Combined with <decoration>server</decoration> in core (which tells
-# Chromium to drop its CSD), the window has zero decorations — no title bar.
-# Single mode: --kiosk fullscreens automatically — no rule needed.
-if mode == 'dual':
-    actions = '      <action name="MoveTo"><x>0</x><y>0</y></action>\n'
-    actions += f'      <action name="ResizeTo"><width>{total_width}</width><height>{height}</height></action>\n'
-    RULE_INNER = f'    <windowRule identifier="*" serverDecoration="no">\n' + actions + '    </windowRule>'
-else:
-    RULE_INNER = None
-
-content = open(rc_path).read()
-# Remove any windowRules block written by a previous install
-content = re.sub(r'\s*<windowRules>.*?</windowRules>', '', content, flags=re.DOTALL)
-
-if RULE_INNER is not None:
-    inserted = False
-    for tag in ('</openbox_config>', '</labwc_config>'):
-        if tag in content:
-            content = content.replace(tag, '  <windowRules>\n' + RULE_INNER + '\n  </windowRules>\n' + tag)
-            inserted = True
-            break
-    if not inserted:
-        content = content.rstrip() + '\n  <windowRules>\n' + RULE_INNER + '\n  </windowRules>\n'
-
-open(rc_path, 'w').write(content)
-if RULE_INNER is not None:
-    print(f"labwc rc.xml: window rule ({mode} mode — serverDecoration=no, MoveTo 0,0, ResizeTo {total_width}x{height})")
-else:
-    print(f"labwc rc.xml: no window rule ({mode} mode — --kiosk handles fullscreen)")
-PY
-else
-  echo "labwc rc.xml not found; skipping window placement rule."
-fi
-
 chown -R "${APP_USER}:${APP_USER}" "${APP_HOME}/.config"
 chmod +x "${APP_DIR}/scripts/pi/launch-kiosk.sh"
 
-# If labwc is the active compositor for the user, try a reconfigure. This can help pick up
-# the new autostart in some cases (though full session restart is still best for first-time
-# autostart scripts). Harmless if not running.
-sudo -u "${APP_USER}" labwc --reconfigure 2>/dev/null || true
+# Configure autologin to X11 openbox session.
+echo "Configuring X11/openbox desktop autologin..."
+raspi-config nonint do_boot_behaviour B4 || true
 
-# Configure autologin using the official raspi-config tool.
-# B4 = Desktop Autologin (the modern equivalent that works with the current
-# Labwc/Wayland "Desktop" session). B2 was the old one.
-# We never touch /etc/lightdm/lightdm.conf.d/ or force any session name here
-# (that was the source of previous breakage with rpd-labwc).
-echo "Configuring desktop autologin (B4 for Labwc/Wayland)..."
-sudo raspi-config nonint do_boot_behaviour B4 || true
-
-# We rely only on raspi-config B4 + the labwc/autostart script above.
-# No 50-pibarticker-autologin.conf is created, no edits to lightdm.conf.d/.
-# We do perform one targeted edit to the *main* /etc/lightdm/lightdm.conf below
-# (to disable display-setup-script, which was causing repeated "Loading setup
-# configuration" flashes under Labwc on some setups). This is the only direct
-# lightdm.conf edit.
+# Override the session to openbox (X11) — raspi-config B4 defaults to Labwc/Wayland.
+for _conf in /etc/lightdm/lightdm.conf \
+             /etc/lightdm/lightdm.conf.d/50-raspi-config.conf \
+             /etc/lightdm/lightdm.conf.d/rpd-autologin.conf; do
+  [[ -f "${_conf}" ]] || continue
+  sed -i 's/^autologin-session=.*/autologin-session=openbox/' "${_conf}" || true
+  sed -i 's/^user-session=.*/user-session=openbox/' "${_conf}" || true
+done
+mkdir -p /etc/lightdm/lightdm.conf.d/
+cat > /etc/lightdm/lightdm.conf.d/60-pibarticker-session.conf <<'LEOF'
+[Seat:*]
+autologin-user=pi
+autologin-user-timeout=0
+autologin-session=openbox
+LEOF
 
 # === Fix for "Loading setup configuration" flashing on Labwc ===
 # Some LightDM/Labwc setups run a display-setup-script (often dispsetup.sh)
@@ -574,30 +371,10 @@ if [[ "${LAUNCH_NOW}" == "1" ]]; then
   pkill -f "pibarticker-kiosk" 2>/dev/null || true
   sleep 1
 
-  # Detect the active Wayland socket for this user (wayland-0 or wayland-1 — varies by Pi OS).
-  # sudo strips the environment so we probe the real socket path rather than assuming wayland-1.
-  RESOLVED_XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/${USER_UID}}"
-  RESOLVED_WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-}"
-  if [[ -z "${RESOLVED_WAYLAND_DISPLAY}" ]]; then
-    for _sock in "${RESOLVED_XDG_RUNTIME_DIR}/wayland-1" "${RESOLVED_XDG_RUNTIME_DIR}/wayland-0"; do
-      if [[ -S "${_sock}" ]]; then
-        RESOLVED_WAYLAND_DISPLAY="$(basename "${_sock}")"
-        echo "Detected active Wayland socket: ${_sock} (WAYLAND_DISPLAY=${RESOLVED_WAYLAND_DISPLAY})"
-        break
-      fi
-    done
-    if [[ -z "${RESOLVED_WAYLAND_DISPLAY}" ]]; then
-      echo "No active Wayland socket found in ${RESOLVED_XDG_RUNTIME_DIR}/. Using wayland-1 default (kiosk will wait for compositor)."
-      RESOLVED_WAYLAND_DISPLAY="wayland-1"
-    fi
-  fi
-
   # Launch the ticker now at the end of install (no reboot needed).
   sudo -u "${APP_USER}" \
-    env DISPLAY="${DISPLAY:-:0}" \
+    env DISPLAY=":0" \
         XAUTHORITY="${XAUTHORITY:-${APP_HOME}/.Xauthority}" \
-        WAYLAND_DISPLAY="${RESOLVED_WAYLAND_DISPLAY}" \
-        XDG_RUNTIME_DIR="${RESOLVED_XDG_RUNTIME_DIR}" \
     sh -c 'nohup "'"${APP_DIR}/scripts/pi/launch-kiosk.sh"'" >> "'"${LOG_FILE}"'" 2>&1 &'
   echo "Kiosk launcher (re)started. The ticker should appear on the Pi screen shortly."
 

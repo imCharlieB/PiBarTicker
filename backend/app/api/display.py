@@ -1,10 +1,7 @@
 import json
 import logging
 import os
-import shutil
 import subprocess
-import time
-from pathlib import Path
 
 from fastapi import APIRouter
 from pydantic import BaseModel
@@ -64,130 +61,76 @@ _cached_outputs: list[str] = _load_cached_outputs()
 _display_on: bool = _load_power_state()
 
 
-def _pi_version() -> int:
-    try:
-        model = Path("/proc/device-tree/model").read_bytes().rstrip(b"\x00").decode()
-        for ver in (5, 4, 3, 2, 1):
-            if f"Raspberry Pi {ver}" in model:
-                return ver
-    except Exception:
-        pass
-    return 0
-
-
-def _wayland_env() -> dict:
+def _x11_env() -> dict:
     env = os.environ.copy()
-    xdg = env.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
-    env["XDG_RUNTIME_DIR"] = xdg
-    if not env.get("WAYLAND_DISPLAY"):
-        for name in ("wayland-1", "wayland-0"):
-            if os.path.exists(os.path.join(xdg, name)):
-                env["WAYLAND_DISPLAY"] = name
-                break
-    elif not os.path.exists(os.path.join(xdg, env["WAYLAND_DISPLAY"])):
-        for name in ("wayland-1", "wayland-0"):
-            if os.path.exists(os.path.join(xdg, name)):
-                env["WAYLAND_DISPLAY"] = name
-                break
+    if not env.get("DISPLAY"):
+        env["DISPLAY"] = ":0"
     return env
 
 
 def _detect_outputs(env: dict) -> list[str]:
     try:
         result = subprocess.run(
-            ["wlr-randr"], capture_output=True, text=True, timeout=5, env=env
+            ["xrandr"], capture_output=True, text=True, timeout=5, env=env
         )
         return [
             line.split()[0]
             for line in result.stdout.splitlines()
-            if line and not line[0].isspace()
+            if " connected" in line
         ]
     except Exception:
         pass
     return []
 
 
-def _ddcutil_d6(value: int) -> bool:
-    """Try to control power via ddcutil (usually fails on this monitor)."""
-    if shutil.which("ddcutil") is None:
-        return False
-
-    strategies = [
-        ["--bus", "14", "--noverify", "setvcp", "0xD6", str(value)],
-        ["--bus", "14", "--noverify", "--maxtries", "15", "setvcp", "0xD6", str(value)],
-        ["setvcp", "0xD6", str(value)],
-    ]
-
-    for use_sudo in [True, False]:
-        for extra_args in strategies:
-            cmd = (["sudo"] if use_sudo else []) + ["ddcutil"] + extra_args
-            try:
-                r = subprocess.run(cmd, capture_output=True, timeout=12)
-                if r.returncode == 0:
-                    return True
-            except Exception:
-                pass
-    return False
-
-
-def _wlopm(on: bool, env: dict) -> None:
+def _xrandr_power(on: bool, env: dict) -> None:
     global _cached_outputs
 
     if on:
-        # Use cache from OFF time — outputs may not be detectable when powered off.
         outputs = _cached_outputs or _detect_outputs(env)
     else:
-        # Detect while all outputs are live, cache for the wake call.
         outputs = _detect_outputs(env)
         if outputs:
             _cached_outputs = outputs
             _save_cached_outputs(outputs)
 
     if not outputs:
-        _log.warning("No Wayland outputs detected; cannot control display power")
+        _log.warning("No X11 outputs detected; cannot control display power")
         return
 
     try:
         cfg = config_store.load()
         mode = f"{cfg.monitor.width}x{cfg.monitor.height}"
         swap = cfg.monitor.swapOutputs and len(outputs) >= 2
+        w = cfg.monitor.width
     except Exception:
         mode = ""
         swap = False
+        w = 1920
 
-    _log.info("display %s outputs=%s mode=%s wayland=%s", "ON" if on else "OFF", outputs, mode, env.get("WAYLAND_DISPLAY"))
+    _log.warning("display %s outputs=%s mode=%s DISPLAY=%s", "ON" if on else "OFF", outputs, mode, env.get("DISPLAY"))
 
     if swap:
         outputs = [outputs[1], outputs[0]] + list(outputs[2:])
 
     if on:
-        # Re-enable each output individually. --pos causes "failed to apply
-        # configuration" on Labwc when the output is disabled, so enable
-        # without it first.
         for i, output in enumerate(outputs):
-            candidates = []
             if mode:
-                candidates += [
-                    ["--on", "--mode", mode],
-                    ["--on", "--custom-mode", mode],
-                ]
-            candidates.append(["--on"])
-            for flags in candidates:
-                cmd = ["wlr-randr", "--output", output] + flags
-                r = subprocess.run(cmd, timeout=10, env=env, capture_output=True)
-                if r.returncode == 0:
-                    _log.info("wlr-randr %s succeeded", " ".join(cmd[2:]))
-                    break
-                _log.warning("wlr-randr %s rc=%d: %s", " ".join(cmd[2:]), r.returncode, r.stderr.decode(errors="replace"))
-            if i < len(outputs) - 1:
-                time.sleep(0.3)
-
+                cmd = ["xrandr", "--output", output, "--mode", mode, "--pos", f"{i * w}x0"]
+            else:
+                cmd = ["xrandr", "--output", output, "--auto"]
+            r = subprocess.run(cmd, timeout=10, env=env, capture_output=True)
+            if r.returncode == 0:
+                _log.warning("xrandr %s OK", " ".join(cmd[1:]))
+            else:
+                _log.warning("xrandr %s rc=%d: %s", " ".join(cmd[1:]), r.returncode, r.stderr.decode(errors="replace"))
     else:
         for output in outputs:
-            cmd = ["wlr-randr", "--output", output, "--off"]
+            cmd = ["xrandr", "--output", output, "--off"]
             r = subprocess.run(cmd, timeout=10, env=env, capture_output=True)
             if r.returncode != 0:
-                _log.warning("wlr-randr %s rc=%d: %s", " ".join(cmd[2:]), r.returncode, r.stderr.decode(errors="replace"))
+                _log.warning("xrandr %s rc=%d: %s", " ".join(cmd[1:]), r.returncode, r.stderr.decode(errors="replace"))
+
 
 class DisplayPowerRequest(BaseModel):
     on: bool
@@ -200,37 +143,23 @@ def get_display_power() -> dict:
 
 @router.get("/diagnose")
 def diagnose_display() -> dict:
-    env = _wayland_env()
+    env = _x11_env()
     detected = _detect_outputs(env)
     try:
-        raw = subprocess.run(["wlr-randr"], capture_output=True, text=True, timeout=5, env=env)
-        wlr_stdout = raw.stdout
-        wlr_stderr = raw.stderr
-        wlr_rc = raw.returncode
+        raw = subprocess.run(["xrandr"], capture_output=True, text=True, timeout=5, env=env)
+        xrandr_stdout = raw.stdout
+        xrandr_stderr = raw.stderr
+        xrandr_rc = raw.returncode
     except Exception as e:
-        wlr_stdout, wlr_stderr, wlr_rc = "", str(e), -1
-    ddcutil_d6 = False
-    if shutil.which("ddcutil") is not None:
-        try:
-            r = subprocess.run(
-                ["ddcutil", "capabilities"], capture_output=True, text=True, timeout=15,
-            )
-            ddcutil_d6 = "Feature: D6" in r.stdout
-        except Exception:
-            pass
+        xrandr_stdout, xrandr_stderr, xrandr_rc = "", str(e), -1
     return {
         "display_on": _display_on,
-        "pi_version": _pi_version(),
         "cached_outputs": _cached_outputs,
         "detected_outputs": detected,
-        "ddcutil_available": shutil.which("ddcutil") is not None,
-        "ddcutil_d6_supported": ddcutil_d6,
-        "wlopm_available": shutil.which("wlopm") is not None,
-        "wayland_display": env.get("WAYLAND_DISPLAY"),
-        "xdg_runtime_dir": env.get("XDG_RUNTIME_DIR"),
-        "wlr_randr_rc": wlr_rc,
-        "wlr_randr_stdout": wlr_stdout,
-        "wlr_randr_stderr": wlr_stderr,
+        "display": env.get("DISPLAY"),
+        "xrandr_rc": xrandr_rc,
+        "xrandr_stdout": xrandr_stdout,
+        "xrandr_stderr": xrandr_stderr,
     }
 
 
@@ -239,7 +168,7 @@ def set_display_power(body: DisplayPowerRequest) -> dict:
     global _display_on
     _display_on = body.on
     _save_power_state(body.on)
-    env = _wayland_env()
-    _wlopm(body.on, env)
+    env = _x11_env()
+    _xrandr_power(body.on, env)
     _log.info("Display %s", "ON" if body.on else "OFF")
     return {"on": _display_on}

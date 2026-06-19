@@ -35,15 +35,9 @@ fi
 # This script is intended to be started from ~/.config/labwc/autostart.
 # We also auto-detect via wlr-randr succeeding (helps when launched via the
 # install script over ssh where the env var may not be inherited initially).
+# Force X11 mode — wlr-randr/Labwc cannot reliably re-enable HDMI-A-2 after --off.
 IS_WAYLAND=0
-if [ -n "${WAYLAND_DISPLAY:-}" ]; then
-  IS_WAYLAND=1
-  echo "Detected Wayland session ($WAYLAND_DISPLAY)"
-fi
-if [ "$IS_WAYLAND" = "0" ] && command -v wlr-randr >/dev/null 2>&1 && wlr-randr >/dev/null 2>&1; then
-  IS_WAYLAND=1
-  echo "Detected active Wayland compositor via wlr-randr (no WAYLAND_DISPLAY in env)"
-fi
+echo "X11 mode (Wayland display control disabled)"
 
 if [ "$IS_WAYLAND" = "0" ]; then
   if [[ -z "${DISPLAY:-}" && -S "/tmp/.X11-unix/X0" ]]; then
@@ -108,13 +102,11 @@ RECOMMENDED = [
     "--ignore-gpu-blocklist", "--disable-smooth-scrolling",
     "--overscroll-history-navigation=0", "--disable-translate",
     "--disable-features=TranslateUI",
-    # Wayland/Labwc specific for current Pi OS (fixes Dawn/Vulkan init errors,
-    # on_device_model backend, and improves compatibility)
-    "--ozone-platform=wayland",
     "--use-gl=egl",
-    "--enable-features=OverlayScrollbar,VaapiVideoDecoder,WaylandWindowDecorations",
+    "--enable-features=OverlayScrollbar,VaapiVideoDecoder",
     "--disable-webgpu",
 ]
+BAD_FLAGS += ["--ozone-platform=wayland", "--ozone-platform=x11"]
 cleaned = [f for f in flags if f not in BAD_FLAGS]
 existing = set(cleaned)
 to_add = [f for f in RECOMMENDED if f not in existing]
@@ -326,9 +318,8 @@ while true; do
     --password-store=basic \
     --window-size=${CHROMIUM_WINDOW_WIDTH},${HEIGHT} \
     --window-position=0,0 \
-    --ozone-platform=wayland \
     --use-gl=egl \
-    --enable-features=OverlayScrollbar,VaapiVideoDecoder,WaylandWindowDecorations \
+    --enable-features=OverlayScrollbar,VaapiVideoDecoder \
     --disable-webgpu \
     "${CHROMIUM_FLAGS[@]}" \
     "${CHROMIUM_APP_ARG}" >> /tmp/pibarticker-kiosk.log 2>&1 || true

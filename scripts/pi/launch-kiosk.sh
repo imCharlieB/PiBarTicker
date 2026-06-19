@@ -243,32 +243,45 @@ apply_display_mode() {
   fi
 
   if [ "$MONITOR_MODE" = "dual" ]; then
-    local xpos=0
-    for out in "${outputs[@]}"; do
-      echo "Dual X11: setting ${out} to ${modename:-${WIDTH}x${HEIGHT}} at pos ${xpos},0"
-      if [ -n "$modename" ]; then
-        xrandr --output "${out}" --mode "${modename}" --pos "${xpos},0" 2>/dev/null || true
-      else
-        xrandr --output "${out}" --auto --pos "${xpos},0" 2>/dev/null || true
-      fi
-      xpos=$((xpos + WIDTH))
-    done
-    [ "${#outputs[@]}" -gt 0 ] && sleep 1
-    # Merge both outputs into one logical monitor so Chromium sizes its window
-    # to the full 3840x380 combined width rather than one monitor's 1920x380.
-    # xrandr --setmonitor requires physical mm dimensions — read them from xrandr.
+    # xrandr always marks the LAST connected output (HDMI-2 on Pi) as primary and
+    # this cannot be overridden via --output --primary.  Place HDMI-2 at x=0 so
+    # the primary is on the left.  PiBarTicker is then anchored on HDMI-2 and
+    # becomes the primary logical monitor at 3840x380 — which means the window
+    # manager and Chromium both see a 3840-wide primary and honour our window size.
+    # With swapOutputs the user explicitly reverses the physical order; honour it.
+    local anchor other
+    if [ "${SWAP_OUTPUTS:-false}" = "true" ]; then
+      anchor="${outputs[0]}"   # user-swapped: put HDMI-1 first
+      other="${outputs[1]}"
+    else
+      anchor="${outputs[1]}"   # default: put HDMI-2 (always primary) at x=0
+      other="${outputs[0]}"
+    fi
+
+    echo "Dual X11: setting ${anchor} to ${modename:-${WIDTH}x${HEIGHT}} at pos 0,0 (primary anchor)"
+    if [ -n "$modename" ]; then
+      xrandr --output "${anchor}" --mode "${modename}" --pos "0,0" 2>/dev/null || true
+    else
+      xrandr --output "${anchor}" --auto --pos "0,0" 2>/dev/null || true
+    fi
+    echo "Dual X11: setting ${other} to ${modename:-${WIDTH}x${HEIGHT}} at pos ${WIDTH},0"
+    if [ -n "$modename" ]; then
+      xrandr --output "${other}" --mode "${modename}" --pos "${WIDTH},0" 2>/dev/null || true
+    else
+      xrandr --output "${other}" --auto --pos "${WIDTH},0" 2>/dev/null || true
+    fi
+
+    sleep 1
     local combined_width=$(( WIDTH * ${#outputs[@]} ))
     local per_mm_w per_mm_h
-    per_mm_w=$(xrandr 2>/dev/null | grep "^${outputs[0]} connected" | sed -n 's/.* \([0-9]*\)mm x \([0-9]*\)mm.*/\1/p' | head -1)
-    per_mm_h=$(xrandr 2>/dev/null | grep "^${outputs[0]} connected" | sed -n 's/.* \([0-9]*\)mm x \([0-9]*\)mm.*/\2/p' | head -1)
+    per_mm_w=$(xrandr 2>/dev/null | grep "^${anchor} connected" | sed -n 's/.* \([0-9]*\)mm x \([0-9]*\)mm.*/\1/p' | head -1)
+    per_mm_h=$(xrandr 2>/dev/null | grep "^${anchor} connected" | sed -n 's/.* \([0-9]*\)mm x \([0-9]*\)mm.*/\2/p' | head -1)
     per_mm_w=${per_mm_w:-160}
     per_mm_h=${per_mm_h:-90}
     local combined_mm_w=$(( per_mm_w * ${#outputs[@]} ))
-    # --setmonitor resets primary, so set --primary AFTER creating the logical monitor.
-    xrandr --setmonitor PiBarTicker "${combined_width}/${combined_mm_w}x${HEIGHT}/${per_mm_h}+0+0" "${outputs[0]}" 2>/dev/null || true
-    xrandr --output "${outputs[0]}" --primary 2>/dev/null || true
-    echo "Set logical monitor PiBarTicker ${combined_width}/${combined_mm_w}x${HEIGHT}/${per_mm_h}+0+0 (primary)"
-    echo "xrandr --listmonitors after setmonitor+primary:"
+    xrandr --setmonitor PiBarTicker "${combined_width}/${combined_mm_w}x${HEIGHT}/${per_mm_h}+0+0" "${anchor}" 2>/dev/null || true
+    echo "Set logical monitor PiBarTicker ${combined_width}/${combined_mm_w}x${HEIGHT}/${per_mm_h}+0+0 (anchor: ${anchor})"
+    echo "xrandr --listmonitors after setmonitor:"
     xrandr --listmonitors 2>&1 || true
   else
     local primary="${outputs[0]}"

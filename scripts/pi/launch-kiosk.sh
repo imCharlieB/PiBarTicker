@@ -95,7 +95,7 @@ if not isinstance(flags, list):
     flags = []
 BAD_FLAGS = ["--no-decommit-pooled-pages"]
 RECOMMENDED = [
-    "--kiosk", "--noerrdialogs", "--disable-infobars",
+    "--noerrdialogs", "--disable-infobars",
     "--force-device-scale-factor=1", "--enable-gpu-rasterization",
     "--ignore-gpu-blocklist", "--disable-smooth-scrolling",
     "--overscroll-history-navigation=0", "--disable-translate",
@@ -297,19 +297,14 @@ display_explicitly_off() {
   echo "$body" | grep -q '"on":false'
 }
 
-# In dual mode, --kiosk fullscreens per-output/per-monitor and only covers one screen.
-# Strip it and use --app so the window spans both outputs as one canvas.
-# Openbox rc.xml sets decor=no globally so the --app window has no title bar.
-# Single mode keeps --kiosk via CHROMIUM_FLAGS (fullscreens to the one output correctly).
-CHROMIUM_APP_ARG="${URL}"
-if [ "$MONITOR_MODE" = "dual" ]; then
-  FILTERED_FLAGS=()
-  for f in "${CHROMIUM_FLAGS[@]}"; do
-    [ "$f" != "--kiosk" ] && FILTERED_FLAGS+=("$f")
-  done
-  CHROMIUM_FLAGS=("${FILTERED_FLAGS[@]}")
-  CHROMIUM_APP_ARG="--app=${URL}"
-fi
+# --kiosk fullscreens per-monitor on both Wayland and X11, which breaks dual mode
+# and is unnecessary with openbox rc.xml decor=no. Strip it always and use --app.
+FILTERED_FLAGS=()
+for f in "${CHROMIUM_FLAGS[@]}"; do
+  [ "$f" != "--kiosk" ] && FILTERED_FLAGS+=("$f")
+done
+CHROMIUM_FLAGS=("${FILTERED_FLAGS[@]}")
+CHROMIUM_APP_ARG="--app=${URL}"
 
 while true; do
   # Kill any desktop panel that could respawn and sit on top of the kiosk window.

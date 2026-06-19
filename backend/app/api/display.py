@@ -80,12 +80,12 @@ def _wayland_env() -> dict:
     xdg = env.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
     env["XDG_RUNTIME_DIR"] = xdg
     if not env.get("WAYLAND_DISPLAY"):
-        for name in ("wayland-0", "wayland-1"):
+        for name in ("wayland-1", "wayland-0"):
             if os.path.exists(os.path.join(xdg, name)):
                 env["WAYLAND_DISPLAY"] = name
                 break
     elif not os.path.exists(os.path.join(xdg, env["WAYLAND_DISPLAY"])):
-        for name in ("wayland-0", "wayland-1"):
+        for name in ("wayland-1", "wayland-0"):
             if os.path.exists(os.path.join(xdg, name)):
                 env["WAYLAND_DISPLAY"] = name
                 break
@@ -150,12 +150,12 @@ def _wlopm(on: bool, env: dict) -> None:
     try:
         cfg = config_store.load()
         mode = f"{cfg.monitor.width}x{cfg.monitor.height}"
-        w = cfg.monitor.width
         swap = cfg.monitor.swapOutputs and len(outputs) >= 2
     except Exception:
         mode = ""
-        w = 1920
         swap = False
+
+    _log.info("display %s outputs=%s mode=%s wayland=%s", "ON" if on else "OFF", outputs, mode, env.get("WAYLAND_DISPLAY"))
 
     if swap:
         outputs = [outputs[1], outputs[0]] + list(outputs[2:])
@@ -163,38 +163,31 @@ def _wlopm(on: bool, env: dict) -> None:
     if on:
         # Re-enable each output individually. --pos causes "failed to apply
         # configuration" on Labwc when the output is disabled, so enable
-        # without it first, then set positions in a second pass.
+        # without it first.
         for i, output in enumerate(outputs):
-            for flags in (
-                ["--on", "--mode", mode],
-                ["--on", "--custom-mode", mode],
-            ):
-                r = subprocess.run(
-                    ["wlr-randr", "--output", output] + flags,
-                    timeout=10, env=env, capture_output=True,
-                )
+            candidates = []
+            if mode:
+                candidates += [
+                    ["--on", "--mode", mode],
+                    ["--on", "--custom-mode", mode],
+                ]
+            candidates.append(["--on"])
+            for flags in candidates:
+                cmd = ["wlr-randr", "--output", output] + flags
+                r = subprocess.run(cmd, timeout=10, env=env, capture_output=True)
                 if r.returncode == 0:
+                    _log.info("wlr-randr %s succeeded", " ".join(cmd[2:]))
                     break
-                _log.warning("wlr-randr --output %s %s rc=%d: %s", output, flags[1], r.returncode, r.stderr.decode(errors="replace"))
+                _log.warning("wlr-randr %s rc=%d: %s", " ".join(cmd[2:]), r.returncode, r.stderr.decode(errors="replace"))
             if i < len(outputs) - 1:
                 time.sleep(0.3)
 
-        # Set dual-display positions after all outputs are enabled.
-        if len(outputs) > 1 and mode:
-            time.sleep(0.2)
-            for i, output in enumerate(outputs):
-                subprocess.run(
-                    ["wlr-randr", "--output", output, "--mode", mode, "--pos", f"{i * w},0"],
-                    timeout=5, env=env, capture_output=True,
-                )
     else:
         for output in outputs:
-            r = subprocess.run(
-                ["wlr-randr", "--output", output, "--off"],
-                timeout=10, env=env, capture_output=True,
-            )
+            cmd = ["wlr-randr", "--output", output, "--off"]
+            r = subprocess.run(cmd, timeout=10, env=env, capture_output=True)
             if r.returncode != 0:
-                _log.warning("wlr-randr --off %s rc=%d: %s", output, r.returncode, r.stderr.decode(errors="replace"))
+                _log.warning("wlr-randr %s rc=%d: %s", " ".join(cmd[2:]), r.returncode, r.stderr.decode(errors="replace"))
 
 class DisplayPowerRequest(BaseModel):
     on: bool

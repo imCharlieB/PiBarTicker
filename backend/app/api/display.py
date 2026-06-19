@@ -15,9 +15,9 @@ from ..core.paths import get_runtime_paths
 router = APIRouter(prefix="/api/v1/display", tags=["display"])
 
 _log = logging.getLogger(__name__)
-_display_on: bool = True
 
 _OUTPUT_CACHE_FILE = get_runtime_paths().runtime_cache / "display_output.json"
+_POWER_STATE_FILE = get_runtime_paths().runtime_cache / "display_power.json"
 
 
 def _load_cached_outputs() -> list[str]:
@@ -41,7 +41,27 @@ def _save_cached_outputs(names: list[str]) -> None:
         pass
 
 
+def _load_power_state() -> bool:
+    try:
+        if _POWER_STATE_FILE.exists():
+            data = json.loads(_POWER_STATE_FILE.read_text())
+            if isinstance(data, dict):
+                return bool(data.get("on", True))
+    except Exception:
+        pass
+    return True
+
+
+def _save_power_state(on: bool) -> None:
+    try:
+        _POWER_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _POWER_STATE_FILE.write_text(json.dumps({"on": on}))
+    except Exception:
+        pass
+
+
 _cached_outputs: list[str] = _load_cached_outputs()
+_display_on: bool = _load_power_state()
 
 
 def _pi_version() -> int:
@@ -131,41 +151,50 @@ def _wlopm(on: bool, env: dict) -> None:
         cfg = config_store.load()
         mode = f"{cfg.monitor.width}x{cfg.monitor.height}"
         w = cfg.monitor.width
+        swap = cfg.monitor.swapOutputs and len(outputs) >= 2
     except Exception:
         mode = ""
         w = 1920
+        swap = False
 
-    # Build a single atomic off command covering all outputs.
-    off_args: list[str] = []
-    for output in outputs:
-        off_args += ["--output", output, "--off"]
+    if swap:
+        outputs = [outputs[1], outputs[0]] + list(outputs[2:])
 
     if on:
-        # Disable first so the re-enable triggers a full DRM modeset — this
-        # wakes displays regardless of whether they were off via our API or
-        # sleeping on their own power-management timer.
-        # wlopm is avoided entirely: once wlopm powers an output off, the
-        # output vanishes from the power-manager protocol so wlopm --on cannot
-        # find it and wlr-randr --on is rejected by the compositor. The only
-        # escape from that deadlock is a full compositor restart.
-        r = subprocess.run(["wlr-randr"] + off_args, timeout=10, env=env, capture_output=True)
-        if r.returncode != 0:
-            _log.warning("wlr-randr off(cycle) rc=%d: %s", r.returncode, r.stderr.decode(errors="replace"))
-
-        time.sleep(0.5)
-
-        on_args: list[str] = []
+        # Re-enable each output individually. --pos causes "failed to apply
+        # configuration" on Labwc when the output is disabled, so enable
+        # without it first, then set positions in a second pass.
         for i, output in enumerate(outputs):
-            on_args += ["--output", output, "--on"]
-            if mode:
-                on_args += ["--mode", mode, "--pos", f"{i * w},0"]
-        r = subprocess.run(["wlr-randr"] + on_args, timeout=10, env=env, capture_output=True)
-        if r.returncode != 0:
-            _log.warning("wlr-randr on rc=%d: %s", r.returncode, r.stderr.decode(errors="replace"))
+            for flags in (
+                ["--on", "--mode", mode],
+                ["--on", "--custom-mode", mode],
+            ):
+                r = subprocess.run(
+                    ["wlr-randr", "--output", output] + flags,
+                    timeout=10, env=env, capture_output=True,
+                )
+                if r.returncode == 0:
+                    break
+                _log.warning("wlr-randr --output %s %s rc=%d: %s", output, flags[1], r.returncode, r.stderr.decode(errors="replace"))
+            if i < len(outputs) - 1:
+                time.sleep(0.3)
+
+        # Set dual-display positions after all outputs are enabled.
+        if len(outputs) > 1 and mode:
+            time.sleep(0.2)
+            for i, output in enumerate(outputs):
+                subprocess.run(
+                    ["wlr-randr", "--output", output, "--mode", mode, "--pos", f"{i * w},0"],
+                    timeout=5, env=env, capture_output=True,
+                )
     else:
-        r = subprocess.run(["wlr-randr"] + off_args, timeout=10, env=env, capture_output=True)
-        if r.returncode != 0:
-            _log.warning("wlr-randr off rc=%d: %s", r.returncode, r.stderr.decode(errors="replace"))
+        for output in outputs:
+            r = subprocess.run(
+                ["wlr-randr", "--output", output, "--off"],
+                timeout=10, env=env, capture_output=True,
+            )
+            if r.returncode != 0:
+                _log.warning("wlr-randr --off %s rc=%d: %s", output, r.returncode, r.stderr.decode(errors="replace"))
 
 class DisplayPowerRequest(BaseModel):
     on: bool
@@ -216,6 +245,7 @@ def diagnose_display() -> dict:
 def set_display_power(body: DisplayPowerRequest) -> dict:
     global _display_on
     _display_on = body.on
+    _save_power_state(body.on)
     env = _wayland_env()
     _wlopm(body.on, env)
     _log.info("Display %s", "ON" if body.on else "OFF")

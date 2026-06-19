@@ -297,12 +297,12 @@ display_explicitly_off() {
   echo "$body" | grep -q '"on":false'
 }
 
-# On Wayland, --kiosk fullscreens per-output so it only covers one monitor in dual mode.
+# In dual mode, --kiosk fullscreens per-output/per-monitor and only covers one screen.
 # Strip it and use --app so the window spans both outputs as one canvas.
-# On X11, the entire desktop is one screen (3840x380) so --kiosk spans both monitors
-# correctly and openbox removes decorations — keep it as-is.
+# Openbox rc.xml sets decor=no globally so the --app window has no title bar.
+# Single mode keeps --kiosk via CHROMIUM_FLAGS (fullscreens to the one output correctly).
 CHROMIUM_APP_ARG="${URL}"
-if [ "$MONITOR_MODE" = "dual" ] && [ "$IS_WAYLAND" = "1" ]; then
+if [ "$MONITOR_MODE" = "dual" ]; then
   FILTERED_FLAGS=()
   for f in "${CHROMIUM_FLAGS[@]}"; do
     [ "$f" != "--kiosk" ] && FILTERED_FLAGS+=("$f")

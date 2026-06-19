@@ -229,6 +229,20 @@ ${APP_DIR}/scripts/pi/launch-kiosk.sh &
 OPENBOX_EOF
 chmod +x "${OPENBOX_AUTOSTART}"
 
+# Disable all window decorations so Chromium --app spans both monitors without a title bar.
+cat > "${APP_HOME}/.config/openbox/rc.xml" <<'RCEOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<openbox_config xmlns="http://openbox.org/3.4/rc">
+  <applications>
+    <application class="*">
+      <decor>no</decor>
+    </application>
+  </applications>
+</openbox_config>
+RCEOF
+# Reload openbox config live if it is running (avoids needing a reboot for config changes).
+openbox --reconfigure 2>/dev/null || true
+
 # Disable lxqt-powermanagement DPMS via its config file. Even though we kill it at
 # kiosk start, the Pi OS system autostart may relaunch it. Setting EnableDPMS=false
 # means it can run but will never fire DPMS-off or drop the HDMI signal.

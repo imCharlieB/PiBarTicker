@@ -179,7 +179,7 @@ fi
 
 # Hide the mouse cursor while the kiosk is active.
 if command -v unclutter >/dev/null 2>&1; then
-  unclutter -idle 0.5 -root >/dev/null 2>&1 &
+  unclutter -idle 0.01 -root >/dev/null 2>&1 &
 fi
 
 # Disable DPMS and screen blanking for always-on signage.
@@ -189,10 +189,13 @@ if command -v xset >/dev/null 2>&1; then
   xset s noblank >/dev/null 2>&1 || true
 fi
 
-# Hide the X11 root-window cursor (CSS cursor:none covers Chromium content;
-# xsetroot covers any bare desktop area not painted by Chromium).
+# Hide the X11 root-window cursor using a blank 1x1 XBM bitmap.
+# xsetroot -cursor_name none is not a valid cursor name and fails silently;
+# passing identical zero-pixel bitmaps for cursor+mask makes it invisible.
 if command -v xsetroot >/dev/null 2>&1; then
-  xsetroot -cursor_name none >/dev/null 2>&1 || true
+  printf '#define c_width 1\n#define c_height 1\nstatic char c_bits[] = {0x00};' \
+    > /tmp/_blank_cursor.xbm
+  xsetroot -cursor /tmp/_blank_cursor.xbm /tmp/_blank_cursor.xbm 2>/dev/null || true
 fi
 
 # Kill power managers and desktop panels that would obscure the kiosk window or

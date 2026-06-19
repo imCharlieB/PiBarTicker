@@ -158,6 +158,9 @@ write_openbox_config() {
 </openbox_config>
 RCEOF
   openbox --reconfigure 2>/dev/null || true
+  # openbox --reconfigure is async; give it a moment to finish before we set
+  # the root cursor, otherwise openbox restores the theme cursor and wins.
+  sleep 1
   echo "openbox rc.xml written: decor=no for all windows"
 }
 write_openbox_config
@@ -192,11 +195,16 @@ fi
 # Hide the X11 root-window cursor using a blank 1x1 XBM bitmap.
 # xsetroot -cursor_name none is not a valid cursor name and fails silently;
 # passing identical zero-pixel bitmaps for cursor+mask makes it invisible.
-if command -v xsetroot >/dev/null 2>&1; then
-  printf '#define c_width 1\n#define c_height 1\nstatic char c_bits[] = {0x00};' \
-    > /tmp/_blank_cursor.xbm
-  xsetroot -cursor /tmp/_blank_cursor.xbm /tmp/_blank_cursor.xbm 2>/dev/null || true
-fi
+# Called once here and again in the Chromium restart loop because openbox
+# or xrandr resets the root cursor to the theme default on mode changes.
+hide_root_cursor() {
+  if command -v xsetroot >/dev/null 2>&1; then
+    printf '#define c_width 1\n#define c_height 1\nstatic unsigned char c_bits[] = {0x00};' \
+      > /tmp/_blank_cursor.xbm
+    xsetroot -cursor /tmp/_blank_cursor.xbm /tmp/_blank_cursor.xbm 2>/dev/null || true
+  fi
+}
+hide_root_cursor
 
 # Kill power managers and desktop panels that would obscure the kiosk window or
 # trigger DPMS-off and cut the HDMI signal.
@@ -303,6 +311,9 @@ apply_display_mode() {
 }
 
 apply_display_mode
+# Re-apply blank cursor after xrandr mode changes, which can cause openbox
+# to restore the default theme cursor on the root window.
+hide_root_cursor
 
 # Wait for backend before starting Chromium.
 echo "Waiting for backend /health (up to 60s) before launching Chromium..."
@@ -356,6 +367,7 @@ while true; do
   done
 
   apply_display_mode
+  hide_root_cursor
 
   sleep 5
 done

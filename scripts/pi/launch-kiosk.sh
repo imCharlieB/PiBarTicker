@@ -63,18 +63,31 @@ BAD_FLAGS = [
     "--ozone-platform=wayland",
     "--ozone-platform=x11",
     "--use-gl=egl",
+    "--start-maximized",
 ]
 RECOMMENDED = [
     "--noerrdialogs", "--disable-infobars",
     "--force-device-scale-factor=1", "--enable-gpu-rasterization",
-    "--ignore-gpu-blocklist", "--disable-smooth-scrolling",
-    "--overscroll-history-navigation=0", "--disable-translate",
-    "--disable-features=TranslateUI",
+    "--enable-zero-copy", "--ignore-gpu-blocklist",
+    "--disable-smooth-scrolling", "--overscroll-history-navigation=0",
+    "--disable-translate", "--disable-features=TranslateUI",
     "--enable-features=OverlayScrollbar,VaapiVideoDecoder",
-    "--disable-webgpu",
+    "--disable-webgpu", "--disable-session-crashed-bubble",
+    "--check-for-update-interval=31536000",
 ]
+WAYLAND_FEATURES = {"WaylandWindowDecorations"}
 BAD_SET = {b.strip() for b in BAD_FLAGS}
-cleaned = [f for f in flags if str(f).strip() not in BAD_SET]
+cleaned = []
+for f in flags:
+    s = str(f).strip()
+    if s in BAD_SET:
+        continue
+    if s.startswith("--enable-features="):
+        parts = [p for p in s[len("--enable-features="):].split(",") if p not in WAYLAND_FEATURES]
+        s = f"--enable-features={','.join(parts)}" if parts else None
+        if not s:
+            continue
+    cleaned.append(s)
 existing = {f.strip() for f in cleaned}
 to_add = [f for f in RECOMMENDED if f.strip() not in existing]
 if to_add:
@@ -98,6 +111,20 @@ SWAP_OUTPUTS="${CONFIG_LINES[2]:-false}"
 DISPLAY_MODE="${CONFIG_LINES[3]:-1920x380}"
 CHROMIUM_FLAGS=("${CONFIG_LINES[@]:4}")
 
+# Redundant bash-level strip for flags that must never reach Chromium.
+# Belt-and-suspenders in case the Python filter above misses them (e.g. encoding
+# differences in config.json leave the string comparison failing silently).
+_safe_flags=()
+for _f in "${CHROMIUM_FLAGS[@]}"; do
+  case "${_f}" in
+    --no-decommit-pooled-pages|--kiosk|--ozone-platform=wayland|--ozone-platform=x11|--use-gl=egl)
+      echo "Stripped bad Chromium flag: ${_f}" ;;
+    *)
+      _safe_flags+=("${_f}") ;;
+  esac
+done
+CHROMIUM_FLAGS=("${_safe_flags[@]+"${_safe_flags[@]}"}")
+
 WIDTH=$(echo "$DISPLAY_MODE" | cut -d'x' -f1)
 HEIGHT=$(echo "$DISPLAY_MODE" | cut -d'x' -f2)
 
@@ -106,6 +133,39 @@ if [ "$MONITOR_MODE" = "dual" ]; then
 else
   CHROMIUM_WINDOW_WIDTH=$WIDTH
 fi
+
+# Write openbox application rules with the exact pixel dimensions for this monitor
+# mode. This is more reliable than --start-maximized because it does not depend on
+# which xrandr logical monitor happens to be flagged as primary. OpenBox applies
+# <size> and <position> when the window is first mapped, forcing the window to
+# cover the full X screen width (3840px in dual mode) at position 0,0.
+write_openbox_config() {
+  local rc="${HOME}/.config/openbox/rc.xml"
+  mkdir -p "${HOME}/.config/openbox"
+  cat > "${rc}" <<RCEOF
+<?xml version="1.0" encoding="UTF-8"?>
+<openbox_config xmlns="http://openbox.org/3.4/rc">
+  <applications>
+    <application class="*">
+      <decor>no</decor>
+    </application>
+    <application class="Chromium-browser" type="normal">
+      <decor>no</decor>
+      <position force="yes"><x>0</x><y>0</y></position>
+      <size><width>${CHROMIUM_WINDOW_WIDTH}</width><height>${HEIGHT}</height></size>
+    </application>
+    <application class="chromium-browser" type="normal">
+      <decor>no</decor>
+      <position force="yes"><x>0</x><y>0</y></position>
+      <size><width>${CHROMIUM_WINDOW_WIDTH}</width><height>${HEIGHT}</height></size>
+    </application>
+  </applications>
+</openbox_config>
+RCEOF
+  openbox --reconfigure 2>/dev/null || true
+  echo "openbox rc.xml written: Chromium window ${CHROMIUM_WINDOW_WIDTH}x${HEIGHT} at 0,0"
+}
+write_openbox_config
 
 if [[ "${AUTO_START}" != "autostart" ]]; then
   echo "Kiosk startup is disabled in Setup > Display; skipping Chromium launch."
@@ -266,28 +326,15 @@ while true; do
   xrandr --listmonitors 2>&1 || true
   echo "--- end monitors ---"
 
-  # Clear stale profile so --start-maximized is always honoured (saved geometry overrides flags).
+  # Clear stale profile so saved window geometry does not override openbox rules.
   rm -rf /tmp/pibarticker-kiosk 2>/dev/null || true
 
   "${CHROMIUM_BIN}" \
-    --disable-session-crashed-bubble \
-    --disable-translate \
-    --disable-features=TranslateUI \
-    --overscroll-history-navigation=0 \
-    --check-for-update-interval=31536000 \
-    --force-device-scale-factor=1 \
-    --enable-gpu-rasterization \
-    --enable-zero-copy \
-    --ignore-gpu-blocklist \
-    --disable-smooth-scrolling \
     --user-data-dir=/tmp/pibarticker-kiosk \
     --incognito \
     --no-first-run \
     --no-default-browser-check \
     --password-store=basic \
-    --start-maximized \
-    --enable-features=OverlayScrollbar,VaapiVideoDecoder \
-    --disable-webgpu \
     "${CHROMIUM_FLAGS[@]}" \
     "${CHROMIUM_APP_ARG}" || true
 

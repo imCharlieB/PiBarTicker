@@ -17,6 +17,7 @@ const RECOMMENDED_PI_FLAGS = [
   '--disable-infobars',
   '--force-device-scale-factor=1',
   '--enable-gpu-rasterization',
+  '--enable-zero-copy',
   '--ignore-gpu-blocklist',
   '--disable-smooth-scrolling',
   '--overscroll-history-navigation=0',
@@ -24,6 +25,8 @@ const RECOMMENDED_PI_FLAGS = [
   '--disable-features=TranslateUI',
   '--enable-features=OverlayScrollbar,VaapiVideoDecoder',
   '--disable-webgpu',
+  '--disable-session-crashed-bubble',
+  '--check-for-update-interval=31536000',
 ]
 
 function addRecommendedPiFlags(currentFlags) {

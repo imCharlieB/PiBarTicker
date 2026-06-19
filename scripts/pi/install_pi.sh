@@ -175,12 +175,14 @@ BAD_FLAGS = [
     "--ozone-platform=wayland",
     "--ozone-platform=x11",
     "--use-gl=egl",
+    "--start-maximized",
 ]
 RECOMMENDED = [
     "--noerrdialogs",
     "--disable-infobars",
     "--force-device-scale-factor=1",
     "--enable-gpu-rasterization",
+    "--enable-zero-copy",
     "--ignore-gpu-blocklist",
     "--disable-smooth-scrolling",
     "--overscroll-history-navigation=0",
@@ -188,9 +190,22 @@ RECOMMENDED = [
     "--disable-features=TranslateUI",
     "--enable-features=OverlayScrollbar,VaapiVideoDecoder",
     "--disable-webgpu",
+    "--disable-session-crashed-bubble",
+    "--check-for-update-interval=31536000",
 ]
+WAYLAND_FEATURES = {"WaylandWindowDecorations"}
 BAD_SET = {b.strip() for b in BAD_FLAGS}
-cleaned = [f for f in flags if str(f).strip() not in BAD_SET]
+cleaned = []
+for f in flags:
+    s = str(f).strip()
+    if s in BAD_SET:
+        continue
+    if s.startswith("--enable-features="):
+        parts = [p for p in s[len("--enable-features="):].split(",") if p not in WAYLAND_FEATURES]
+        s = f"--enable-features={','.join(parts)}" if parts else None
+        if not s:
+            continue
+    cleaned.append(s)
 existing = {f.strip() for f in cleaned}
 to_add = [f for f in RECOMMENDED if f.strip() not in existing]
 if to_add:

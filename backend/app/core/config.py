@@ -35,16 +35,20 @@ class KioskConfig(AppBaseModel):
     autoStart: Literal["disabled", "autostart"] = "autostart"
     chromiumFlags: list[str] = Field(
         default_factory=lambda: [
-            "--kiosk",
             "--noerrdialogs",
             "--disable-infobars",
             "--force-device-scale-factor=1",
             "--enable-gpu-rasterization",
+            "--enable-zero-copy",
             "--ignore-gpu-blocklist",
             "--disable-smooth-scrolling",
             "--overscroll-history-navigation=0",
             "--disable-translate",
             "--disable-features=TranslateUI",
+            "--enable-features=OverlayScrollbar,VaapiVideoDecoder",
+            "--disable-webgpu",
+            "--disable-session-crashed-bubble",
+            "--check-for-update-interval=31536000",
         ]
     )
 
@@ -236,6 +240,38 @@ class ConfigStore:
                                 for s in sensors
                             ]
                             changed = True
+
+            # Migration: strip known-bad Chromium flags and normalize --enable-features.
+            _kiosk_data = data.get("kiosk")
+            if isinstance(_kiosk_data, dict):
+                _flags = _kiosk_data.get("chromiumFlags")
+                if isinstance(_flags, list):
+                    _BAD = {
+                        "--no-decommit-pooled-pages",
+                        "--kiosk",
+                        "--ozone-platform=wayland",
+                        "--ozone-platform=x11",
+                        "--use-gl=egl",
+                        "--start-maximized",
+                    }
+                    _WAYLAND_FEATURES = {"WaylandWindowDecorations"}
+                    _cleaned = []
+                    for _f in _flags:
+                        _s = str(_f).strip()
+                        if _s in _BAD:
+                            changed = True
+                            continue
+                        if _s.startswith("--enable-features="):
+                            _parts = [p for p in _s[len("--enable-features="):].split(",") if p not in _WAYLAND_FEATURES]
+                            _norm = f"--enable-features={','.join(_parts)}" if _parts else None
+                            if _norm != _s:
+                                changed = True
+                                if _norm:
+                                    _cleaned.append(_norm)
+                                continue
+                        _cleaned.append(_s)
+                    if changed:
+                        _kiosk_data["chromiumFlags"] = _cleaned
 
             if changed:
                 self._path.write_text(json.dumps(data, indent=2), encoding="utf-8")

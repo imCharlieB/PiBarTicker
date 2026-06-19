@@ -142,28 +142,23 @@ fi
 write_openbox_config() {
   local rc="${HOME}/.config/openbox/rc.xml"
   mkdir -p "${HOME}/.config/openbox"
-  cat > "${rc}" <<RCEOF
+  # Only remove decorations — do NOT add position/size rules.
+  # openbox interprets <position> relative to the primary monitor, not the X screen
+  # origin, which misplaces the window when the primary is HDMI-2 (at x=1920).
+  # Chromium's --window-position and --window-size flags use absolute X screen
+  # coordinates and are set in the launch command; the WM must honour them.
+  cat > "${rc}" <<'RCEOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <openbox_config xmlns="http://openbox.org/3.4/rc">
   <applications>
     <application class="*">
       <decor>no</decor>
     </application>
-    <application class="Chromium-browser" type="normal">
-      <decor>no</decor>
-      <position force="yes"><x>0</x><y>0</y></position>
-      <size><width>${CHROMIUM_WINDOW_WIDTH}</width><height>${HEIGHT}</height></size>
-    </application>
-    <application class="chromium-browser" type="normal">
-      <decor>no</decor>
-      <position force="yes"><x>0</x><y>0</y></position>
-      <size><width>${CHROMIUM_WINDOW_WIDTH}</width><height>${HEIGHT}</height></size>
-    </application>
   </applications>
 </openbox_config>
 RCEOF
   openbox --reconfigure 2>/dev/null || true
-  echo "openbox rc.xml written: Chromium window ${CHROMIUM_WINDOW_WIDTH}x${HEIGHT} at 0,0"
+  echo "openbox rc.xml written: decor=no for all windows"
 }
 write_openbox_config
 
@@ -330,6 +325,8 @@ while true; do
   rm -rf /tmp/pibarticker-kiosk 2>/dev/null || true
 
   "${CHROMIUM_BIN}" \
+    --window-position=0,0 \
+    --window-size="${CHROMIUM_WINDOW_WIDTH},${HEIGHT}" \
     --user-data-dir=/tmp/pibarticker-kiosk \
     --incognito \
     --no-first-run \

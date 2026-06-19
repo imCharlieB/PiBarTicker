@@ -62,6 +62,7 @@ BAD_FLAGS = [
     "--kiosk",
     "--ozone-platform=wayland",
     "--ozone-platform=x11",
+    "--use-gl=egl",
 ]
 RECOMMENDED = [
     "--noerrdialogs", "--disable-infobars",
@@ -69,7 +70,6 @@ RECOMMENDED = [
     "--ignore-gpu-blocklist", "--disable-smooth-scrolling",
     "--overscroll-history-navigation=0", "--disable-translate",
     "--disable-features=TranslateUI",
-    "--use-gl=egl",
     "--enable-features=OverlayScrollbar,VaapiVideoDecoder",
     "--disable-webgpu",
 ]
@@ -283,7 +283,6 @@ while true; do
     --no-default-browser-check \
     --password-store=basic \
     --start-maximized \
-    --use-gl=egl \
     --enable-features=OverlayScrollbar,VaapiVideoDecoder \
     --disable-webgpu \
     "${CHROMIUM_FLAGS[@]}" \

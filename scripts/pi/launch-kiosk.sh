@@ -8,6 +8,10 @@ set -euo pipefail
 # - Launches Chromium with --app so it spans both monitors in dual mode
 # - Waits for backend health before first launch, then restarts on exit (crash recovery)
 
+# Redirect all script output to the kiosk log for diagnostics.
+exec >> /tmp/pibarticker-kiosk.log 2>&1
+echo "=== launch-kiosk.sh started $(date) ==="
+
 APP_DIR="/opt/pibarticker"
 CONFIG_FILE="${APP_DIR}/config.json"
 BACKEND_URL="http://127.0.0.1:8000"
@@ -254,6 +258,14 @@ while true; do
   pkill -f pcmanfm 2>/dev/null || true
   sleep 0.5
 
+  echo "=== Chromium launch $(date) | mode=${MONITOR_MODE} window=${CHROMIUM_WINDOW_WIDTH}x${HEIGHT} ==="
+  echo "--- xrandr monitors ---"
+  xrandr --listmonitors 2>&1 || true
+  echo "--- end monitors ---"
+
+  # Clear stale profile so --start-maximized is always honoured (saved geometry overrides flags).
+  rm -rf /tmp/pibarticker-kiosk 2>/dev/null || true
+
   "${CHROMIUM_BIN}" \
     --disable-session-crashed-bubble \
     --disable-translate \
@@ -270,13 +282,12 @@ while true; do
     --no-first-run \
     --no-default-browser-check \
     --password-store=basic \
-    --window-size=${CHROMIUM_WINDOW_WIDTH},${HEIGHT} \
-    --window-position=0,0 \
+    --start-maximized \
     --use-gl=egl \
     --enable-features=OverlayScrollbar,VaapiVideoDecoder \
     --disable-webgpu \
     "${CHROMIUM_FLAGS[@]}" \
-    "${CHROMIUM_APP_ARG}" >> /tmp/pibarticker-kiosk.log 2>&1 || true
+    "${CHROMIUM_APP_ARG}" || true
 
   while display_explicitly_off; do
     sleep 3

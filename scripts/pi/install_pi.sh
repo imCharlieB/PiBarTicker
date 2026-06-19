@@ -237,6 +237,14 @@ cat > "${APP_HOME}/.config/openbox/rc.xml" <<'RCEOF'
     <application class="*">
       <decor>no</decor>
     </application>
+    <application class="Chromium-browser" type="normal">
+      <decor>no</decor>
+      <maximized>yes</maximized>
+    </application>
+    <application class="chromium-browser" type="normal">
+      <decor>no</decor>
+      <maximized>yes</maximized>
+    </application>
   </applications>
 </openbox_config>
 RCEOF

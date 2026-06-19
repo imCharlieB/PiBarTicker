@@ -434,7 +434,11 @@ export default function LeagueDetail({
                   const drivers = data?.drivers?.drivers_synced ?? 0
                   const cars = data?.team_cars?.teams_synced ?? 0
                   const circuits = data?.circuits?.circuits_synced ?? 0
-                  setNotice(`F1 sync complete — ${drivers} drivers, ${cars} cars, ${circuits} circuits cached.`)
+                  const failed = data?.circuits?.circuits_failed ?? []
+                  const failedMsg = failed.length
+                    ? ` ⚠️ ${failed.length} circuit map(s) not found: ${failed.map(f => f.country).join(', ')} — add to _KNOWN_CIRCUITS in f1_cache_service.py`
+                    : ''
+                  setNotice(`F1 sync complete — ${drivers} drivers, ${cars} cars, ${circuits} circuits cached.${failedMsg}`)
                   loadLeagueLogoMeta('f1')
                   loadLeagueLogoMeta('f1-drivers')
                 } catch (e) {

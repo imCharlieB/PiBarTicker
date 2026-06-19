@@ -80,12 +80,12 @@ def _wayland_env() -> dict:
     xdg = env.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
     env["XDG_RUNTIME_DIR"] = xdg
     if not env.get("WAYLAND_DISPLAY"):
-        for name in ("wayland-1", "wayland-0"):
+        for name in ("wayland-0", "wayland-1"):
             if os.path.exists(os.path.join(xdg, name)):
                 env["WAYLAND_DISPLAY"] = name
                 break
     elif not os.path.exists(os.path.join(xdg, env["WAYLAND_DISPLAY"])):
-        for name in ("wayland-1", "wayland-0"):
+        for name in ("wayland-0", "wayland-1"):
             if os.path.exists(os.path.join(xdg, name)):
                 env["WAYLAND_DISPLAY"] = name
                 break

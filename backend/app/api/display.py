@@ -3,6 +3,7 @@ import logging
 import os
 import shutil
 import subprocess
+import time
 from pathlib import Path
 
 from fastapi import APIRouter
@@ -109,24 +110,14 @@ def _ddcutil_d6(value: int) -> bool:
     return False
 
 
-def _monitor_mode_str() -> str:
-    try:
-        cfg = config_store.load()
-        return f"{cfg.monitor.width}x{cfg.monitor.height}"
-    except Exception:
-        return ""
-
-
 def _wlopm(on: bool, env: dict) -> None:
     global _cached_outputs
 
     if on:
-        # Use the cache captured at OFF time — outputs may not all be detectable
-        # while they are powered off, so re-detecting here would miss monitors.
-        # Fall back to a live detect only if the cache is empty (e.g. first boot).
+        # Use cache from OFF time — outputs may not be detectable when powered off.
         outputs = _cached_outputs or _detect_outputs(env)
     else:
-        # Detect while all outputs are still live, then cache for the wake call.
+        # Detect while all outputs are live, cache for the wake call.
         outputs = _detect_outputs(env)
         if outputs:
             _cached_outputs = outputs
@@ -136,29 +127,45 @@ def _wlopm(on: bool, env: dict) -> None:
         _log.warning("No Wayland outputs detected; cannot control display power")
         return
 
-    for output in outputs:
-        if on:
-            # wlopm --on sends the DPMS wake signal.
-            # wlr-randr --on --mode re-enables a compositor-disabled output;
-            # --mode is required — without it wlr-randr cannot re-enable an
-            # output that has no current mode set (Enabled: no state).
-            mode = _monitor_mode_str()
-            randr_cmd = ["wlr-randr", "--output", output, "--on"]
-            if mode:
-                randr_cmd += ["--mode", mode]
-            for cmd in (["wlopm", "--on", output], randr_cmd):
-                try:
-                    subprocess.run(cmd, timeout=10, env=env, capture_output=True)
-                except Exception as e:
-                    _log.warning("%s failed for %s: %s", cmd[0], output, e)
-        else:
-            try:
-                subprocess.run(
-                    ["wlopm", "--off", output],
-                    timeout=10, env=env, capture_output=True,
-                )
-            except Exception as e:
-                _log.warning("wlopm --off failed for %s: %s", output, e)
+    if on:
+        try:
+            cfg = config_store.load()
+            mode = f"{cfg.monitor.width}x{cfg.monitor.height}"
+            w = cfg.monitor.width
+        except Exception:
+            mode = ""
+            w = 1920
+
+        # DPMS cycle (off → on) forces a state change the monitor must respond to.
+        # Without the off step, wlopm --on is a no-op when the compositor already
+        # thinks the output is powered on (e.g. monitor slept on its own timer).
+        for output in outputs:
+            r = subprocess.run(["wlopm", "--off", output], timeout=5, env=env, capture_output=True)
+            if r.returncode != 0:
+                _log.warning("wlopm --off(cycle) %s rc=%d %s", output, r.returncode, r.stderr.decode(errors="replace"))
+
+        time.sleep(0.4)
+
+        for output in outputs:
+            r = subprocess.run(["wlopm", "--on", output], timeout=10, env=env, capture_output=True)
+            if r.returncode != 0:
+                _log.warning("wlopm --on %s rc=%d %s", output, r.returncode, r.stderr.decode(errors="replace"))
+
+        # Re-enable and set mode + positions in one atomic wlr-randr call.
+        # Separate per-output calls leave both outputs at pos 0,0 in dual mode
+        # which causes the compositor to stack them — only one becomes visible.
+        if mode:
+            randr_cmd = ["wlr-randr"]
+            for i, output in enumerate(outputs):
+                randr_cmd += ["--output", output, "--on", "--mode", mode, "--pos", f"{i * w},0"]
+            r = subprocess.run(randr_cmd, timeout=10, env=env, capture_output=True)
+            if r.returncode != 0:
+                _log.warning("wlr-randr re-enable rc=%d %s", r.returncode, r.stderr.decode(errors="replace"))
+    else:
+        for output in outputs:
+            r = subprocess.run(["wlopm", "--off", output], timeout=10, env=env, capture_output=True)
+            if r.returncode != 0:
+                _log.warning("wlopm --off %s rc=%d %s", output, r.returncode, r.stderr.decode(errors="replace"))
 
 class DisplayPowerRequest(BaseModel):
     on: bool

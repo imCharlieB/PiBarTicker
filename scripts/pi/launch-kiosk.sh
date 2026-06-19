@@ -2,13 +2,11 @@
 set -euo pipefail
 
 # launch-kiosk.sh
-# Wayland/Labwc-focused kiosk launcher for PiBarTicker on current Raspberry Pi OS.
-# - Started from ~/.config/labwc/autostart (see install_pi.sh)
-# - Handles display mode via wlr-randr (Wayland) or xrandr (X11 fallback)
-# - Launches Chromium with the required Wayland ozone + feature flags
+# X11/openbox kiosk launcher for PiBarTicker on Raspberry Pi OS.
+# - Started from ~/.config/openbox/autostart (see install_pi.sh)
+# - Handles display mode via xrandr (X11); wlr-randr path retained but disabled
+# - Launches Chromium with GPU + kiosk flags
 # - Waits for backend health before first launch, then restarts on exit (crash recovery)
-# - X11-specific code (panel management, etc.) has been removed for Labwc purity;
-#   only resolution fallback remains and is command-guarded.
 
 APP_DIR="/opt/pibarticker"
 CONFIG_FILE="${APP_DIR}/config.json"
@@ -168,10 +166,12 @@ if command -v xset >/dev/null 2>&1; then
   xset s noblank >/dev/null 2>&1 || true
 fi
 
-# Kill lxqt-powermanagement so it never fires its own DPMS-off through the Wayland
-# compositor. That compositor-level DPMS cuts the HDMI/DDC channel entirely, which
-# makes it impossible to wake the monitor via ddcutil or the HA switch.
+# Kill power managers and desktop panels that would obscure the kiosk window or
+# trigger DPMS-off and cut the HDMI signal.
 pkill -f lxqt-powermanagement 2>/dev/null || true
+pkill -f lxpanel 2>/dev/null || true
+pkill -f tint2 2>/dev/null || true
+pkill -f pcmanfm 2>/dev/null || true
 
 # Re-enable compositor output in case lxqt had already fired DPMS-off before we
 # killed it. Without this, the GPU stays in DRM DPMS-off and the monitor shows
@@ -182,9 +182,8 @@ if [ "$IS_WAYLAND" = "1" ] && command -v wlopm >/dev/null 2>&1; then
   done
 fi
 
-# Re-applies the custom bar resolution on the Wayland output. Called at startup
-# and after each display-on cycle because wlopm --off/--on resets the output to
-# the monitor's native mode, which leaves the desktop/ticker uncropped and off-center.
+# Re-applies the custom bar resolution. Called at startup and after each display-on
+# cycle so the output is always at the configured bar dimensions.
 apply_display_mode() {
   if [ "$IS_WAYLAND" = "1" ] && command -v wlr-randr >/dev/null 2>&1; then
     if [ "$MONITOR_MODE" = "dual" ]; then
@@ -217,43 +216,66 @@ apply_display_mode() {
         fi
       fi
     fi
+  elif command -v xrandr >/dev/null 2>&1; then
+    local outputs=()
+    mapfile -t outputs < <(xrandr | grep " connected" | awk '{print $1}')
+    if [ "${#outputs[@]}" -eq 0 ]; then
+      echo "apply_display_mode: no X11 outputs detected"
+      return
+    fi
+    if [ "${SWAP_OUTPUTS:-false}" = "true" ] && [ "${#outputs[@]}" -ge 2 ]; then
+      local tmp="${outputs[0]}"
+      outputs[0]="${outputs[1]}"
+      outputs[1]="$tmp"
+    fi
+    # Find or create the custom mode on all connected outputs.
+    local modename
+    modename=$(xrandr | grep -E "^\s+${WIDTH}x${HEIGHT}" | awk '{print $1}' | head -1)
+    if [ -z "$modename" ]; then
+      local modeline
+      modeline=$(cvt "${WIDTH}" "${HEIGHT}" 60 2>/dev/null | grep Modeline | cut -d' ' -f2-)
+      if [ -n "${modeline}" ]; then
+        modename=$(echo "${modeline}" | awk '{print $1}' | tr -d '"')
+        xrandr --newmode ${modeline} 2>/dev/null || true
+        for out in "${outputs[@]}"; do
+          xrandr --addmode "${out}" "${modename}" 2>/dev/null || true
+        done
+        echo "Registered X11 mode ${modename} on all outputs"
+      else
+        echo "cvt failed for ${WIDTH}x${HEIGHT}"
+      fi
+    fi
+    if [ "$MONITOR_MODE" = "dual" ]; then
+      local xpos=0
+      for out in "${outputs[@]}"; do
+        echo "Dual X11: setting ${out} to ${modename:-${WIDTH}x${HEIGHT}} at pos ${xpos},0"
+        if [ -n "$modename" ]; then
+          xrandr --output "${out}" --mode "${modename}" --pos "${xpos},0" 2>/dev/null || true
+        else
+          xrandr --output "${out}" --auto --pos "${xpos},0" 2>/dev/null || true
+        fi
+        xpos=$((xpos + WIDTH))
+      done
+      [ "${#outputs[@]}" -gt 0 ] && sleep 1
+    else
+      local primary="${outputs[0]}"
+      echo "Single X11: setting ${primary} to ${modename:-${WIDTH}x${HEIGHT}}"
+      if [ -n "$modename" ]; then
+        xrandr --output "${primary}" --mode "${modename}" --pos "0,0" 2>/dev/null || true
+      else
+        xrandr --output "${primary}" --auto 2>/dev/null || true
+      fi
+      # Turn off secondary outputs in single mode.
+      for i in "${!outputs[@]}"; do
+        [ "$i" -eq 0 ] && continue
+        xrandr --output "${outputs[$i]}" --off 2>/dev/null || true
+      done
+      sleep 1
+    fi
   fi
 }
 
-if [ "$IS_WAYLAND" = "1" ]; then
-  if command -v wlr-randr >/dev/null 2>&1; then
-    apply_display_mode
-  else
-    echo "wlr-randr not found; cannot set custom resolution on Wayland"
-  fi
-elif command -v xrandr >/dev/null 2>&1; then
-  # X11 fallback for custom resolution (only used if somehow running under X11 instead of Labwc/Wayland).
-  # Note: x11-xserver-utils etc. are optional in the installer for pure Wayland setups.
-  CURRENT_MODE=$(xrandr | grep -E ' connected (primary )?[0-9]+x[0-9]+' | head -1 | grep -o '[0-9]\+x[0-9]\+' | head -1)
-
-  if [ "$CURRENT_MODE" != "${DISPLAY_MODE}" ]; then
-    echo "Current mode $CURRENT_MODE does not match desired ${DISPLAY_MODE}, setting up..."
-    if ! xrandr | grep -q "${DISPLAY_MODE}"; then
-      echo "Custom mode ${DISPLAY_MODE} not found, attempting to create it..."
-      MODELINE=$(cvt "${WIDTH}" "${HEIGHT}" 60 2>/dev/null | grep Modeline | cut -d' ' -f2-)
-      if [ -n "${MODELINE}" ]; then
-        MODENAME=$(echo "${MODELINE}" | awk '{print $1}' | tr -d '"')
-        xrandr --newmode ${MODELINE} 2>/dev/null || true
-        OUTPUT=$(xrandr | grep " connected" | head -n1 | cut -d' ' -f1)
-        if [ -n "${OUTPUT}" ] && [ -n "${MODENAME}" ]; then
-          xrandr --addmode "${OUTPUT}" "${MODENAME}" 2>/dev/null || true
-          echo "Registered mode ${MODENAME} on ${OUTPUT}"
-        fi
-      else
-        echo "cvt failed to generate modeline for ${DISPLAY_MODE}"
-      fi
-    fi
-    xrandr -s "${DISPLAY_MODE}" 2>/dev/null || xrandr -s "${DISPLAY_MODE}" >/dev/null 2>&1 || true
-    sleep 2
-  else
-    echo "Display already at desired mode ${DISPLAY_MODE}"
-  fi
-fi
+apply_display_mode
 
 # Wait for backend before starting Chromium.
 echo "Waiting for backend /health (up to 60s) before launching the ticker Chromium..."
@@ -289,17 +311,16 @@ if [ "$MONITOR_MODE" = "dual" ]; then
 fi
 
 while true; do
-  # In dual mode, kill the Pi OS desktop panel before each launch so the spanning
-  # window isn't obscured (without --kiosk the panel sits on top of regular windows).
-  if [ "$MONITOR_MODE" = "dual" ]; then
-    pkill -f wf-panel-pi 2>/dev/null || true
-    pkill -f sfwbar 2>/dev/null || true
-    pkill -f waybar 2>/dev/null || true
-    sleep 0.5
-  fi
+  # Kill any desktop panel that could respawn and sit on top of the kiosk window.
+  pkill -f wf-panel-pi 2>/dev/null || true
+  pkill -f sfwbar 2>/dev/null || true
+  pkill -f waybar 2>/dev/null || true
+  pkill -f lxpanel 2>/dev/null || true
+  pkill -f tint2 2>/dev/null || true
+  pkill -f pcmanfm 2>/dev/null || true
+  sleep 0.5
 
-  # Launch Chromium with Wayland-specific flags required for clean operation
-  # under the current official Raspberry Pi OS Labwc compositor.
+  # Launch Chromium in kiosk mode.
   "${CHROMIUM_BIN}" \
     --disable-session-crashed-bubble \
     --disable-translate \
@@ -330,8 +351,8 @@ while true; do
     sleep 3
   done
 
-  # Re-apply the custom bar mode — wlopm --off/--on resets the output to the
-  # monitor's native resolution, which would leave Chromium uncropped/off-center.
+  # Re-apply the custom bar mode after Chromium exits — display-off/on resets
+  # the output to native resolution, which leaves the ticker uncropped/off-center.
   apply_display_mode
 
   sleep 5

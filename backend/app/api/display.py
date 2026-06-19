@@ -111,12 +111,17 @@ def _ddcutil_d6(value: int) -> bool:
 def _wlopm(on: bool, env: dict) -> None:
     global _cached_outputs
 
-    outputs = _detect_outputs(env)
-    if outputs:
-        _cached_outputs = outputs
-        _save_cached_outputs(outputs)
+    if on:
+        # Use the cache captured at OFF time — outputs may not all be detectable
+        # while they are powered off, so re-detecting here would miss monitors.
+        # Fall back to a live detect only if the cache is empty (e.g. first boot).
+        outputs = _cached_outputs or _detect_outputs(env)
     else:
-        outputs = _cached_outputs
+        # Detect while all outputs are still live, then cache for the wake call.
+        outputs = _detect_outputs(env)
+        if outputs:
+            _cached_outputs = outputs
+            _save_cached_outputs(outputs)
 
     if not outputs:
         _log.warning("No Wayland outputs detected; cannot control display power")
@@ -124,13 +129,18 @@ def _wlopm(on: bool, env: dict) -> None:
 
     for output in outputs:
         if on:
-            try:
-                subprocess.run(
-                    ["wlr-randr", "--output", output, "--on"],
-                    timeout=10, env=env, capture_output=True,
-                )
-            except Exception as e:
-                _log.warning("wlr-randr --on failed for %s: %s", output, e)
+            # wlopm --on sends the DPMS wake signal (matches wlopm --off used for
+            # sleep, and also wakes monitors that slept on their own).
+            # wlr-randr --on re-enables if the compositor disabled the output.
+            # Both are run so either scenario is covered.
+            for cmd in (
+                ["wlopm", "--on", output],
+                ["wlr-randr", "--output", output, "--on"],
+            ):
+                try:
+                    subprocess.run(cmd, timeout=10, env=env, capture_output=True)
+                except Exception as e:
+                    _log.warning("%s failed for %s: %s", cmd[0], output, e)
         else:
             try:
                 subprocess.run(

@@ -52,13 +52,12 @@ _TEAM_SLUG_MAP: dict[str, str] = {
     "cadillac": "cadillac",
 }
 
-# Full 2026 season circuit list with confirmed CDN filenames.
-# Used as the primary source for sync_circuit_maps so future races (not yet
-# in the F1 live-timing static index) are downloaded as soon as a sync runs.
-# cdn_name is the exact stem used in:
+# Known F1 circuits with confirmed CDN filenames.
+# cdn_name is the exact stem for:
 #   media.formula1.com/.../Circuit%20maps%2016x9/{cdn_name}_Circuit.png
-# Verified by HEAD request against the CDN — do not guess, check first.
-_SEASON_CIRCUITS_2026: list[tuple[str, str, str, str]] = [
+# Verified by HEAD request. Add new venues here when they join the calendar.
+# Existing CDN names are stable across seasons — no need to update for returning circuits.
+_KNOWN_CIRCUITS: list[tuple[str, str, str, str]] = [
     # (country, location, circuit_name, cdn_name)
     ("Australia",            "Melbourne",      "Albert Park",                    "Australia"),
     ("China",                "Shanghai",       "Shanghai International Circuit", "China"),
@@ -466,7 +465,7 @@ class F1CacheService:
     # Sync: circuit maps
     # -----------------------------------------------------------------------
 
-    def sync_circuit_maps(self, year: int = 2026) -> dict:
+    def sync_circuit_maps(self, year: int | None = None) -> dict:
         circuits_dir = self.paths.logos / "f1" / "circuits"
         circuits_dir.mkdir(parents=True, exist_ok=True)
 
@@ -479,19 +478,18 @@ class F1CacheService:
         synced = 0
         failed: list[dict] = []
 
-        # Use cdn_name as the unique map key so multi-race countries (US has Miami,
-        # Austin, Las Vegas) each get their own entry in f1-circuits.json.
-        for country, location, circuit_name, cdn_name in _SEASON_CIRCUITS_2026:
+        # Step 1: sync all known circuits (verified CDN names, covers all seasons).
+        # cdn_name is the unique map key so multi-race countries (3x US) each get
+        # their own entry.
+        for country, location, circuit_name, cdn_name in _KNOWN_CIRCUITS:
             map_key = cdn_name
             dest = circuits_dir / f"{cdn_name}_Circuit.png"
 
-            # Skip if already on disk and stored correctly
             prev = existing.get(map_key) or {}
             if dest.exists() and isinstance(prev, dict) and prev.get("path"):
                 synced += 1
                 continue
 
-            # Download (always retry if previously failed / empty path)
             if not dest.exists():
                 url = _CIRCUIT_URL_TEMPLATE.format(cdn=_F1_CDN_BASE, name=cdn_name)
                 data = _download_bytes(url)
@@ -515,6 +513,49 @@ class F1CacheService:
                     "country": country,
                     "circuit_name": circuit_name,
                 }
+
+        # Step 2: check the F1 live-timing index for any circuits NOT in _KNOWN_CIRCUITS.
+        # Handles brand-new venues added to a future calendar without requiring a code change.
+        known_locations = {loc.lower() for _, loc, _, _ in _KNOWN_CIRCUITS}
+        known_countries = {c.lower() for c, _, _, _ in _KNOWN_CIRCUITS}
+        current_year = year or datetime.now(timezone.utc).year
+        try:
+            index = self._get_season_index(current_year)
+            for meeting in index.get("Meetings") or []:
+                country = (meeting.get("Country") or {}).get("Name", "")
+                location = meeting.get("Location", "")
+                circuit_short = (meeting.get("Circuit") or {}).get("ShortName", "")
+                has_race = any(s.get("Type") == "Race" for s in meeting.get("Sessions") or [])
+                if not has_race or not country:
+                    continue
+                if country.lower() in known_countries or location.lower() in known_locations:
+                    continue
+                # New circuit not in _KNOWN_CIRCUITS — try country and short name as CDN candidates
+                circuit_name = circuit_short or location
+                for cdn_candidate in [country.replace(" ", "_"), circuit_short.replace(" ", "_"), location.replace(" ", "_")]:
+                    if not cdn_candidate or existing.get(cdn_candidate, {}).get("path"):
+                        continue
+                    dest = circuits_dir / f"{cdn_candidate}_Circuit.png"
+                    if not dest.exists():
+                        url = _CIRCUIT_URL_TEMPLATE.format(cdn=_F1_CDN_BASE, name=cdn_candidate)
+                        data = _download_bytes(url)
+                        if data:
+                            dest.write_bytes(data)
+                    if dest.exists():
+                        existing[cdn_candidate] = {
+                            "path": f"f1/circuits/{cdn_candidate}_Circuit.png",
+                            "location": location,
+                            "country": country,
+                            "circuit_name": circuit_name,
+                        }
+                        synced += 1
+                        print(f"[f1-cache] New circuit synced: {country} / {circuit_name} as {cdn_candidate}")
+                        break
+                else:
+                    if country.replace(" ", "_") not in existing:
+                        print(f"[f1-cache] Unknown new circuit, could not sync: {country} / {circuit_name} — add to _KNOWN_CIRCUITS")
+        except Exception:
+            pass
 
         existing["_ts"] = datetime.now(timezone.utc).isoformat()
         circuit_meta_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")

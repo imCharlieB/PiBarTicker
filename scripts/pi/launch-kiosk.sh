@@ -194,14 +194,20 @@ apply_display_mode() {
       xpos=$((xpos + WIDTH))
     done
     [ "${#outputs[@]}" -gt 0 ] && sleep 1
-    # Merge both outputs into one logical monitor so Chromium sees the full
-    # combined width (3840x380) as a single display rather than two monitors.
+    # Merge both outputs into one logical monitor so Chromium sizes its window
+    # to the full 3840x380 combined width rather than one monitor's 1920x380.
+    # xrandr --setmonitor requires physical mm dimensions — read them from xrandr.
     local combined_width=$(( WIDTH * ${#outputs[@]} ))
-    xrandr --setmonitor PiBarTicker "${combined_width}x${HEIGHT}+0+0" "${outputs[0]}" 2>/dev/null || true
-    for out in "${outputs[@]:1}"; do
-      xrandr --delmonitor "${out}" 2>/dev/null || true
-    done
-    echo "Merged outputs into single logical monitor ${combined_width}x${HEIGHT}"
+    local per_mm_w per_mm_h
+    per_mm_w=$(xrandr 2>/dev/null | grep "^${outputs[0]} connected" | sed -n 's/.* \([0-9]*\)mm x \([0-9]*\)mm.*/\1/p' | head -1)
+    per_mm_h=$(xrandr 2>/dev/null | grep "^${outputs[0]} connected" | sed -n 's/.* \([0-9]*\)mm x \([0-9]*\)mm.*/\2/p' | head -1)
+    per_mm_w=${per_mm_w:-160}
+    per_mm_h=${per_mm_h:-90}
+    local combined_mm_w=$(( per_mm_w * ${#outputs[@]} ))
+    # Mark the primary output first so the logical monitor is treated as primary.
+    xrandr --output "${outputs[0]}" --primary 2>/dev/null || true
+    xrandr --setmonitor PiBarTicker "${combined_width}/${combined_mm_w}x${HEIGHT}/${per_mm_h}+0+0" "${outputs[0]}" 2>/dev/null || true
+    echo "Set logical monitor PiBarTicker ${combined_width}/${combined_mm_w}x${HEIGHT}/${per_mm_h}+0+0 (primary)"
   else
     local primary="${outputs[0]}"
     echo "Single X11: setting ${primary} to ${modename:-${WIDTH}x${HEIGHT}}"

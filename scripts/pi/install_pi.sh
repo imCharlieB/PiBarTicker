@@ -306,6 +306,48 @@ else
   echo "  WARNING: No boot config.txt found — skipping hdmi_force_hotplug."
 fi
 
+# Save monitor EDID files to kernel firmware and register them via cmdline.txt.
+# When a display is powered off it stops responding to EDID queries; without a
+# cached EDID the DRM driver may drop the output entirely. With the firmware EDID
+# the kernel always has the monitor's identity and keeps the output available.
+# Works in concert with hdmi_force_hotplug above.
+# Skips silently if monitors are off at install time (EDID file is empty/missing).
+echo "Capturing EDID firmware for connected displays..."
+EDID_HINTS=""
+for _conn_dir in /sys/class/drm/card*-HDMI-A-*; do
+  [[ -d "${_conn_dir}" ]] || continue
+  _edid_src="${_conn_dir}/edid"
+  [[ -s "${_edid_src}" ]] || continue          # skip if monitor is off/absent
+  _conn_name="$(basename "${_conn_dir}" | sed 's/card[0-9]*-//')"  # e.g. HDMI-A-1
+  _edid_dest="/lib/firmware/${_conn_name}.edid"
+  cp "${_edid_src}" "${_edid_dest}"
+  chmod 644 "${_edid_dest}"
+  echo "  Saved EDID for ${_conn_name} → ${_edid_dest}"
+  if [[ -n "${EDID_HINTS}" ]]; then
+    EDID_HINTS="${EDID_HINTS},${_conn_name}:${_conn_name}.edid"
+  else
+    EDID_HINTS="${_conn_name}:${_conn_name}.edid"
+  fi
+done
+
+if [[ -n "${EDID_HINTS}" ]]; then
+  CMDLINE_FILE=""
+  for _c in /boot/firmware/cmdline.txt /boot/cmdline.txt; do
+    if [[ -f "${_c}" ]]; then CMDLINE_FILE="${_c}"; break; fi
+  done
+  if [[ -n "${CMDLINE_FILE}" ]]; then
+    # Remove any stale drm.edid_firmware entry then append the fresh one.
+    # cmdline.txt must remain a single line — sed operates in-place.
+    sed -i 's/ drm\.edid_firmware=[^ ]*//g' "${CMDLINE_FILE}"
+    sed -i "s|$| drm.edid_firmware=${EDID_HINTS}|" "${CMDLINE_FILE}"
+    echo "  Added drm.edid_firmware=${EDID_HINTS} to ${CMDLINE_FILE}"
+  else
+    echo "  WARNING: cmdline.txt not found — skipping drm.edid_firmware."
+  fi
+else
+  echo "  No EDID data found — monitors may be off. Run the installer again with displays on to enable EDID firmware."
+fi
+
 # Disable labwc's own built-in dpmsTimeout. Even with lxqt dead, labwc can fire
 # its own DRM DPMS-off via rc.xml <dpmsTimeout>, which also cuts the HDMI signal.
 # swayidle+ddcutil handles all idle sleep, so labwc's timer must be 0 (disabled).

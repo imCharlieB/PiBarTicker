@@ -129,6 +129,12 @@ if command -v xset >/dev/null 2>&1; then
   xset s noblank >/dev/null 2>&1 || true
 fi
 
+# Hide the X11 root-window cursor (CSS cursor:none covers Chromium content;
+# xsetroot covers any bare desktop area not painted by Chromium).
+if command -v xsetroot >/dev/null 2>&1; then
+  xsetroot -cursor_name none >/dev/null 2>&1 || true
+fi
+
 # Kill power managers and desktop panels that would obscure the kiosk window or
 # trigger DPMS-off and cut the HDMI signal.
 pkill -f lxqt-powermanagement 2>/dev/null || true
@@ -188,6 +194,14 @@ apply_display_mode() {
       xpos=$((xpos + WIDTH))
     done
     [ "${#outputs[@]}" -gt 0 ] && sleep 1
+    # Merge both outputs into one logical monitor so Chromium sees the full
+    # combined width (3840x380) as a single display rather than two monitors.
+    local combined_width=$(( WIDTH * ${#outputs[@]} ))
+    xrandr --setmonitor PiBarTicker "${combined_width}x${HEIGHT}+0+0" "${outputs[0]}" 2>/dev/null || true
+    for out in "${outputs[@]:1}"; do
+      xrandr --delmonitor "${out}" 2>/dev/null || true
+    done
+    echo "Merged outputs into single logical monitor ${combined_width}x${HEIGHT}"
   else
     local primary="${outputs[0]}"
     echo "Single X11: setting ${primary} to ${modename:-${WIDTH}x${HEIGHT}}"
@@ -256,26 +270,7 @@ while true; do
     --enable-features=OverlayScrollbar,VaapiVideoDecoder \
     --disable-webgpu \
     "${CHROMIUM_FLAGS[@]}" \
-    "${CHROMIUM_APP_ARG}" >> /tmp/pibarticker-kiosk.log 2>&1 &
-  CHROMIUM_PID=$!
-
-  # --window-size may be capped to the primary monitor by Chromium or openbox.
-  # Force the window geometry with xdotool after it appears.
-  if command -v xdotool >/dev/null 2>&1; then
-    for _ in $(seq 1 20); do
-      sleep 1
-      WID=$(xdotool search --pid "${CHROMIUM_PID}" 2>/dev/null | tail -1 || true)
-      if [ -n "${WID:-}" ]; then
-        sleep 0.5
-        xdotool windowmove "${WID}" 0 0 2>/dev/null || true
-        xdotool windowsize "${WID}" "${CHROMIUM_WINDOW_WIDTH}" "${HEIGHT}" 2>/dev/null || true
-        echo "Forced Chromium window ${WID} to ${CHROMIUM_WINDOW_WIDTH}x${HEIGHT} at 0,0"
-        break
-      fi
-    done
-  fi
-
-  wait "${CHROMIUM_PID}" || true
+    "${CHROMIUM_APP_ARG}" >> /tmp/pibarticker-kiosk.log 2>&1 || true
 
   while display_explicitly_off; do
     sleep 3

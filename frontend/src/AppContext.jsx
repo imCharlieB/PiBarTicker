@@ -13,7 +13,6 @@ export { harvestRacingEntities } from './api/espnApi'
 // ── Internal config helpers ──────────────────────────────────────────────────
 
 const RECOMMENDED_PI_FLAGS = [
-  '--kiosk',
   '--noerrdialogs',
   '--disable-infobars',
   '--force-device-scale-factor=1',
@@ -23,9 +22,8 @@ const RECOMMENDED_PI_FLAGS = [
   '--overscroll-history-navigation=0',
   '--disable-translate',
   '--disable-features=TranslateUI',
-  '--ozone-platform=wayland',
   '--use-gl=egl',
-  '--enable-features=OverlayScrollbar,VaapiVideoDecoder,WaylandWindowDecorations',
+  '--enable-features=OverlayScrollbar,VaapiVideoDecoder',
   '--disable-webgpu',
 ]
 

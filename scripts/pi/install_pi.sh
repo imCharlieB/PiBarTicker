@@ -171,11 +171,12 @@ if not isinstance(flags, list):
     flags = []
 BAD_FLAGS = [
     "--no-decommit-pooled-pages",
+    "--kiosk",
     "--ozone-platform=wayland",
     "--ozone-platform=x11",
+    "--use-gl=egl",
 ]
 RECOMMENDED = [
-    "--kiosk",
     "--noerrdialogs",
     "--disable-infobars",
     "--force-device-scale-factor=1",
@@ -185,13 +186,13 @@ RECOMMENDED = [
     "--overscroll-history-navigation=0",
     "--disable-translate",
     "--disable-features=TranslateUI",
-    "--use-gl=egl",
     "--enable-features=OverlayScrollbar,VaapiVideoDecoder",
     "--disable-webgpu",
 ]
-cleaned = [f for f in flags if f not in BAD_FLAGS]
-existing = set(cleaned)
-to_add = [f for f in RECOMMENDED if f not in existing]
+BAD_SET = {b.strip() for b in BAD_FLAGS}
+cleaned = [f for f in flags if str(f).strip() not in BAD_SET]
+existing = {f.strip() for f in cleaned}
+to_add = [f for f in RECOMMENDED if f.strip() not in existing]
 if to_add:
     cleaned.extend(to_add)
 kiosk["chromiumFlags"] = cleaned

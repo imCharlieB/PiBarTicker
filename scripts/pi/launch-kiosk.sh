@@ -73,9 +73,10 @@ RECOMMENDED = [
     "--enable-features=OverlayScrollbar,VaapiVideoDecoder",
     "--disable-webgpu",
 ]
-cleaned = [f for f in flags if f not in BAD_FLAGS]
-existing = set(cleaned)
-to_add = [f for f in RECOMMENDED if f not in existing]
+BAD_SET = {b.strip() for b in BAD_FLAGS}
+cleaned = [f for f in flags if str(f).strip() not in BAD_SET]
+existing = {f.strip() for f in cleaned}
+to_add = [f for f in RECOMMENDED if f.strip() not in existing]
 if to_add:
     cleaned.extend(to_add)
 flags = cleaned
@@ -208,10 +209,12 @@ apply_display_mode() {
     per_mm_w=${per_mm_w:-160}
     per_mm_h=${per_mm_h:-90}
     local combined_mm_w=$(( per_mm_w * ${#outputs[@]} ))
-    # Mark the primary output first so the logical monitor is treated as primary.
-    xrandr --output "${outputs[0]}" --primary 2>/dev/null || true
+    # --setmonitor resets primary, so set --primary AFTER creating the logical monitor.
     xrandr --setmonitor PiBarTicker "${combined_width}/${combined_mm_w}x${HEIGHT}/${per_mm_h}+0+0" "${outputs[0]}" 2>/dev/null || true
+    xrandr --output "${outputs[0]}" --primary 2>/dev/null || true
     echo "Set logical monitor PiBarTicker ${combined_width}/${combined_mm_w}x${HEIGHT}/${per_mm_h}+0+0 (primary)"
+    echo "xrandr --listmonitors after setmonitor+primary:"
+    xrandr --listmonitors 2>&1 || true
   else
     local primary="${outputs[0]}"
     echo "Single X11: setting ${primary} to ${modename:-${WIDTH}x${HEIGHT}}"

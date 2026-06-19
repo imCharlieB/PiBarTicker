@@ -262,6 +262,50 @@ print("lxqt-powermanagement: EnableDPMS=false")
 PY
 chown "${APP_USER}:${APP_USER}" "${APP_HOME}/.config/lxqt/lxqt-powermanagement.conf"
 
+# Force HDMI output even when the display is powered off (no HPD signal).
+# Without this the Pi compositor drops the output and wlr-randr cannot bring it
+# back without a reboot — critical when HA or CEC controls the display power.
+# We detect the number of HDMI ports from config.json (single vs dual) so we
+# only set the flags that apply to the actual hardware in use.
+echo "Setting hdmi_force_hotplug in boot config..."
+BOOT_CFG=""
+for _candidate in /boot/firmware/config.txt /boot/config.txt; do
+  if [[ -f "${_candidate}" ]]; then
+    BOOT_CFG="${_candidate}"
+    break
+  fi
+done
+if [[ -n "${BOOT_CFG}" ]]; then
+  MONITOR_MODE="single"
+  if [[ -f "${APP_DIR}/config.json" ]]; then
+    MONITOR_MODE="$(python3 -c "
+import json, sys
+try:
+    cfg = json.load(open(sys.argv[1]))
+    print(cfg.get('monitor', {}).get('mode', 'single'))
+except Exception:
+    print('single')
+" "${APP_DIR}/config.json" 2>/dev/null || echo "single")"
+  fi
+
+  # HDMI0 is always present; HDMI1 only matters for dual-monitor setups.
+  HDMI_FLAGS=("hdmi_force_hotplug=1")
+  if [[ "${MONITOR_MODE}" == "dual" ]]; then
+    HDMI_FLAGS+=("hdmi_force_hotplug:1=1")
+  fi
+
+  for FLAG in "${HDMI_FLAGS[@]}"; do
+    if grep -qF "${FLAG}" "${BOOT_CFG}" 2>/dev/null; then
+      echo "  ${FLAG} already present in ${BOOT_CFG}"
+    else
+      echo "${FLAG}" >> "${BOOT_CFG}"
+      echo "  Added ${FLAG} to ${BOOT_CFG}"
+    fi
+  done
+else
+  echo "  WARNING: No boot config.txt found — skipping hdmi_force_hotplug."
+fi
+
 # Disable labwc's own built-in dpmsTimeout. Even with lxqt dead, labwc can fire
 # its own DRM DPMS-off via rc.xml <dpmsTimeout>, which also cuts the HDMI signal.
 # swayidle+ddcutil handles all idle sleep, so labwc's timer must be 0 (disabled).

@@ -111,35 +111,34 @@ def _ddcutil_d6(value: int) -> bool:
 def _wlopm(on: bool, env: dict) -> None:
     global _cached_outputs
 
-    output = "HDMI-A-2"   # Your known output name
-
-    if on:
-        # Force the output back on with explicit mode (most reliable)
-        try:
-            subprocess.run(
-                [
-                    "wlr-randr",
-                    "--output", output,
-                    "--on",
-                    "--mode", "1920x380"
-                ],
-                timeout=10,
-                env=env,
-                capture_output=True
-            )
-        except Exception as e:
-            _log.warning(f"Failed to turn on with wlr-randr: {e}")
+    outputs = _detect_outputs(env)
+    if outputs:
+        _cached_outputs = outputs
+        _save_cached_outputs(outputs)
     else:
-        # Turn off using wlopm
-        try:
-            subprocess.run(
-                ["wlopm", "--off", output],
-                timeout=10,
-                env=env,
-                capture_output=True
-            )
-        except Exception as e:
-            _log.warning(f"Failed to turn off with wlopm: {e}")
+        outputs = _cached_outputs
+
+    if not outputs:
+        _log.warning("No Wayland outputs detected; cannot control display power")
+        return
+
+    for output in outputs:
+        if on:
+            try:
+                subprocess.run(
+                    ["wlr-randr", "--output", output, "--on"],
+                    timeout=10, env=env, capture_output=True,
+                )
+            except Exception as e:
+                _log.warning("wlr-randr --on failed for %s: %s", output, e)
+        else:
+            try:
+                subprocess.run(
+                    ["wlopm", "--off", output],
+                    timeout=10, env=env, capture_output=True,
+                )
+            except Exception as e:
+                _log.warning("wlopm --off failed for %s: %s", output, e)
 
 class DisplayPowerRequest(BaseModel):
     on: bool
@@ -189,12 +188,8 @@ def diagnose_display() -> dict:
 @router.post("/power")
 def set_display_power(body: DisplayPowerRequest) -> dict:
     global _display_on
-
     _display_on = body.on
-
-    if body.on:
-        _log.info("Display ON requested")
-    else:
-        _log.info("Display OFF requested (black overlay)")
-
+    env = _wayland_env()
+    _wlopm(body.on, env)
+    _log.info("Display %s", "ON" if body.on else "OFF")
     return {"on": _display_on}

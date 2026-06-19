@@ -20,6 +20,10 @@ router = APIRouter()
 
 _scoreboard_client = EspnScoreboardClient(_http_client)
 
+# Rate-limit F1 circuit background sync to once per hour so a persistently
+# failing CDN download doesn't fire a new thread on every scoreboard request.
+_f1_sync_state: dict = {"circuit_ts": 0.0}
+
 
 def _parse_csv_filter_values(raw_values: str | None) -> set[str]:
     if not raw_values:
@@ -383,8 +387,11 @@ def get_scoreboard(
                         existing_circuits: dict = json.loads(circuits_path.read_text(encoding="utf-8"))
                     except Exception:
                         existing_circuits = {}
-                    # Trigger background sync if any F1 game has no circuit in the local cache.
-                    # ESPN venue is null for all F1 events, so we use the game title to check.
+                    # Trigger background sync if any F1 game has no circuit in the local cache,
+                    # or if any previously-attempted circuit had no image (empty path sentinel).
+                    # Rate-limited to once per hour so a bad CDN URL doesn't spawn a thread
+                    # on every scoreboard request.
+                    import time
                     known_circuit_keys = set(existing_circuits.keys()) - {"_ts"}
                     has_uncached = bool(normalized_games and not known_circuit_keys)
                     if not has_uncached:
@@ -396,7 +403,13 @@ def get_scoreboard(
                             ):
                                 has_uncached = True
                                 break
-                    if has_uncached:
+                    has_failed = any(
+                        isinstance(v, dict) and not v.get("path")
+                        for k, v in existing_circuits.items()
+                        if k != "_ts"
+                    )
+                    if (has_uncached or has_failed) and time.time() - _f1_sync_state["circuit_ts"] > 3600:
+                        _f1_sync_state["circuit_ts"] = time.time()
                         threading.Thread(target=_bg_circuit_sync, daemon=True).start()
                 except Exception:
                     pass

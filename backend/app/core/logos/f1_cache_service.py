@@ -517,8 +517,9 @@ class F1CacheService:
                         used_name = candidate
                         break
 
-            # Download if still missing
-            if not dest.exists():
+            # Download if still missing (always retry circuits with empty path sentinel)
+            prev_path = (existing.get(map_name) or {}).get("path", None)
+            if not dest.exists() or prev_path == "":
                 for candidate in candidates:
                     url = _CIRCUIT_URL_TEMPLATE.format(cdn=_F1_CDN_BASE, name=candidate)
                     data = _download_bytes(url)
@@ -536,6 +537,14 @@ class F1CacheService:
                     "circuit_name": circuit_name,
                 }
                 synced += 1
+            else:
+                print(f"[f1-cache] No circuit map for {country} / {circuit_name} — tried: {candidates}")
+                existing[map_name] = {
+                    "path": "",
+                    "location": location,
+                    "country": country,
+                    "circuit_name": circuit_name,
+                }
 
         existing["_ts"] = datetime.now(timezone.utc).isoformat()
         circuit_meta_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")

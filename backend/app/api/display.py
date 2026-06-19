@@ -8,6 +8,7 @@ from pathlib import Path
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from ..core.config import config_store
 from ..core.paths import get_runtime_paths
 
 router = APIRouter(prefix="/api/v1/display", tags=["display"])
@@ -108,6 +109,14 @@ def _ddcutil_d6(value: int) -> bool:
     return False
 
 
+def _monitor_mode_str() -> str:
+    try:
+        cfg = config_store.load()
+        return f"{cfg.monitor.width}x{cfg.monitor.height}"
+    except Exception:
+        return ""
+
+
 def _wlopm(on: bool, env: dict) -> None:
     global _cached_outputs
 
@@ -129,14 +138,15 @@ def _wlopm(on: bool, env: dict) -> None:
 
     for output in outputs:
         if on:
-            # wlopm --on sends the DPMS wake signal (matches wlopm --off used for
-            # sleep, and also wakes monitors that slept on their own).
-            # wlr-randr --on re-enables if the compositor disabled the output.
-            # Both are run so either scenario is covered.
-            for cmd in (
-                ["wlopm", "--on", output],
-                ["wlr-randr", "--output", output, "--on"],
-            ):
+            # wlopm --on sends the DPMS wake signal.
+            # wlr-randr --on --mode re-enables a compositor-disabled output;
+            # --mode is required — without it wlr-randr cannot re-enable an
+            # output that has no current mode set (Enabled: no state).
+            mode = _monitor_mode_str()
+            randr_cmd = ["wlr-randr", "--output", output, "--on"]
+            if mode:
+                randr_cmd += ["--mode", mode]
+            for cmd in (["wlopm", "--on", output], randr_cmd):
                 try:
                     subprocess.run(cmd, timeout=10, env=env, capture_output=True)
                 except Exception as e:

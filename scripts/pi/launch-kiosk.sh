@@ -256,7 +256,26 @@ while true; do
     --enable-features=OverlayScrollbar,VaapiVideoDecoder \
     --disable-webgpu \
     "${CHROMIUM_FLAGS[@]}" \
-    "${CHROMIUM_APP_ARG}" >> /tmp/pibarticker-kiosk.log 2>&1 || true
+    "${CHROMIUM_APP_ARG}" >> /tmp/pibarticker-kiosk.log 2>&1 &
+  CHROMIUM_PID=$!
+
+  # --window-size may be capped to the primary monitor by Chromium or openbox.
+  # Force the window geometry with xdotool after it appears.
+  if command -v xdotool >/dev/null 2>&1; then
+    for _ in $(seq 1 20); do
+      sleep 1
+      WID=$(xdotool search --pid "${CHROMIUM_PID}" 2>/dev/null | tail -1 || true)
+      if [ -n "${WID:-}" ]; then
+        sleep 0.5
+        xdotool windowmove "${WID}" 0 0 2>/dev/null || true
+        xdotool windowsize "${WID}" "${CHROMIUM_WINDOW_WIDTH}" "${HEIGHT}" 2>/dev/null || true
+        echo "Forced Chromium window ${WID} to ${CHROMIUM_WINDOW_WIDTH}x${HEIGHT} at 0,0"
+        break
+      fi
+    done
+  fi
+
+  wait "${CHROMIUM_PID}" || true
 
   while display_explicitly_off; do
     sleep 3

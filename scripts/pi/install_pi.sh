@@ -96,9 +96,11 @@ apt-get install -y --no-install-recommends \
   rsync \
   "${CHROMIUM_PACKAGE}" \
   openbox \
-  x11-xserver-utils
-apt-get install -y --no-install-recommends unclutter 2>/dev/null || \
-  apt-get install -y --no-install-recommends unclutter-xfixes 2>/dev/null || \
+  x11-xserver-utils \
+  wmctrl \
+  xdotool
+apt-get install -y --no-install-recommends unclutter-xfixes 2>/dev/null || \
+  apt-get install -y --no-install-recommends unclutter 2>/dev/null || \
   echo "unclutter not available — cursor will remain visible"
 
 # ddcutil: talks directly to monitor hardware over HDMI DDC/CI, bypassing the

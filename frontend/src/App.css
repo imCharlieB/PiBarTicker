@@ -1477,6 +1477,102 @@
   width: fit-content;
 }
 
+/* 6-column grid when card assignment column is present */
+.ha-sensor-list-head-cards {
+  grid-template-columns: 2fr 1fr 1.2fr 0.6fr 1.4fr 1.4fr;
+}
+
+.ha-sensor-row-cards {
+  grid-template-columns: 2fr 1fr 1.2fr 0.6fr 1.4fr 1.4fr;
+}
+
+/* ── HA card builder ───────────────────────────────────────────────── */
+
+.ha-card-builder {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+
+.ha-card-builder-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.ha-card-builder-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #93969c;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.ha-card-add-btn {
+  background: rgba(124,242,155,0.10);
+  color: #7CF29B;
+  border: 1px solid rgba(124,242,155,0.25);
+  border-radius: 8px;
+  padding: 5px 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ha-card-add-btn:hover {
+  background: rgba(124,242,155,0.18);
+}
+
+.ha-card-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 130px 32px;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.ha-card-input,
+.ha-card-select {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 7px;
+  color: var(--text-main);
+  font-size: 13px;
+  padding: 6px 9px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ha-card-input:focus,
+.ha-card-select:focus {
+  outline: none;
+  border-color: var(--accent, #7CF29B);
+}
+
+.ha-card-select option {
+  background-color: var(--input-bg, #11151f);
+  color: var(--text-main);
+}
+
+.ha-card-remove-btn {
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.4);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 7px;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+  width: 100%;
+}
+
+.ha-card-remove-btn:hover {
+  background: rgba(239,68,68,0.15);
+  color: #f87171;
+  border-color: rgba(239,68,68,0.3);
+}
+
 /* ── Theme page mode selector ──────────────────────────────────────── */
 
 .theme-mode-seg {

@@ -594,75 +594,121 @@
   margin-left: 2px;
 }
 
-/* Sensor ticker card — scrolls inline with sports cards */
-.ticker-runtime-shell .ha-ticker-card {
-  height: 100%;
-  padding: 0;
-  background: rgba(7,9,12,0.6);
-  border-left: 1px solid rgba(255,255,255,0.08);
-  border-right: 1px solid rgba(255,255,255,0.08);
-  flex-shrink: 0;
-  min-width: 420px;
+/* ── HOME ASSISTANT · sensor / device cards (d-ha / d-weather) ───────────── */
+.ticker-runtime-shell .d-ha {
+  width: 470px;
+  flex-direction: column;
+  padding: 20px 26px;
+  background: #0c0e13;
+  gap: 14px;
 }
 
-.ticker-runtime-shell .ha-ticker-inner {
+.ticker-runtime-shell .ha-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.ticker-runtime-shell .ha-titles {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  padding: 18px 32px;
+  line-height: 1.05;
 }
 
-.ticker-runtime-shell .ha-ticker-title {
-  font-size: 13px;
+.ticker-runtime-shell .ha-title {
+  font-weight: 900;
+  font-size: 26px;
+  letter-spacing: 0.03em;
+  color: #eef2f8;
+}
+
+.ticker-runtime-shell .ha-sub {
+  font-size: 14px;
+  color: #9aa3b1;
   font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--accent, #7CF29B);
-  flex-shrink: 0;
-  margin-bottom: 4px;
+  margin-top: 5px;
+  letter-spacing: 0.02em;
 }
 
-.ticker-runtime-shell .ha-ticker-rows {
+.ticker-runtime-shell .ha-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  color: #7CF29B;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ticker-runtime-shell .ha-badge .mdi {
+  font-size: 22px;
+  color: #41bdf5;
+}
+
+.ticker-runtime-shell .ha-rows {
   display: flex;
   flex-direction: column;
   flex: 1;
   justify-content: space-evenly;
 }
 
-.ticker-runtime-shell .ha-ticker-row {
+.ticker-runtime-shell .ha-row {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px dashed #1b212b;
 }
 
-.ticker-runtime-shell .ha-ticker-label {
+.ticker-runtime-shell .ha-row:last-child {
+  border-bottom: none;
+}
+
+.ticker-runtime-shell .ha-row-icon {
+  font-size: 26px;
+  width: 48px;
+  height: 48px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  color: var(--ic, #cfd6e2);
+  background: color-mix(in srgb, var(--ic, #6b7480) 18%, #0c0e12);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ic, #6b7480) 32%, transparent);
+}
+
+.ticker-runtime-shell .ha-row-label {
   font-size: 20px;
-  font-weight: 600;
-  color: rgba(255,255,255,0.5);
-  min-width: 150px;
-  white-space: nowrap;
+  font-weight: 700;
+  color: #aeb6c2;
+  flex: 1;
+  min-width: 0;
 }
 
-.ticker-runtime-shell .ha-ticker-val {
+.ticker-runtime-shell .ha-row-val {
   font-family: 'Spline Sans Mono', monospace;
-  font-size: 58px;
+  font-size: 40px;
   font-weight: 700;
   color: #e7edf6;
-  white-space: nowrap;
   line-height: 1;
   display: flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
 }
 
-.ticker-runtime-shell .ha-ticker-unit {
-  font-size: 28px;
+.ticker-runtime-shell .ha-unit {
+  font-size: 20px;
   font-weight: 500;
-  color: rgba(255,255,255,0.4);
-  margin-left: 4px;
+  color: #6b7480;
+  margin-left: 3px;
 }
 
-/* ON/OFF state badges (binary_sensor, switch, light) */
+/* ON/OFF state badges */
 .ticker-runtime-shell .ha-state-badge {
   display: inline-flex;
   align-items: center;
@@ -671,20 +717,21 @@
   font-family: 'Spline Sans Mono', monospace;
   font-weight: 800;
   letter-spacing: 0.06em;
+  font-size: 26px;
+  padding: 5px 16px;
 }
-.ticker-runtime-shell .ha-ticker-val .ha-state-badge {
-  font-size: 40px;
-  padding: 6px 22px;
-}
+
 .ticker-runtime-shell .ha-corner-value .ha-state-badge {
   font-size: 18px;
   padding: 2px 10px;
 }
+
 .ticker-runtime-shell .ha-state-on {
   background: rgba(124,242,155,0.15);
   color: #7CF29B;
   border: 1px solid rgba(124,242,155,0.35);
 }
+
 .ticker-runtime-shell .ha-state-off {
   background: rgba(255,255,255,0.06);
   color: rgba(255,255,255,0.35);
@@ -696,11 +743,131 @@
   color: rgba(255,255,255,0.3);
   font-weight: 400;
 }
+
 .ticker-runtime-shell .ha-climate-mode {
-  font-size: 0.4em;
+  font-size: 0.42em;
   font-weight: 800;
   letter-spacing: 0.1em;
-  color: rgba(255,255,255,0.4);
+  color: #6b7480;
   margin-left: 8px;
   align-self: center;
+}
+
+/* PRINTER variant */
+.ticker-runtime-shell .d-printer {
+  width: 500px;
+}
+
+.ticker-runtime-shell .d-printer .ha-badge .mdi {
+  color: #7CF29B;
+}
+
+.ticker-runtime-shell .printer-progress {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+.ticker-runtime-shell .printer-progress-bar {
+  flex: 1;
+  height: 14px;
+  border-radius: 7px;
+  background: rgba(255,255,255,0.08);
+  overflow: hidden;
+}
+
+.ticker-runtime-shell .printer-progress-fill {
+  height: 100%;
+  border-radius: 7px;
+  background: linear-gradient(90deg, #7CF29B, #4fd1c5);
+  transition: width 1s ease;
+}
+
+.ticker-runtime-shell .printer-progress-pct {
+  font-family: 'Spline Sans Mono', monospace;
+  font-size: 32px;
+  font-weight: 700;
+  color: #7CF29B;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  min-width: 64px;
+  text-align: right;
+}
+
+/* WEATHER variant */
+.ticker-runtime-shell .d-weather .wx-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 2px;
+}
+
+.ticker-runtime-shell .wx-icon {
+  font-size: 92px;
+  color: var(--ic, #cfd6e2);
+  line-height: 1;
+  filter: drop-shadow(0 4px 14px color-mix(in srgb, var(--ic, #000) 40%, transparent));
+}
+
+.ticker-runtime-shell .wx-temp {
+  font-family: 'Spline Sans Mono', monospace;
+  font-weight: 700;
+  font-size: 92px;
+  color: #fff;
+  line-height: 0.9;
+  font-variant-numeric: tabular-nums;
+}
+
+.ticker-runtime-shell .wx-deg {
+  color: #6b7480;
+}
+
+.ticker-runtime-shell .wx-cond {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #9aa3b1;
+  text-transform: capitalize;
+  margin-top: 6px;
+}
+
+.ticker-runtime-shell .wx-stats {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  border-top: 1px dashed #1b212b;
+  padding-top: 14px;
+  flex-shrink: 0;
+}
+
+.ticker-runtime-shell .wx-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  flex: 1;
+}
+
+.ticker-runtime-shell .wx-stat .mdi {
+  font-size: 28px;
+  color: var(--ic, #7CF29B);
+}
+
+.ticker-runtime-shell .wx-stat-val {
+  font-family: 'Spline Sans Mono', monospace;
+  font-size: 20px;
+  font-weight: 700;
+  color: #e7edf6;
+  white-space: nowrap;
+}
+
+.ticker-runtime-shell .wx-stat-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #6b7480;
+  text-transform: uppercase;
 }

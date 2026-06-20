@@ -200,6 +200,90 @@ function renderEntityValue(live, sensor, unitClass) {
   return <>{live.state}{unit ? <span className={unitClass}>{unit}</span> : null}</>
 }
 
+// ── HA icon / color derivation ────────────────────────────────────────────────
+const WEATHER_ICON_MAP = {
+  sunny:             { icon: 'mdi-weather-sunny',          color: '#f5b945' },
+  'clear-night':     { icon: 'mdi-weather-night',          color: '#5ac8fa' },
+  cloudy:            { icon: 'mdi-weather-cloudy',         color: '#9aa3b1' },
+  partlycloudy:      { icon: 'mdi-weather-partly-cloudy',  color: '#f5b945' },
+  'partly-cloudy':   { icon: 'mdi-weather-partly-cloudy',  color: '#f5b945' },
+  fog:               { icon: 'mdi-weather-fog',            color: '#9aa3b1' },
+  hail:              { icon: 'mdi-weather-hail',           color: '#5ac8fa' },
+  lightning:         { icon: 'mdi-weather-lightning',      color: '#f5b945' },
+  'lightning-rainy': { icon: 'mdi-weather-lightning-rainy', color: '#f5b945' },
+  pouring:           { icon: 'mdi-weather-pouring',        color: '#5ac8fa' },
+  rainy:             { icon: 'mdi-weather-rainy',          color: '#5ac8fa' },
+  snowy:             { icon: 'mdi-weather-snowy',          color: '#e2e8f0' },
+  'snowy-rainy':     { icon: 'mdi-weather-snowy-rainy',    color: '#b0c4de' },
+  windy:             { icon: 'mdi-weather-windy',          color: '#4fd1c5' },
+  'windy-variant':   { icon: 'mdi-weather-windy-variant',  color: '#4fd1c5' },
+  exceptional:       { icon: 'mdi-alert-circle',           color: '#f87171' },
+}
+
+function haIconFor(live, sensor) {
+  const haAttr = live?.attributes?.icon
+  if (haAttr && haAttr.startsWith('mdi:')) return haAttr.replace('mdi:', 'mdi-')
+  const domain = live?.domain || sensor.entityId.split('.')[0]
+  const dc = live?.attributes?.device_class || ''
+  switch (domain) {
+    case 'climate':       return 'mdi-thermostat'
+    case 'light':         return 'mdi-lightbulb'
+    case 'switch':        return 'mdi-toggle-switch'
+    case 'input_boolean': return 'mdi-toggle-switch'
+    case 'binary_sensor':
+      switch (dc) {
+        case 'door':         return 'mdi-door'
+        case 'window':       return 'mdi-window-closed'
+        case 'motion':       return 'mdi-motion-sensor'
+        case 'lock':         return 'mdi-lock'
+        case 'garage_door':  return 'mdi-garage'
+        case 'smoke':        return 'mdi-smoke-detector'
+        case 'moisture':     return 'mdi-water'
+        default:             return 'mdi-circle'
+      }
+    case 'sensor':
+      switch (dc) {
+        case 'temperature': return 'mdi-thermometer'
+        case 'humidity':    return 'mdi-water-percent'
+        case 'battery':     return 'mdi-battery'
+        case 'energy':      return 'mdi-lightning-bolt'
+        case 'power':       return 'mdi-flash'
+        default:            return 'mdi-gauge'
+      }
+    default: return 'mdi-circle-small'
+  }
+}
+
+function haColorFor(live, sensor) {
+  const domain = live?.domain || sensor.entityId.split('.')[0]
+  const dc = live?.attributes?.device_class || ''
+  const on = live?.state === 'on'
+  switch (domain) {
+    case 'climate':       return '#f0894e'
+    case 'light':         return on ? '#ffc83d' : '#4b5563'
+    case 'switch':        return on ? '#7CF29B' : '#4b5563'
+    case 'input_boolean': return on ? '#7CF29B' : '#4b5563'
+    case 'binary_sensor':
+      switch (dc) {
+        case 'door':   return '#5ac8fa'
+        case 'window': return '#5ac8fa'
+        case 'motion': return on ? '#7CF29B' : '#9aa3b1'
+        case 'lock':   return on ? '#7CF29B' : '#f87171'
+        default:       return '#9aa3b1'
+      }
+    case 'sensor':
+      switch (dc) {
+        case 'temperature': return '#f0894e'
+        case 'humidity':    return '#5ac8fa'
+        case 'battery':     return '#7CF29B'
+        case 'energy':      return '#f5b945'
+        case 'power':       return '#f5b945'
+        default:            return '#9aa3b1'
+      }
+    default: return '#9aa3b1'
+  }
+}
+
 // ── Corner sensor widgets ─────────────────────────────────────────────────────
 const CORNER_POSITIONS = ['top-left', 'top-right', 'bottom-left', 'bottom-right']
 
@@ -226,31 +310,181 @@ function SensorCornerWidgets({ haSensors, sensorValues }) {
   })
 }
 
-// ── Sensor ticker card ────────────────────────────────────────────────────────
-function SensorTickerCard({ haSensors, sensorValues }) {
-  const sensors = haSensors.filter(s => s.position === 'ticker')
+// ── HA sensor ticker cards (wireframe d-ha design) ────────────────────────────
+
+function HASensorCard({ card, sensors, sensorValues }) {
   if (sensors.length === 0) return null
   return (
-    <div className="ha-ticker-card ticker-runtime-card" role="listitem">
-      <div className="ha-ticker-inner">
-        <div className="ha-ticker-title">HOME</div>
-        <div className="ha-ticker-rows">
-          {sensors.map(sensor => {
+    <div className="card d-ha ticker-runtime-card" role="listitem">
+      <div className="ha-head">
+        <div className="ha-titles">
+          <span className="ha-title">{card.title}</span>
+          {card.sub && <span className="ha-sub">{card.sub}</span>}
+        </div>
+        <span className="ha-badge"><i className="mdi mdi-home-assistant" />HOME</span>
+      </div>
+      <div className="ha-rows">
+        {sensors.map(sensor => {
+          const live = sensorValues[sensor.entityId]
+          const label = sensor.label || sensor.entityId.split('.').pop().replace(/_/g, ' ')
+          const icon = haIconFor(live, sensor)
+          const color = haColorFor(live, sensor)
+          return (
+            <div key={sensor.entityId} className="ha-row">
+              <i className={`mdi ${icon} ha-row-icon`} style={{ '--ic': color }} />
+              <span className="ha-row-label">{label}</span>
+              <span className="ha-row-val">{renderEntityValue(live, sensor, 'ha-unit')}</span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function HAWeatherCard({ card, sensors, sensorValues }) {
+  let live = null
+  for (const s of sensors) {
+    const v = sensorValues[s.entityId]
+    if ((v?.domain || s.entityId.split('.')[0]) === 'weather') { live = v; break }
+  }
+
+  const condition = live?.state ?? '—'
+  const wx = WEATHER_ICON_MAP[condition] ?? { icon: 'mdi-weather-cloudy', color: '#9aa3b1' }
+  const temp = live?.attributes?.temperature
+  const tempUnit = live?.attributes?.temperature_unit ?? '°'
+  const humidity = live?.attributes?.humidity
+  const windSpeed = live?.attributes?.wind_speed
+  const windUnit = live?.attributes?.wind_speed_unit ?? ''
+  const forecast0 = live?.attributes?.forecast?.[0]
+  const hiTemp = forecast0?.temperature ?? forecast0?.high_temperature
+  const loTemp = forecast0?.templow ?? forecast0?.low_temperature
+
+  return (
+    <div className="card d-ha d-weather ticker-runtime-card" role="listitem">
+      <div className="ha-head">
+        <div className="ha-titles">
+          <span className="ha-title">{card.title}</span>
+          {card.sub && <span className="ha-sub">{card.sub}</span>}
+        </div>
+        <span className="ha-badge"><i className="mdi mdi-home-assistant" />HOME</span>
+      </div>
+      <div className="wx-hero">
+        <i className={`mdi ${wx.icon} wx-icon`} style={{ '--ic': wx.color }} />
+        <div className="wx-temp">{temp != null ? temp : '—'}<span className="wx-deg">{tempUnit}</span></div>
+        <div className="wx-cond">{condition}</div>
+      </div>
+      <div className="wx-stats">
+        {hiTemp != null && loTemp != null && (
+          <div className="wx-stat">
+            <i className="mdi mdi-thermometer" style={{ '--ic': '#f0894e' }} />
+            <span className="wx-stat-val">{hiTemp}° / {loTemp}°</span>
+            <span className="wx-stat-label">Hi / Lo</span>
+          </div>
+        )}
+        {humidity != null && (
+          <div className="wx-stat">
+            <i className="mdi mdi-water-percent" style={{ '--ic': '#5ac8fa' }} />
+            <span className="wx-stat-val">{humidity}%</span>
+            <span className="wx-stat-label">Humidity</span>
+          </div>
+        )}
+        {windSpeed != null && (
+          <div className="wx-stat">
+            <i className="mdi mdi-weather-windy" style={{ '--ic': '#4fd1c5' }} />
+            <span className="wx-stat-val">{windSpeed}{windUnit ? ` ${windUnit}` : ''}</span>
+            <span className="wx-stat-label">Wind</span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function HAPrinterCard({ card, sensors, sensorValues }) {
+  if (sensors.length === 0) return null
+
+  // Detect progress sensor: numeric value 0–100 with % unit
+  let progressSensor = null
+  let progressPct = null
+  const otherSensors = []
+  for (const sensor of sensors) {
+    const live = sensorValues[sensor.entityId]
+    const unit = sensor.unit || live?.unit || live?.attributes?.unit_of_measurement || ''
+    const val = parseFloat(live?.state)
+    if (!progressSensor && unit === '%' && !isNaN(val) && val >= 0 && val <= 100) {
+      progressSensor = sensor
+      progressPct = val
+    } else {
+      otherSensors.push(sensor)
+    }
+  }
+
+  return (
+    <div className="card d-ha d-printer ticker-runtime-card" role="listitem">
+      <div className="ha-head">
+        <div className="ha-titles">
+          <span className="ha-title">{card.title}</span>
+          {card.sub && <span className="ha-sub">{card.sub}</span>}
+        </div>
+        <span className="ha-badge"><i className="mdi mdi-printer-3d" />PRINT</span>
+      </div>
+      {progressPct != null && (
+        <div className="printer-progress">
+          <div className="printer-progress-bar">
+            <div className="printer-progress-fill" style={{ width: `${progressPct}%` }} />
+          </div>
+          <span className="printer-progress-pct">{Math.round(progressPct)}%</span>
+        </div>
+      )}
+      {otherSensors.length > 0 && (
+        <div className="ha-rows">
+          {otherSensors.map(sensor => {
             const live = sensorValues[sensor.entityId]
             const label = sensor.label || sensor.entityId.split('.').pop().replace(/_/g, ' ')
+            const icon = haIconFor(live, sensor)
+            const color = haColorFor(live, sensor)
             return (
-              <div key={sensor.entityId} className="ha-ticker-row">
-                <span className="ha-ticker-label">{label}</span>
-                <span className="ha-ticker-val">
-                  {renderEntityValue(live, sensor, 'ha-ticker-unit')}
-                </span>
+              <div key={sensor.entityId} className="ha-row">
+                <i className={`mdi ${icon} ha-row-icon`} style={{ '--ic': color }} />
+                <span className="ha-row-label">{label}</span>
+                <span className="ha-row-val">{renderEntityValue(live, sensor, 'ha-unit')}</span>
               </div>
             )
           })}
         </div>
-      </div>
+      )}
     </div>
   )
+}
+
+function HATickerCards({ homeAssistantBoard, sensorValues }) {
+  const sensors = homeAssistantBoard?.haSensors ?? []
+  const cards = homeAssistantBoard?.haCards ?? []
+  const tickerSensors = sensors.filter(s => s.position === 'ticker')
+
+  if (cards.length === 0) {
+    // Legacy: flat card with all ticker sensors
+    if (tickerSensors.length === 0) return null
+    return (
+      <HASensorCard
+        card={{ title: 'HOME', sub: '' }}
+        sensors={tickerSensors}
+        sensorValues={sensorValues}
+      />
+    )
+  }
+
+  return cards.map(card => {
+    const cardSensors = tickerSensors.filter(s => s.cardId === card.id)
+    if (card.variant === 'weather') {
+      return <HAWeatherCard key={card.id} card={card} sensors={cardSensors} sensorValues={sensorValues} />
+    }
+    if (card.variant === 'printer') {
+      return <HAPrinterCard key={card.id} card={card} sensors={cardSensors} sensorValues={sensorValues} />
+    }
+    return <HASensorCard key={card.id} card={card} sensors={cardSensors} sensorValues={sensorValues} />
+  })
 }
 
 function LowerThird({ clockFormat }) {
@@ -591,7 +825,7 @@ function TickerRuntime({
                   />
                 )
               })}
-              <SensorTickerCard haSensors={haSensors} sensorValues={sensorValues} />
+              <HATickerCards homeAssistantBoard={homeAssistantBoard} sensorValues={sensorValues} />
             </div>
           </div>
 

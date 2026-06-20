@@ -11,11 +11,14 @@ const POSITION_OPTIONS = [
   { value: 'bottom-right', label: 'Bottom right' },
 ]
 
+function makeCardId() { return `c${Date.now().toString(36)}` }
+
 export default function ServicesPage() {
   const { config, updateConfigSection, updateBoard } = useAppContext()
   const homeAssistantBoard = config.boards.find((b) => b.type === 'home-assistant')
   const servicesErrors = computeServicesErrors(config)
   const savedSensors = homeAssistantBoard?.haSensors ?? []
+  const haCards = homeAssistantBoard?.haCards ?? []
 
   const [pushedSensors, setPushedSensors] = useState([])
   const [loadingState, setLoadingState] = useState('loading') // 'loading' | 'done' | 'error'
@@ -39,6 +42,7 @@ export default function ServicesPage() {
       label: '',
       unit: '',
       position: 'ticker',
+      cardId: '',
     }
   }
 
@@ -46,8 +50,21 @@ export default function ServicesPage() {
     const exists = savedSensors.some((s) => s.entityId === entityId)
     const updated = exists
       ? savedSensors.map((s) => s.entityId === entityId ? { ...s, ...patch } : s)
-      : [...savedSensors, { entityId, label: '', unit: '', position: 'ticker', ...patch }]
+      : [...savedSensors, { entityId, label: '', unit: '', position: 'ticker', cardId: '', ...patch }]
     updateBoard('home-assistant', { haSensors: updated })
+  }
+
+  function addCard() {
+    const newCard = { id: makeCardId(), title: 'HOME', sub: '', variant: 'home' }
+    updateBoard('home-assistant', { haCards: [...haCards, newCard] })
+  }
+
+  function updateCard(id, patch) {
+    updateBoard('home-assistant', { haCards: haCards.map((c) => c.id === id ? { ...c, ...patch } : c) })
+  }
+
+  function removeCard(id) {
+    updateBoard('home-assistant', { haCards: haCards.filter((c) => c.id !== id) })
   }
 
   return (
@@ -119,6 +136,44 @@ export default function ServicesPage() {
             </div>
           </div>
 
+          <div className="ha-card-builder">
+            <div className="ha-card-builder-head">
+              <span className="ha-card-builder-label">Ticker cards</span>
+              <button className="ha-card-add-btn" onClick={addCard}>+ Add card</button>
+            </div>
+            {haCards.length === 0 && (
+              <p className="ha-sensor-empty" style={{ textAlign: 'left', paddingTop: 8 }}>
+                No cards yet. Add one to group entities into named ticker blocks (HOME, WEATHER, SECURITY, etc.).
+              </p>
+            )}
+            {haCards.map((card) => (
+              <div key={card.id} className="ha-card-row">
+                <input
+                  className="ha-card-input"
+                  value={card.title}
+                  onChange={(e) => updateCard(card.id, { title: e.target.value })}
+                  placeholder="Title"
+                />
+                <input
+                  className="ha-card-input"
+                  value={card.sub}
+                  onChange={(e) => updateCard(card.id, { sub: e.target.value })}
+                  placeholder="Subtitle (optional)"
+                />
+                <select
+                  className="ha-card-select"
+                  value={card.variant}
+                  onChange={(e) => updateCard(card.id, { variant: e.target.value })}
+                >
+                  <option value="home">Home</option>
+                  <option value="weather">Weather</option>
+                  <option value="printer">Printer</option>
+                </select>
+                <button className="ha-card-remove-btn" onClick={() => removeCard(card.id)}>×</button>
+              </div>
+            ))}
+          </div>
+
           {loadingState === 'loading' && (
             <p className="ha-sensor-empty">Loading…</p>
           )}
@@ -135,17 +190,18 @@ export default function ServicesPage() {
 
           {loadingState === 'done' && pushedSensors.length > 0 && (
             <div className="ha-sensor-list">
-              <div className="ha-sensor-list-head ha-sensor-list-head-pushed">
+              <div className={`ha-sensor-list-head ${haCards.length > 0 ? 'ha-sensor-list-head-cards' : 'ha-sensor-list-head-pushed'}`}>
                 <span>Sensor</span>
                 <span>Current value</span>
                 <span>Label override</span>
                 <span>Unit</span>
                 <span>Position</span>
+                {haCards.length > 0 && <span>Card</span>}
               </div>
               {pushedSensors.map((sensor) => {
                 const cfg = getSavedConfig(sensor.entity_id)
                 return (
-                  <div className="ha-sensor-row ha-sensor-row-pushed" key={sensor.entity_id}>
+                  <div className={`ha-sensor-row ${haCards.length > 0 ? 'ha-sensor-row-cards' : 'ha-sensor-row-pushed'}`} key={sensor.entity_id}>
                     <div className="ha-sensor-entity">
                       <span className="ha-sensor-entity-name">
                         {sensor.friendly_name || sensor.entity_id}
@@ -179,6 +235,19 @@ export default function ServicesPage() {
                         <option key={opt.value} value={opt.value}>{opt.label}</option>
                       ))}
                     </select>
+                    {haCards.length > 0 && (
+                      cfg.position === 'ticker' ? (
+                        <select
+                          value={cfg.cardId || ''}
+                          onChange={(e) => updateSensor(sensor.entity_id, { cardId: e.target.value })}
+                        >
+                          <option value="">— unassigned —</option>
+                          {haCards.map((c) => (
+                            <option key={c.id} value={c.id}>{c.title}</option>
+                          ))}
+                        </select>
+                      ) : <span />
+                    )}
                   </div>
                 )
               })}

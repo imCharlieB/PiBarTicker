@@ -113,6 +113,14 @@ class HAEntityConfig(AppBaseModel):
     label: str = ""
     unit: str = ""
     position: Literal["none", "ticker", "top-left", "top-right", "bottom-left", "bottom-right"] = "ticker"
+    cardId: str = ""
+
+
+class HACardConfig(AppBaseModel):
+    id: str
+    title: str
+    sub: str = ""
+    variant: Literal["home", "weather", "printer"] = "home"
 
 
 class HomeAssistantBoardConfig(AppBaseModel):
@@ -121,6 +129,7 @@ class HomeAssistantBoardConfig(AppBaseModel):
     name: str = "Home Assistant"
     enabled: bool = True
     haSensors: list[HAEntityConfig] = Field(default_factory=list)
+    haCards: list[HACardConfig] = Field(default_factory=list)
 
 
 BoardConfig = Annotated[

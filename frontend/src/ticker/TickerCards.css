@@ -569,62 +569,64 @@
   border-left: 1px solid rgba(255,255,255,0.08);
   border-right: 1px solid rgba(255,255,255,0.08);
   flex-shrink: 0;
+  min-width: 420px;
 }
 
 .ticker-runtime-shell .ha-ticker-inner {
   display: flex;
   flex-direction: column;
-  justify-content: center;
   height: 100%;
-  padding: 20px 36px;
-  gap: 10px;
+  padding: 18px 32px;
 }
 
 .ticker-runtime-shell .ha-ticker-title {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--accent, #7CF29B);
-  margin-bottom: 2px;
+  flex-shrink: 0;
+  margin-bottom: 4px;
 }
 
 .ticker-runtime-shell .ha-ticker-rows {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  flex: 1;
+  justify-content: space-evenly;
 }
 
 .ticker-runtime-shell .ha-ticker-row {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 20px;
 }
 
 .ticker-runtime-shell .ha-ticker-label {
-  font-size: 15px;
+  font-size: 20px;
   font-weight: 600;
   color: rgba(255,255,255,0.5);
-  min-width: 110px;
+  min-width: 150px;
   white-space: nowrap;
 }
 
 .ticker-runtime-shell .ha-ticker-val {
   font-family: 'Spline Sans Mono', monospace;
-  font-size: 30px;
+  font-size: 58px;
   font-weight: 700;
   color: #e7edf6;
   white-space: nowrap;
+  line-height: 1;
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
 .ticker-runtime-shell .ha-ticker-unit {
-  font-size: 16px;
+  font-size: 28px;
   font-weight: 500;
   color: rgba(255,255,255,0.4);
-  margin-left: 3px;
+  margin-left: 4px;
 }
 
 /* ON/OFF state badges (binary_sensor, switch, light) */
@@ -632,18 +634,17 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: 8px;
   font-family: 'Spline Sans Mono', monospace;
   font-weight: 800;
   letter-spacing: 0.06em;
-  padding: 2px 10px;
 }
 .ticker-runtime-shell .ha-ticker-val .ha-state-badge {
-  font-size: 22px;
-  padding: 3px 14px;
+  font-size: 40px;
+  padding: 6px 22px;
 }
 .ticker-runtime-shell .ha-corner-value .ha-state-badge {
-  font-size: 17px;
+  font-size: 18px;
   padding: 2px 10px;
 }
 .ticker-runtime-shell .ha-state-on {
@@ -663,10 +664,10 @@
   font-weight: 400;
 }
 .ticker-runtime-shell .ha-climate-mode {
-  font-size: 0.55em;
+  font-size: 0.4em;
   font-weight: 800;
   letter-spacing: 0.1em;
   color: rgba(255,255,255,0.4);
-  margin-left: 6px;
+  margin-left: 8px;
   align-self: center;
 }

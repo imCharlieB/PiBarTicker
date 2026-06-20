@@ -165,6 +165,7 @@ export function getSectionSnapshots(cfg) {
       homeAssistant: cfg.homeAssistant,
       http: cfg.http,
       haSensors: homeAssistantBoard?.haSensors || [],
+      haCards: homeAssistantBoard?.haCards || [],
     },
     ticker: { sportsBoard },
   }

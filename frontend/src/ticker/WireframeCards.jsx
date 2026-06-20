@@ -250,7 +250,7 @@ function MetaRow({ game, flags, mono }) {
           )
         }
         return (
-          <span key={i} className="meta-i">
+          <span key={i} className={`meta-i${v.length > 25 ? ' meta-i-sm' : ''}`}>
             {k ? <em>{k}</em> : null}{v}
           </span>
         )

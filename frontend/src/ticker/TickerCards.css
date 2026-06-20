@@ -111,6 +111,7 @@
   font-style: normal; font-weight: 900; font-size: 13px; letter-spacing: .1em;
   color: #7b8492; background: #1b212b; padding: 3px 6px; border-radius: 3px;
 }
+.ticker-runtime-shell .meta-i-sm  { font-size: 14px; }
 .ticker-runtime-shell .meta-mono { font-family: 'Spline Sans Mono', monospace; }
 .ticker-runtime-shell .meta-tv-logo {
   height: 30px; width: auto; max-width: 80px; object-fit: contain;

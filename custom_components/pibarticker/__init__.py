@@ -1,7 +1,6 @@
 """PiBarTicker Home Assistant integration."""
 from __future__ import annotations
 
-import asyncio
 import logging
 
 import aiohttp
@@ -23,6 +22,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN][entry.entry_id] = {
         "url": entry.data[CONF_URL],
         "session": async_get_clientsession(hass),
+        "tracked_sensors": list(entry.options.get(CONF_SENSORS, [])),
     }
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -113,6 +113,24 @@ async def _push_sensor(hass: HomeAssistant, entry: ConfigEntry, state) -> None:
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    domain_data = hass.data.get(DOMAIN, {}).get(entry.entry_id, {})
+    old_sensors = set(domain_data.get("tracked_sensors", []))
+    new_sensors = set(entry.options.get(CONF_SENSORS, []))
+    removed = old_sensors - new_sensors
+
+    if removed:
+        url = entry.data[CONF_URL].rstrip("/")
+        session = async_get_clientsession(hass)
+        for entity_id in removed:
+            try:
+                await session.delete(
+                    f"{url}/api/v1/ha/sensors/{entity_id}",
+                    timeout=aiohttp.ClientTimeout(total=5),
+                )
+                _LOGGER.debug("PiBarTicker: removed entity %s from display", entity_id)
+            except Exception as exc:  # noqa: BLE001
+                _LOGGER.debug("PiBarTicker sensor delete failed for %s: %s", entity_id, exc)
+
     await hass.config_entries.async_reload(entry.entry_id)
 
 

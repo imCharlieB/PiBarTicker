@@ -52,3 +52,10 @@ def push_sensor(body: SensorPush) -> dict:
     _sensors[body.entity_id] = payload
     _save(_sensors)
     return payload
+
+
+@router.delete("/sensors/{entity_id:path}")
+def delete_sensor(entity_id: str) -> dict:
+    _sensors.pop(entity_id, None)
+    _save(_sensors)
+    return {"deleted": entity_id}

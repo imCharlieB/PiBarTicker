@@ -1462,6 +1462,21 @@
   padding: 20px 0;
 }
 
+.ha-sensor-domain-chip {
+  display: inline-block;
+  margin-top: 3px;
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: rgba(255,255,255,0.07);
+  color: rgba(255,255,255,0.4);
+  border: 1px solid rgba(255,255,255,0.1);
+  width: fit-content;
+}
+
 /* ── Theme page mode selector ──────────────────────────────────────── */
 
 .theme-mode-seg {

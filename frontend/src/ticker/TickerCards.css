@@ -515,11 +515,11 @@
   backdrop-filter: blur(6px);
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 12px;
-  padding: 8px 14px;
+  padding: 10px 16px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  min-width: 120px;
+  gap: 6px;
+  min-width: 150px;
 }
 
 .ticker-runtime-shell .ha-corner-widget-top-left    { top: 10px;    left: 14px; }
@@ -529,13 +529,13 @@
 
 .ticker-runtime-shell .ha-corner-item {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 14px;
 }
 
 .ticker-runtime-shell .ha-corner-label {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   color: rgba(255,255,255,0.45);
   text-transform: uppercase;
@@ -545,14 +545,17 @@
 
 .ticker-runtime-shell .ha-corner-value {
   font-family: 'Spline Sans Mono', monospace;
-  font-size: 15px;
+  font-size: 22px;
   font-weight: 700;
   color: #e7edf6;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 3px;
 }
 
 .ticker-runtime-shell .ha-corner-unit {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
   color: rgba(255,255,255,0.45);
   margin-left: 2px;
@@ -573,12 +576,12 @@
   flex-direction: column;
   justify-content: center;
   height: 100%;
-  padding: 16px 28px;
-  gap: 8px;
+  padding: 20px 36px;
+  gap: 10px;
 }
 
 .ticker-runtime-shell .ha-ticker-title {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -589,34 +592,81 @@
 .ticker-runtime-shell .ha-ticker-rows {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 8px;
 }
 
 .ticker-runtime-shell .ha-ticker-row {
   display: flex;
-  align-items: baseline;
-  gap: 14px;
+  align-items: center;
+  gap: 18px;
 }
 
 .ticker-runtime-shell .ha-ticker-label {
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 600;
   color: rgba(255,255,255,0.5);
-  min-width: 90px;
+  min-width: 110px;
   white-space: nowrap;
 }
 
 .ticker-runtime-shell .ha-ticker-val {
   font-family: 'Spline Sans Mono', monospace;
-  font-size: 18px;
+  font-size: 30px;
   font-weight: 700;
   color: #e7edf6;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .ticker-runtime-shell .ha-ticker-unit {
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 500;
   color: rgba(255,255,255,0.4);
   margin-left: 3px;
+}
+
+/* ON/OFF state badges (binary_sensor, switch, light) */
+.ticker-runtime-shell .ha-state-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-family: 'Spline Sans Mono', monospace;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 2px 10px;
+}
+.ticker-runtime-shell .ha-ticker-val .ha-state-badge {
+  font-size: 22px;
+  padding: 3px 14px;
+}
+.ticker-runtime-shell .ha-corner-value .ha-state-badge {
+  font-size: 17px;
+  padding: 2px 10px;
+}
+.ticker-runtime-shell .ha-state-on {
+  background: rgba(124,242,155,0.15);
+  color: #7CF29B;
+  border: 1px solid rgba(124,242,155,0.35);
+}
+.ticker-runtime-shell .ha-state-off {
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.35);
+  border: 1px solid rgba(255,255,255,0.12);
+}
+
+/* Climate entity rendering */
+.ticker-runtime-shell .ha-climate-arrow {
+  color: rgba(255,255,255,0.3);
+  font-weight: 400;
+}
+.ticker-runtime-shell .ha-climate-mode {
+  font-size: 0.55em;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: rgba(255,255,255,0.4);
+  margin-left: 6px;
+  align-self: center;
 }

@@ -15,7 +15,7 @@ from .const import CONF_SENSORS, CONF_URL, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.SWITCH]
+PLATFORMS = [Platform.SWITCH, Platform.SENSOR]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -81,6 +81,20 @@ async def _push_sensor(hass: HomeAssistant, entry: ConfigEntry, state) -> None:
     session = async_get_clientsession(hass)
     friendly = state.attributes.get("friendly_name", "")
     unit = state.attributes.get("unit_of_measurement", "")
+    domain = state.entity_id.split(".")[0]
+
+    # Capture display-relevant attributes per entity type
+    attrs: dict = {}
+    if domain == "climate":
+        for key in ("current_temperature", "temperature", "hvac_mode", "hvac_action"):
+            val = state.attributes.get(key)
+            if val is not None:
+                attrs[key] = val
+    elif domain == "light":
+        brightness = state.attributes.get("brightness")
+        if brightness is not None:
+            attrs["brightness"] = brightness
+
     try:
         await session.post(
             f"{url}/api/v1/ha/sensors",
@@ -89,6 +103,8 @@ async def _push_sensor(hass: HomeAssistant, entry: ConfigEntry, state) -> None:
                 "state": state.state,
                 "unit": unit,
                 "friendly_name": friendly,
+                "domain": domain,
+                "attributes": attrs,
             },
             timeout=aiohttp.ClientTimeout(total=5),
         )

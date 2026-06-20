@@ -1,7 +1,7 @@
 import json
 
 from fastapi import APIRouter
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ..core.paths import get_runtime_paths
 
@@ -35,6 +35,8 @@ class SensorPush(BaseModel):
     state: str
     unit: str = ""
     friendly_name: str = ""
+    domain: str = ""
+    attributes: dict = Field(default_factory=dict)
 
 
 @router.get("/sensors")
@@ -45,6 +47,8 @@ def get_sensors() -> list[dict]:
 @router.post("/sensors")
 def push_sensor(body: SensorPush) -> dict:
     payload = body.model_dump()
+    if not payload["domain"]:
+        payload["domain"] = body.entity_id.split(".")[0]
     _sensors[body.entity_id] = payload
     _save(_sensors)
     return payload

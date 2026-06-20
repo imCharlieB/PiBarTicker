@@ -151,6 +151,9 @@ export default function ServicesPage() {
                         {sensor.friendly_name || sensor.entity_id}
                       </span>
                       <span className="ha-sensor-entity-id">{sensor.entity_id}</span>
+                      {sensor.domain && sensor.domain !== 'sensor' && (
+                        <span className="ha-sensor-domain-chip">{sensor.domain}</span>
+                      )}
                     </div>
                     <span className="ha-sensor-live">
                       {sensor.state}

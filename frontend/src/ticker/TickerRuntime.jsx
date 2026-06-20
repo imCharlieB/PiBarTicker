@@ -162,6 +162,44 @@ function AlertOverlay() {
   )
 }
 
+// ── HA entity value renderer (domain-aware) ──────────────────────────────────
+function renderEntityValue(live, sensor, unitClass) {
+  if (!live) return '—'
+  const domain = live.domain || sensor.entityId.split('.')[0]
+
+  if (domain === 'binary_sensor' || domain === 'switch' || domain === 'input_boolean') {
+    const on = live.state === 'on'
+    return <span className={`ha-state-badge ${on ? 'ha-state-on' : 'ha-state-off'}`}>{on ? 'ON' : 'OFF'}</span>
+  }
+
+  if (domain === 'light') {
+    const on = live.state === 'on'
+    const brightness = live.attributes?.brightness
+    if (on && brightness != null) {
+      return <span className="ha-state-badge ha-state-on">{Math.round(brightness / 255 * 100)}%</span>
+    }
+    return <span className={`ha-state-badge ${on ? 'ha-state-on' : 'ha-state-off'}`}>{on ? 'ON' : 'OFF'}</span>
+  }
+
+  if (domain === 'climate') {
+    const cur = live.attributes?.current_temperature
+    const set = live.attributes?.temperature
+    const mode = (live.attributes?.hvac_mode || '').toLowerCase()
+    if (cur != null && set != null) {
+      return (
+        <>
+          {cur}°<span className="ha-climate-arrow"> → </span>{set}°
+          {mode && mode !== 'off' && <span className="ha-climate-mode">{mode.toUpperCase()}</span>}
+        </>
+      )
+    }
+    return <>{live.state}</>
+  }
+
+  const unit = sensor.unit || live.unit || ''
+  return <>{live.state}{unit ? <span className={unitClass}>{unit}</span> : null}</>
+}
+
 // ── Corner sensor widgets ─────────────────────────────────────────────────────
 const CORNER_POSITIONS = ['top-left', 'top-right', 'bottom-left', 'bottom-right']
 
@@ -174,13 +212,11 @@ function SensorCornerWidgets({ haSensors, sensorValues }) {
         {sensors.map(sensor => {
           const live = sensorValues[sensor.entityId]
           const label = sensor.label || sensor.entityId.split('.').pop().replace(/_/g, ' ')
-          const value = live ? live.state : '—'
-          const unit = sensor.unit || live?.unit || ''
           return (
             <div key={sensor.entityId} className="ha-corner-item">
               <span className="ha-corner-label">{label}</span>
               <span className="ha-corner-value">
-                {value}<span className="ha-corner-unit">{unit}</span>
+                {renderEntityValue(live, sensor, 'ha-corner-unit')}
               </span>
             </div>
           )
@@ -202,13 +238,11 @@ function SensorTickerCard({ haSensors, sensorValues }) {
           {sensors.map(sensor => {
             const live = sensorValues[sensor.entityId]
             const label = sensor.label || sensor.entityId.split('.').pop().replace(/_/g, ' ')
-            const value = live ? live.state : '—'
-            const unit = sensor.unit || live?.unit || ''
             return (
               <div key={sensor.entityId} className="ha-ticker-row">
                 <span className="ha-ticker-label">{label}</span>
                 <span className="ha-ticker-val">
-                  {value}<span className="ha-ticker-unit">{unit}</span>
+                  {renderEntityValue(live, sensor, 'ha-ticker-unit')}
                 </span>
               </div>
             )

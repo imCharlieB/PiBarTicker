@@ -108,7 +108,7 @@ class SportsBoardConfig(AppBaseModel):
     leagues: list[LeagueConfig] = Field(default_factory=list)
 
 
-class HASensorConfig(AppBaseModel):
+class HAEntityConfig(AppBaseModel):
     entityId: str
     label: str = ""
     unit: str = ""
@@ -120,7 +120,7 @@ class HomeAssistantBoardConfig(AppBaseModel):
     type: Literal["home-assistant"] = "home-assistant"
     name: str = "Home Assistant"
     enabled: bool = True
-    haSensors: list[HASensorConfig] = Field(default_factory=list)
+    haSensors: list[HAEntityConfig] = Field(default_factory=list)
 
 
 BoardConfig = Annotated[

@@ -32,18 +32,37 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         message = call.data.get("message", "")
         level = call.data.get("level", "info")
         ttl = int(call.data.get("ttl", 30))
+        key = str(call.data.get("key", "")).strip()
         url = entry.data[CONF_URL].rstrip("/")
         session = async_get_clientsession(hass)
+        payload = {"message": message, "level": level, "ttl": ttl}
+        if key:
+            payload["key"] = key
         try:
             await session.post(
                 f"{url}/api/v1/alerts",
-                json={"message": message, "level": level, "ttl": ttl},
+                json=payload,
                 timeout=aiohttp.ClientTimeout(total=5),
             )
         except Exception as exc:  # noqa: BLE001
             _LOGGER.warning("PiBarTicker notify failed: %s", exc)
 
+    async def handle_clear_alert(call):
+        key = str(call.data.get("key", "")).strip()
+        if not key:
+            return
+        url = entry.data[CONF_URL].rstrip("/")
+        session = async_get_clientsession(hass)
+        try:
+            await session.delete(
+                f"{url}/api/v1/alerts/{key}",
+                timeout=aiohttp.ClientTimeout(total=5),
+            )
+        except Exception as exc:  # noqa: BLE001
+            _LOGGER.warning("PiBarTicker clear_alert failed: %s", exc)
+
     hass.services.async_register(DOMAIN, "notify", handle_notify)
+    hass.services.async_register(DOMAIN, "clear_alert", handle_clear_alert)
 
     # Watch configured sensor entities and push their state to the display
     sensors: list[str] = entry.options.get(CONF_SENSORS, [])
@@ -136,6 +155,7 @@ async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> Non
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.services.async_remove(DOMAIN, "notify")
+    hass.services.async_remove(DOMAIN, "clear_alert")
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
         hass.data[DOMAIN].pop(entry.entry_id)

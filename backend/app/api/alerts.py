@@ -21,6 +21,7 @@ class AlertRequest(BaseModel):
     message: str
     level: Literal["info", "warning", "critical"] = "info"
     ttl: int = 30  # seconds; 0 = never expires
+    key: str = ""  # named key; if set, replaces any existing alert with the same key
 
 
 @router.get("")
@@ -32,7 +33,7 @@ def get_alerts() -> list[dict]:
 @router.post("", status_code=201)
 def create_alert(body: AlertRequest) -> dict:
     _prune()
-    alert_id = str(uuid.uuid4())
+    alert_id = body.key.strip() or str(uuid.uuid4())
     alert = {
         "id": alert_id,
         "message": body.message,
@@ -46,6 +47,4 @@ def create_alert(body: AlertRequest) -> dict:
 
 @router.delete("/{alert_id}", status_code=204)
 def delete_alert(alert_id: str) -> None:
-    if alert_id not in _alerts:
-        raise HTTPException(status_code=404, detail="Alert not found")
-    del _alerts[alert_id]
+    _alerts.pop(alert_id, None)

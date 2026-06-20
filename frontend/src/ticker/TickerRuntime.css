@@ -36,6 +36,18 @@
   z-index: 0;
 }
 
+/* Left + right edge fade — cards scroll under this overlay */
+.ticker-runtime-board::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, var(--ticker-bg, #0c0e12) 0%, transparent 48px),
+    linear-gradient(270deg, var(--ticker-bg, #0c0e12) 0%, transparent 48px);
+  pointer-events: none;
+  z-index: 6;
+}
+
 .ticker-runtime-marquee-window {
   width: 100%;
   height: 100%;
@@ -122,8 +134,7 @@
    all sizing, padding, background, border-radius come from the inner .card div.
    Two-class selectors (specificity 020) to beat the sport-specific gradient rules below. */
 .ticker-runtime-card.ticker-runtime-card-style-slab,
-.ticker-runtime-card.ticker-runtime-card-style-spine,
-.ticker-runtime-card.ticker-runtime-card-style-marquee {
+.ticker-runtime-card.ticker-runtime-card-style-spine {
   padding: 0;
   width: max-content;
   min-width: 0;
@@ -134,7 +145,9 @@
   box-shadow: none;
 }
 
-.ticker-runtime-card.ticker-runtime-card-style-digits {
+/* digits and marquee fill the full band height — max-height: none overrides the solo cap */
+.ticker-runtime-card.ticker-runtime-card-style-digits,
+.ticker-runtime-card.ticker-runtime-card-style-marquee {
   padding: 0;
   width: max-content;
   min-width: 0;
@@ -773,7 +786,7 @@
 
 .ticker-runtime-meta {
   margin: auto 0 0;
-  font-size: clamp(0.72rem, 1.1vw, 0.88rem);
+  font-size: clamp(1.0rem, 1.8vw, 1.6rem);
   color: color-mix(in srgb, var(--ticker-text) 84%, #9ce8ff);
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -782,7 +795,7 @@
 
 .ticker-runtime-game-date {
   margin: 0.32rem 0 0;
-  font-size: clamp(0.98rem, 1.7vw, 1.3rem);
+  font-size: clamp(1.2rem, 2.2vw, 1.8rem);
   font-weight: 800;
   letter-spacing: 0.04em;
   color: color-mix(in srgb, #f3fbff 84%, var(--card-accent));
@@ -801,7 +814,7 @@
   grid-template-columns: auto 1fr;
   gap: 0.38rem;
   align-items: baseline;
-  font-size: clamp(0.72rem, 1.1vw, 0.88rem);
+  font-size: clamp(1.0rem, 1.7vw, 1.5rem);
   letter-spacing: 0.01em;
 }
 
@@ -1372,19 +1385,14 @@
 
 .ticker-runtime-card-solo:not(.ticker-runtime-card-racing) .ticker-runtime-game-date {
   margin-top: 0.08rem;
-  font-size: clamp(0.66rem, 1vw, 0.8rem);
 }
 
 .ticker-runtime-card-solo:not(.ticker-runtime-card-racing) .ticker-runtime-stats {
   gap: 0.04rem;
 }
 
-.ticker-runtime-card-solo:not(.ticker-runtime-card-racing) .ticker-runtime-stat-item {
-  font-size: clamp(0.58rem, 0.86vw, 0.72rem);
-}
 
 .ticker-runtime-card-solo:not(.ticker-runtime-card-racing) .ticker-runtime-meta {
-  font-size: clamp(0.56rem, 0.84vw, 0.68rem);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1400,7 +1408,6 @@
 }
 
 .ticker-runtime-card-solo:not(.ticker-runtime-card-racing) .ticker-runtime-baseball-live-text p {
-  font-size: 0.62rem;
   white-space: nowrap;
 }
 
@@ -1438,9 +1445,6 @@
   text-transform: uppercase;
 }
 
-.ticker-runtime-card-solo:not(.ticker-runtime-card-racing) .ticker-runtime-team-record {
-  font-size: 0.56rem;
-}
 
 .ticker-runtime-card-live-football {
   border-color: color-mix(in srgb, #66f1ff 55%, var(--panel-border));
@@ -1461,9 +1465,9 @@
 .ticker-runtime-live-flag {
   margin: 0 0 0.18rem;
   display: inline-block;
-  padding: 0.08rem 0.38rem;
+  padding: 0.12rem 0.55rem;
   border-radius: 999px;
-  font-size: 0.7rem;
+  font-size: 1.05rem;
   letter-spacing: 0.14em;
   font-weight: 800;
   color: #02120a;

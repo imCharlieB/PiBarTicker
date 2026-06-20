@@ -8,6 +8,66 @@ import {
   formatRuntimeDate,
 } from './cardHelpers.js'
 
+// ── TV network logo map — files live in logos/networks/ (served at /logos/) ─
+// Populated by running:  python scripts/download_tv_logos.py
+// Keys match broadcast names ESPN returns (case-insensitive lookup below).
+// Falls back to text when a name isn't mapped or the image fails to load.
+const NETWORK_LOGOS = {
+  'ESPN':                '/logos/networks/espn.png',
+  'ESPN2':               '/logos/networks/espn2.png',
+  'ESPNU':               '/logos/networks/espnu.png',
+  'ESPN+':               '/logos/networks/espnplus.png',
+  'ABC':                 '/logos/networks/abc.png',
+  'FOX':                 '/logos/networks/fox.png',
+  'FS1':                 '/logos/networks/fs1.png',
+  'FOX SPORTS 1':        '/logos/networks/fs1.png',
+  'FS2':                 '/logos/networks/fs2.png',
+  'FOX SPORTS 2':        '/logos/networks/fs2.png',
+  'NBC':                 '/logos/networks/nbc.png',
+  'NBC SPORTS':          '/logos/networks/nbcsports.png',
+  'PEACOCK':             '/logos/networks/peacock.png',
+  'NFL NETWORK':         '/logos/networks/nflnetwork.png',
+  'MLB NETWORK':         '/logos/networks/mlbnetwork.png',
+  'NBA TV':              '/logos/networks/nbatv.png',
+  'NHL NETWORK':         '/logos/networks/nhlnetwork.png',
+  'TNT':                 '/logos/networks/tnt.png',
+  'TBS':                 '/logos/networks/tbs.png',
+  'CBS':                 '/logos/networks/cbs.png',
+  'CBS SPORTS NETWORK':  '/logos/networks/cbssn.png',
+  'CBSSN':               '/logos/networks/cbssn.png',
+  'SEC NETWORK':         '/logos/networks/secn.png',
+  'SECN':                '/logos/networks/secn.png',
+  'ACC NETWORK':         '/logos/networks/accn.png',
+  'ACCN':                '/logos/networks/accn.png',
+  'BIG TEN NETWORK':     '/logos/networks/btn.png',
+  'BTN':                 '/logos/networks/btn.png',
+  'USA NETWORK':         '/logos/networks/usa.png',
+  'USA':                 '/logos/networks/usa.png',
+  'ALTITUDE':            '/logos/networks/altitude.png',
+  'ALTITUDE SPORTS':     '/logos/networks/altitude.png',
+  'BALLY SPORTS':        '/logos/networks/ballysports.png',
+  'LONGHORN NETWORK':    '/logos/networks/longhorn.png',
+  'LHN':                 '/logos/networks/longhorn.png',
+  'PAC-12 NETWORK':      '/logos/networks/pac12.png',
+  'PAC-12':              '/logos/networks/pac12.png',
+  'P12':                 '/logos/networks/pac12.png',
+  'DAZN':                '/logos/networks/dazn.png',
+  'PARAMOUNT+':          '/logos/networks/paramount.png',
+  'PARAMOUNT PLUS':      '/logos/networks/paramount.png',
+  'TENNIS CHANNEL':      '/logos/networks/tennis.png',
+  'OLYMPIC CHANNEL':     '/logos/networks/olympic.png',
+  'NETFLIX':             '/logos/networks/netflix.svg',
+  'PRIME VIDEO':         '/logos/networks/primevideo.svg',
+  'AMAZON PRIME VIDEO':  '/logos/networks/primevideo.svg',
+  'APPLE TV':            '/logos/networks/appletv.svg',
+  'APPLE TV+':           '/logos/networks/appletv.svg',
+  'APPLE TV PLUS':       '/logos/networks/appletv.svg',
+  'SPORTSNET':           '/logos/networks/sportsnet.png',
+  'SN':                  '/logos/networks/sportsnet.png',
+  'MLB.TV':              '/logos/networks/mlbnetwork.png',
+  'MLBTV':               '/logos/networks/mlbnetwork.png',
+}
+
 // ── Shared helpers ─────────────────────────────────────────────────────────
 
 function teamAbbr(team) {
@@ -34,6 +94,13 @@ function statusText(game) {
   if (state === 'pre') return game?.runtimeDateText || 'TBD'
   if (state === 'in') return formatRuntimeStatus(game) || 'LIVE'
   return '' // post — chip reads FINAL; score carries the result
+}
+
+// Split "Sun, Sep 13, 1:00 PM" → { date: "Sun, Sep 13", time: "1:00 PM" }
+function splitDateTime(text) {
+  if (!text) return { date: '', time: '' }
+  const m = text.match(/^(.+),\s*(\d+:\d+\s*(?:AM|PM)?)$/i)
+  return m ? { date: m[1].trim(), time: m[2].trim() } : { date: text, time: '' }
 }
 
 // ── Shared atoms ───────────────────────────────────────────────────────────
@@ -116,23 +183,58 @@ function LiveFeature({ game, compact }) {
   return null
 }
 
-// ── Meta row (TV / venue / odds) ───────────────────────────────────────────
+// ── TV network logo with text fallback ────────────────────────────────────
+
+function NetworkLogo({ name }) {
+  const [err, setErr] = useState(false)
+  const url = NETWORK_LOGOS[name.trim().toUpperCase()] ?? null
+  if (url && !err) {
+    return <img className="meta-tv-logo" src={url} alt={name} onError={() => setErr(true)} />
+  }
+  return <span className="meta-tv-name">{name}</span>
+}
+
+// ── Meta row (TV / venue — odds handled separately in team panels) ─────────
 
 function MetaRow({ game, flags, mono }) {
   const items = []
   if (flags.tv && game?.broadcastText) items.push(['TV', game.broadcastText])
   if (flags.venue && game?.venueText) items.push(['AT', game.venueText])
-  if (flags.odds && game?.oddsText) items.push(['ODDS', game.oddsText])
   if (!items.length) return null
   return (
     <div className={`meta ${mono ? 'meta-mono' : ''}`}>
-      {items.map(([k, v], i) => (
-        <span key={i} className="meta-i">
-          {k ? <em>{k}</em> : null}{v}
-        </span>
-      ))}
+      {items.map(([k, v], i) => {
+        if (k === 'TV') {
+          const nets = v.split(/\s*\/\s*/).map(s => s.trim()).filter(Boolean)
+          return (
+            <span key={i} className="meta-i meta-tv">
+              {nets.map((n, j) => <NetworkLogo key={j} name={n} />)}
+            </span>
+          )
+        }
+        return (
+          <span key={i} className="meta-i">
+            {k ? <em>{k}</em> : null}{v}
+          </span>
+        )
+      })}
     </div>
   )
+}
+
+// ── Per-team odds spread ───────────────────────────────────────────────────
+// oddsText like "CIN-3.5" or "NYY+7". Returns spread string for the given
+// team abbreviation, flipping the sign for the non-favored side.
+function teamSpread(oddsText, abbr) {
+  if (!oddsText || !abbr) return ''
+  if (/^pk$/i.test(oddsText.trim())) return 'PK'
+  const m = oddsText.trim().match(/^([A-Z]+)\s*([+\-][\d.]+)$/i)
+  if (!m) return ''
+  const num = parseFloat(m[2])
+  if (isNaN(num)) return ''
+  const isFavored = m[1].toUpperCase() === abbr.toUpperCase()
+  if (isFavored) return m[2]                                   // e.g. "-3.5"
+  return num < 0 ? `+${Math.abs(num)}` : `-${Math.abs(num)}` // flip sign
 }
 
 // ── Score or pre-game dash ─────────────────────────────────────────────────
@@ -149,31 +251,37 @@ function ScoreOrDash({ team, game }) {
 function SlabCard({ game, flags }) {
   const a = game?.teams?.away
   const h = game?.teams?.home
+  const isPre = String(game?.state || '').toLowerCase() === 'pre'
   const showFeat = flags.situation && hasLiveFeature(game)
+  const aSpread = teamSpread(game?.oddsText, teamAbbr(a))
+  const hSpread = teamSpread(game?.oddsText, teamAbbr(h))
 
-  const Half = ({ team, side }) => (
-    <div className={`slab-half slab-${side}`}>
-      <i className="slab-bar" style={{ background: `var(--bar-${side})` }} />
-      <LogoBox team={team} side={side} size="lg" />
-      <div className="slab-id">
-        {team?.logo
-          ? <span className="slab-abbr" style={{ color: `var(--txt-${side})` }}>{teamAbbr(team)}</span>
-          : null}
-        {flags.records && String(team?.record || '').trim()
-          ? <span className="slab-rec">{team.record}</span>
-          : null}
+  const Half = ({ team, side }) => {
+    const spread = side === 'a' ? aSpread : hSpread
+    return (
+      <div className={`slab-half slab-${side}`}>
+        <i className="slab-bar" style={{ background: `var(--bar-${side})` }} />
+        <div className="slab-logo-group">
+          <LogoBox team={team} side={side} size="lg" />
+          {flags.records && String(team?.record || '').trim()
+            ? <span className="slab-rec">{team.record}</span>
+            : null}
+          {spread ? <span className="slab-spread">{spread}</span> : null}
+        </div>
+        {!isPre ? <ScoreOrDash team={team} game={game} /> : null}
       </div>
-      <ScoreOrDash team={team} game={game} />
-    </div>
-  )
+    )
+  }
 
   const st = statusText(game)
+  const { date, time } = isPre ? splitDateTime(st) : { date: st, time: '' }
   return (
-    <div className={`card d-slab ${showFeat ? 'has-feat' : ''}`}>
+    <div className={`card d-slab ${showFeat ? 'has-feat' : ''} ${isPre ? 'is-pre' : ''}`}>
       <Half team={a} side="a" />
       <div className="slab-seam">
         <StateChip game={game} />
-        {st ? <span className="slab-status">{st}</span> : null}
+        {date ? <span className="slab-status">{date}</span> : null}
+        {time ? <span className="slab-time">{time}</span> : null}
         {showFeat ? <LiveFeature game={game} compact /> : null}
         <MetaRow game={game} flags={flags} mono />
       </div>
@@ -188,19 +296,28 @@ function SpineCard({ game, flags }) {
   const a = game?.teams?.away
   const h = game?.teams?.home
   const isPre = String(game?.state || '').toLowerCase() === 'pre'
+  const aSpread = teamSpread(game?.oddsText, teamAbbr(a))
+  const hSpread = teamSpread(game?.oddsText, teamAbbr(h))
 
-  const Flank = ({ team, side }) => (
-    <div className={`spine-flank spine-${side}`}>
-      <LogoBox team={team} side={side} size="xl" />
-      {team?.logo ? <span className="spine-abbr">{teamAbbr(team)}</span> : null}
-      {flags.records && String(team?.record || '').trim()
-        ? <span className="spine-rec">{team.record}</span>
-        : null}
-    </div>
-  )
+  const Flank = ({ team, side }) => {
+    const spread = side === 'a' ? aSpread : hSpread
+    return (
+      <div className={`spine-flank spine-${side}`}>
+        <div className="spine-logo-group">
+          <LogoBox team={team} side={side} size="xl" />
+          {flags.records && String(team?.record || '').trim()
+            ? <span className="spine-rec">{team.record}</span>
+            : null}
+          {spread ? <span className="spine-spread">{spread}</span> : null}
+        </div>
+      </div>
+    )
+  }
 
+  const st = statusText(game)
+  const { date, time } = isPre ? splitDateTime(st) : { date: st, time: '' }
   return (
-    <div className="card d-spine">
+    <div className={`card d-spine ${isPre ? 'is-pre' : ''}`}>
       <Flank team={a} side="a" />
       <div className="spine-mid">
         <StateChip game={game} />
@@ -209,7 +326,8 @@ function SpineCard({ game, flags }) {
             ? <span className="spine-vs">VS</span>
             : (<><b>{a?.score}</b><s>–</s><b>{h?.score}</b></>)}
         </div>
-        <span className="spine-status">{statusText(game)}</span>
+        {date ? <span className="spine-status">{date}</span> : null}
+        {time ? <span className="spine-time">{time}</span> : null}
         {flags.situation && hasLiveFeature(game) ? <LiveFeature game={game} /> : null}
         <MetaRow game={game} flags={flags} />
       </div>
@@ -263,13 +381,19 @@ function MarqueeCard({ game, flags }) {
   const isPre = String(game?.state || '').toLowerCase() === 'pre'
   const showFeat = flags.situation && hasLiveFeature(game)
   const sport = String(game?.sport || '').toLowerCase()
+  const aSpread = teamSpread(game?.oddsText, teamAbbr(a))
+  const hSpread = teamSpread(game?.oddsText, teamAbbr(h))
 
   return (
     <div className={`card d-marq ${showFeat ? 'has-feat' : ''}`}>
       <div className="marq-half marq-a">
-        {a?.logo
-          ? <LogoBox team={a} side="a" size="lg" />
-          : <span className="marq-abbr">{teamAbbr(a)}</span>}
+        <div className="marq-logo-group">
+          <LogoBox team={a} side="a" size="lg" />
+          {flags.records && String(a?.record || '').trim()
+            ? <span className="marq-rec">{a.record}</span>
+            : null}
+          {aSpread ? <span className="marq-spread">{aSpread}</span> : null}
+        </div>
         <span className="marq-score">{isPre ? '' : (a?.score ?? '')}</span>
       </div>
       <div className={`marq-seam ${showFeat ? `marq-seam-${sport}` : ''}`}>
@@ -280,9 +404,13 @@ function MarqueeCard({ game, flags }) {
       </div>
       <div className="marq-half marq-h">
         <span className="marq-score">{isPre ? '' : (h?.score ?? '')}</span>
-        {h?.logo
-          ? <LogoBox team={h} side="h" size="lg" />
-          : <span className="marq-abbr">{teamAbbr(h)}</span>}
+        <div className="marq-logo-group">
+          <LogoBox team={h} side="h" size="lg" />
+          {flags.records && String(h?.record || '').trim()
+            ? <span className="marq-rec">{h.record}</span>
+            : null}
+          {hSpread ? <span className="marq-spread">{hSpread}</span> : null}
+        </div>
       </div>
     </div>
   )

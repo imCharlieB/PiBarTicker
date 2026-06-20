@@ -33,12 +33,12 @@
 .ticker-runtime-shell .chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   font-weight: 800;
-  font-size: 12px;
+  font-size: 17px;
   letter-spacing: .12em;
-  padding: 4px 9px;
-  border-radius: 5px;
+  padding: 5px 12px;
+  border-radius: 6px;
   text-transform: uppercase;
   flex: 0 0 auto;
 }
@@ -49,7 +49,7 @@
 .ticker-runtime-shell .chip-flag-yellow { color: #0c120e; background: #F2C94C; }
 .ticker-runtime-shell .chip-flag-red    { color: #ffffff; background: #e03131; }
 .ticker-runtime-shell .chip-dot {
-  width: 7px; height: 7px; border-radius: 50%;
+  width: 8px; height: 8px; border-radius: 50%;
   background: #0c120e;
   animation: chip-pulse 1.1s infinite;
 }
@@ -105,13 +105,18 @@
 .ticker-runtime-shell .score-dim { color: #586273; }
 .ticker-runtime-shell .rec-big   { font-weight: 900; font-size: 26px; color: #fff; }
 
-.ticker-runtime-shell .meta   { display: flex; flex-wrap: wrap; gap: 6px 11px; margin-top: 4px; }
-.ticker-runtime-shell .meta-i { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 700; color: #aeb6c2; }
+.ticker-runtime-shell .meta   { display: flex; flex-wrap: wrap; gap: 7px 13px; margin-top: 4px; }
+.ticker-runtime-shell .meta-i { display: inline-flex; align-items: center; gap: 6px; font-size: 20px; font-weight: 700; color: #aeb6c2; }
 .ticker-runtime-shell .meta-i em {
-  font-style: normal; font-weight: 900; font-size: 9px; letter-spacing: .1em;
-  color: #7b8492; background: #1b212b; padding: 2px 5px; border-radius: 3px;
+  font-style: normal; font-weight: 900; font-size: 13px; letter-spacing: .1em;
+  color: #7b8492; background: #1b212b; padding: 3px 6px; border-radius: 3px;
 }
 .ticker-runtime-shell .meta-mono { font-family: 'Spline Sans Mono', monospace; }
+.ticker-runtime-shell .meta-tv-logo {
+  height: 30px; width: auto; max-width: 80px; object-fit: contain;
+  display: block;
+}
+.ticker-runtime-shell .meta-tv-name { font-size: 20px; font-weight: 700; color: #aeb6c2; }
 
 /* ── 1 · SLAB ───────────────────────────────────────────────────────────── */
 .ticker-runtime-shell .d-slab { width: 640px; }
@@ -128,7 +133,7 @@
 .ticker-runtime-shell .slab-id { display: flex; flex-direction: row; align-items: baseline; gap: 12px; line-height: 1; }
 .ticker-runtime-shell .slab-h .slab-id { flex-direction: row-reverse; }
 .ticker-runtime-shell .slab-abbr { font-weight: 900; font-size: 38px; }
-.ticker-runtime-shell .slab-rec  { font-size: 17px; color: #b8bfca; font-weight: 700; }
+.ticker-runtime-shell .slab-rec  { font-size: 20px; color: #b8bfca; font-weight: 700; }
 .ticker-runtime-shell .d-slab .score    { font-size: 96px; line-height: .78; }
 .ticker-runtime-shell .d-slab .score-3d { font-size: 70px; line-height: .82; }
 .ticker-runtime-shell .d-slab .rec-big  { font-size: 46px; }
@@ -138,13 +143,21 @@
   background: #0b0d11;
   border-left: 1px solid #20252f; border-right: 1px solid #20252f;
 }
-.ticker-runtime-shell .d-slab.has-feat .slab-seam { flex-basis: 224px; }
-.ticker-runtime-shell .slab-seam:has(.meta)        { flex-basis: 224px; }
+.ticker-runtime-shell .d-slab.has-feat .slab-seam             { flex-basis: 260px; gap: 9px; }
+.ticker-runtime-shell .slab-seam:has(.meta)                    { flex-basis: 260px; }
+.ticker-runtime-shell .d-slab.has-feat .slab-seam:has(.meta)   { flex-basis: 310px; }
+.ticker-runtime-shell .d-slab.is-pre .slab-seam                { flex-basis: 340px; }
 .ticker-runtime-shell .slab-seam .meta             { justify-content: center; margin-top: 2px; }
-.ticker-runtime-shell .slab-seam .meta-i           { font-size: 12.5px; }
+.ticker-runtime-shell .slab-seam .meta-i           { font-size: 18px; }
 .ticker-runtime-shell .slab-seam .sit-txt          { justify-content: center; text-align: center; }
 .ticker-runtime-shell .slab-seam .sit-txt b        { white-space: normal; }
-.ticker-runtime-shell .slab-status { font-weight: 800; font-size: 23px; color: #e9eef6; white-space: nowrap; }
+.ticker-runtime-shell .slab-status { font-weight: 800; font-size: 28px; color: #e9eef6; white-space: nowrap; }
+.ticker-runtime-shell .slab-time   { font-weight: 700; font-size: 22px; color: #9aa3b1; }
+/* slab: logo + record + spread stacked vertically in team panels */
+.ticker-runtime-shell .slab-logo-group { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.ticker-runtime-shell .slab-spread { font-size: 24px; font-weight: 900; color: #F2C94C; letter-spacing: .04em; }
+/* extra breathing room in live-feature mode */
+.ticker-runtime-shell .d-slab.has-feat .slab-half { padding-top: 28px; }
 
 /* ── 2 · SPINE ──────────────────────────────────────────────────────────── */
 .ticker-runtime-shell .d-spine { width: 760px; align-items: stretch; }
@@ -161,17 +174,22 @@
 .ticker-runtime-shell .spine-a::before { background: var(--bar-a); }
 .ticker-runtime-shell .spine-h::before { background: var(--bar-h); }
 .ticker-runtime-shell .spine-abbr { font-weight: 900; font-size: 36px; }
-.ticker-runtime-shell .spine-rec  { font-size: 17px; color: #bcc3cf; font-weight: 700; }
+.ticker-runtime-shell .spine-rec  { font-size: 20px; color: #bcc3cf; font-weight: 700; }
 .ticker-runtime-shell .spine-mid {
   flex: 1; display: flex; flex-direction: column; align-items: center;
-  justify-content: center; gap: 13px; padding: 16px 18px;
+  justify-content: center; gap: 10px; padding: 16px 18px;
   background: #0d0f14; min-width: 0;
 }
+.ticker-runtime-shell .d-spine.is-pre .spine-mid { gap: 8px; }
 .ticker-runtime-shell .spine-score   { display: flex; align-items: baseline; gap: 16px; font-variant-numeric: tabular-nums; }
 .ticker-runtime-shell .spine-score b { font-size: 84px; line-height: .82; color: #fff; font-weight: 900; }
 .ticker-runtime-shell .spine-score s { font-size: 40px; color: #586273; text-decoration: none; }
 .ticker-runtime-shell .spine-vs      { font-size: 50px; font-weight: 900; color: #6d7686; letter-spacing: .08em; }
-.ticker-runtime-shell .spine-status  { font-weight: 800; font-size: 20px; color: #cfd6e2; }
+.ticker-runtime-shell .spine-status  { font-weight: 800; font-size: 28px; color: #cfd6e2; }
+.ticker-runtime-shell .spine-time    { font-weight: 700; font-size: 22px; color: #9aa3b1; }
+/* spine: logo + record + spread stacked vertically in flanks */
+.ticker-runtime-shell .spine-logo-group { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.ticker-runtime-shell .spine-spread { font-size: 24px; font-weight: 900; color: #F2C94C; letter-spacing: .04em; }
 
 /* ── 3 · DIGITS ─────────────────────────────────────────────────────────── */
 .ticker-runtime-shell .d-digits {
@@ -241,6 +259,10 @@
   font-weight: 800; font-style: italic; font-size: 17px;
   color: #e7edf6; transform: skewX(-7deg);
 }
+/* marquee: logo + record + spread stacked vertically in team panels */
+.ticker-runtime-shell .marq-logo-group { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.ticker-runtime-shell .marq-rec    { font-size: 20px; color: #b8bfca; font-weight: 700; font-style: normal; }
+.ticker-runtime-shell .marq-spread { font-size: 24px; font-weight: 900; color: #F2C94C; letter-spacing: .04em; font-style: normal; }
 /* Marquee live: seam auto-widens to hold field/diamond */
 .ticker-runtime-shell .d-marq.has-feat .marq-seam    { width: auto; min-width: 200px; gap: 12px; padding: 18px 24px; }
 .ticker-runtime-shell .d-marq .marq-seam .live       { gap: 16px; }
@@ -414,9 +436,9 @@
 .ticker-runtime-shell .live-compact .bb-read { align-items: center; }
 .ticker-runtime-shell .bb-count  { font-size: 38px; font-weight: 900; color: #fff; line-height: 1; font-variant-numeric: tabular-nums; }
 .ticker-runtime-shell .bb-outs   { display: flex; align-items: center; gap: 6px; }
-.ticker-runtime-shell .bb-out    { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #F2C94C; box-sizing: border-box; }
+.ticker-runtime-shell .bb-out    { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid #F2C94C; box-sizing: border-box; }
 .ticker-runtime-shell .bb-out.on { background: #F2C94C; }
-.ticker-runtime-shell .bb-outs em { font-style: normal; font-size: 14px; color: #aab2bf; margin-left: 4px; font-weight: 800; letter-spacing: .04em; }
+.ticker-runtime-shell .bb-outs em { font-style: normal; font-size: 18px; color: #aab2bf; margin-left: 5px; font-weight: 800; letter-spacing: .04em; }
 
 /* ── Football live (field diagram + down & distance) ────────────────────── */
 .ticker-runtime-shell .ff     { display: flex; flex-direction: column; gap: 9px; width: 100%; min-width: 0; }

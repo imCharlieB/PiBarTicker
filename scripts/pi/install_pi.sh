@@ -224,6 +224,10 @@ echo "Installing frontend dependencies and building static assets..."
 sudo -u "${APP_USER}" npm --prefix "${APP_DIR}/frontend" ci
 sudo -u "${APP_USER}" npm --prefix "${APP_DIR}/frontend" run build
 
+echo "Downloading TV network logos..."
+sudo -u "${APP_USER}" python3 "${APP_DIR}/scripts/download_tv_logos.py" \
+  || echo "WARNING: TV logo download failed — network logos will fall back to text labels."
+
 echo "Installing backend service..."
 sed \
   -e "s/^User=.*/User=${APP_USER}/" \

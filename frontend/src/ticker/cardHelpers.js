@@ -400,6 +400,7 @@ export function runtimeLiveTheme(game, rawEvent) {
   if (token.includes('baseball')) return 'baseball'
   if (token.includes('basketball')) return 'basketball'
   if (token.includes('hockey')) return 'hockey'
+  if (token.includes('soccer')) return 'soccer'
   return 'generic'
 }
 
@@ -456,6 +457,9 @@ export function prepareDisplayGames(games, rawEventsById, displayLeague, leagueL
       ? extractBaseballLiveSituation(rawEvent, game)
       : null
     const baseballBattingSide = baseballLiveData ? resolveBaseballBattingSide(rawEvent, game) : null
+    const soccerLiveData = hasLiveMode && liveTheme === 'soccer' && game?.soccerLive
+      ? game.soccerLive
+      : null
     const runtimeDateText = formatRuntimeDate(game)
     const detailStats = buildRuntimeDetailStats({
       rawEvent,
@@ -508,6 +512,7 @@ export function prepareDisplayGames(games, rawEventsById, displayLeague, leagueL
       nextRace,
       baseballLiveData,
       baseballBattingSide,
+      soccerLiveData,
       runtimeDateText,
       detailStats,
       racingTopInfo: {

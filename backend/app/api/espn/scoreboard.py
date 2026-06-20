@@ -584,6 +584,51 @@ def get_scoreboard(
         except Exception:
             pass
 
+    # Soccer: fetch live summary (possession %, shots, corners) per live game.
+    # The scoreboard situation block is empty for soccer; this data lives in the
+    # per-game summary boxscore. Cache 30s — fast enough for live display.
+    if entry.sport == "soccer":
+        live_game_ids = [g["id"] for g in normalized_games if str(g.get("state") or "").lower() == "in"]
+        for event_id in live_game_ids:
+            try:
+                summary = _http_client.get_json(
+                    f"https://site.api.espn.com/apis/site/v2/sports/soccer/{entry.league}/summary?event={event_id}",
+                    use_cache=True,
+                    cache_ttl_seconds=30.0,
+                )
+                teams_data = (summary.get("boxscore") or {}).get("teams") or []
+                stat_map: dict[str, dict[str, str]] = {}
+                for team_block in teams_data:
+                    ha = str(team_block.get("homeAway") or "").lower()
+                    stat_map[ha] = {
+                        s["name"]: str(s.get("displayValue") or "")
+                        for s in (team_block.get("statistics") or [])
+                        if isinstance(s, dict) and s.get("name")
+                    }
+                a = stat_map.get("away", {})
+                h = stat_map.get("home", {})
+
+                def _int(val: str) -> int:
+                    try: return int(float(val))
+                    except Exception: return 0
+
+                def _float(val: str) -> float:
+                    try: return float(val)
+                    except Exception: return 50.0
+
+                soccer_live = {
+                    "possessionPct": {"a": _float(a.get("possessionPct", "50")), "h": _float(h.get("possessionPct", "50"))},
+                    "shots":         {"a": _int(a.get("totalShots", "0")),        "h": _int(h.get("totalShots", "0"))},
+                    "shotsOnTarget": {"a": _int(a.get("shotsOnTarget", "0")),     "h": _int(h.get("shotsOnTarget", "0"))},
+                    "corners":       {"a": _int(a.get("wonCorners", "0")),         "h": _int(h.get("wonCorners", "0"))},
+                }
+                for game in normalized_games:
+                    if game["id"] == event_id:
+                        game["soccerLive"] = soccer_live
+                        break
+            except Exception:
+                pass
+
     event_count = len(filtered_events)
     return {
         "sport": entry.sport,

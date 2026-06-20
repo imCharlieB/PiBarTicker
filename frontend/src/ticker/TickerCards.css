@@ -467,6 +467,35 @@
   background: #7b4a25; border: 1.5px solid #d9b48c; transform: translate(-50%, -50%);
 }
 
+/* ── Soccer live (mini pitch + possession & shots) ──────────────────────── */
+.ticker-runtime-shell .sc-dd {
+  display: flex; align-items: center; gap: 9px;
+  font-size: 26px; font-weight: 900; color: #fff; line-height: 1;
+}
+.ticker-runtime-shell .sc-arrow { color: #7CF29B; font-size: 22px; line-height: 1; }
+.ticker-runtime-shell .sc-poss  { color: #fff; }
+.ticker-runtime-shell .sc-field {
+  position: relative; height: 50px; border-radius: 6px; overflow: hidden;
+  border: 1px solid #1f3a28;
+  background: repeating-linear-gradient(90deg, #0f3a1e 0 16px, #0c3318 16px 32px);
+}
+.ticker-runtime-shell .sc-third      { position: absolute; top: 0; bottom: 0; width: 30%; opacity: .32; }
+.ticker-runtime-shell .sc-line       { position: absolute; top: 7%; bottom: 7%; left: 50%; width: 2px; background: rgba(255,255,255,.45); transform: translateX(-50%); }
+.ticker-runtime-shell .sc-circle     { position: absolute; top: 50%; left: 50%; width: 30px; height: 30px; border: 2px solid rgba(255,255,255,.45); border-radius: 50%; transform: translate(-50%,-50%); }
+.ticker-runtime-shell .sc-box        { position: absolute; top: 22%; bottom: 22%; width: 11%; border: 2px solid rgba(255,255,255,.4); }
+.ticker-runtime-shell .sc-box-l      { left: 0; border-left: none; }
+.ticker-runtime-shell .sc-box-r      { right: 0; border-right: none; }
+.ticker-runtime-shell .sc-goalpost   { position: absolute; top: 38%; bottom: 38%; width: 4px; }
+.ticker-runtime-shell .sc-goalpost-l { left: 0; }
+.ticker-runtime-shell .sc-goalpost-r { right: 0; }
+.ticker-runtime-shell .sc-sub {
+  font-size: 15px; font-weight: 800; color: #aeb6c2; letter-spacing: .03em;
+  display: flex; gap: 12px; flex-wrap: wrap;
+}
+/* marquee: widen the seam for the soccer pitch panel */
+.ticker-runtime-shell .d-marq .marq-seam-soccer .ff { width: 270px; }
+.ticker-runtime-shell .d-marq .marq-seam .sc-dd     { font-size: 22px; }
+
 /* ── Lower-third insert (broadcast bug, Phase 6) ────────────────────────── */
 .ticker-runtime-shell .l3-insert {
   display: flex; align-items: center; gap: 18px;

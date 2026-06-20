@@ -209,6 +209,14 @@ def _map_live_state(
             "powerPlayTeamId": str((power_play or {}).get("teamId") or "").strip() if isinstance(power_play, dict) else "",
         }
 
+    if sport == "soccer":
+        return {
+            "sport": "soccer",
+            "half": period,
+            "clock": display_clock,
+            "detail": detail or short_detail,
+        }
+
     return {
         "sport": sport,
         "period": period,

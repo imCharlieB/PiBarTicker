@@ -164,10 +164,44 @@ function BaseballLive({ game, compact }) {
   )
 }
 
+function SoccerLive({ game }) {
+  const sl = game?.soccerLiveData
+  if (!sl) return null
+  const aPct = sl.possessionPct?.a ?? 50
+  const hPct = sl.possessionPct?.h ?? 50
+  const possSide = aPct >= hPct ? 'a' : 'h'
+  const possTeam = possSide === 'a' ? game?.teams?.away : game?.teams?.home
+  const pct = Math.round(possSide === 'a' ? aPct : hPct)
+  const attackRight = possSide === 'a'
+  return (
+    <div className="ff sc">
+      <div className="sc-dd">
+        <span className="sc-arrow">{attackRight ? '▶' : '◀'}</span>
+        <span className="sc-poss">{teamAbbr(possTeam)}</span>
+        {' '}{pct}% POSS
+      </div>
+      <div className="sc-field" aria-label="Pitch possession">
+        <span className="sc-third" style={{ [attackRight ? 'right' : 'left']: 0, background: `var(--c${possSide})` }} />
+        <span className="sc-box sc-box-l" />
+        <span className="sc-box sc-box-r" />
+        <span className="sc-circle" />
+        <span className="sc-line" />
+        <span className="sc-goalpost sc-goalpost-l" style={{ background: 'var(--ca)' }} />
+        <span className="sc-goalpost sc-goalpost-r" style={{ background: 'var(--ch)' }} />
+      </div>
+      <div className="sc-sub">
+        <span>SHOTS {sl.shots?.a ?? 0}–{sl.shots?.h ?? 0}</span>
+        {(sl.corners?.a != null) ? <span>CORNERS {sl.corners.a}–{sl.corners.h}</span> : null}
+      </div>
+    </div>
+  )
+}
+
 function hasLiveFeature(game) {
   if (String(game?.state || '').toLowerCase() !== 'in') return false
   const sport = String(game?.sport || '').toLowerCase()
   if (sport === 'baseball' && game?.baseballLiveData && game?.isLiveFeatured) return true
+  if (sport === 'soccer' && game?.soccerLiveData && game?.isLiveFeatured) return true
   return Boolean(game?.situationText)
 }
 
@@ -176,6 +210,9 @@ function LiveFeature({ game, compact }) {
   const sport = String(game?.sport || '').toLowerCase()
   if (sport === 'baseball' && game?.baseballLiveData && game?.isLiveFeatured) {
     return <BaseballLive game={game} compact={compact} />
+  }
+  if (sport === 'soccer' && game?.soccerLiveData && game?.isLiveFeatured) {
+    return <SoccerLive game={game} />
   }
   if (game?.situationText) {
     return <span className="sit-txt"><b>{game.situationText}</b></span>

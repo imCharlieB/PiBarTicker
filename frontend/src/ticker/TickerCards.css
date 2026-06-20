@@ -184,9 +184,9 @@
   background: #0d0f14; min-width: 0;
 }
 .ticker-runtime-shell .d-spine.is-pre .spine-mid { gap: 8px; }
-.ticker-runtime-shell .spine-score   { display: flex; align-items: baseline; gap: 16px; font-variant-numeric: tabular-nums; }
+.ticker-runtime-shell .spine-score   { display: flex; align-items: center; gap: 16px; font-variant-numeric: tabular-nums; }
 .ticker-runtime-shell .spine-score b { font-size: 84px; line-height: .82; color: #fff; font-weight: 900; }
-.ticker-runtime-shell .spine-score s { font-size: 40px; color: #586273; text-decoration: none; }
+.ticker-runtime-shell .spine-score s { font-size: 72px; line-height: .82; color: #fff; font-weight: 900; text-decoration: none; }
 .ticker-runtime-shell .spine-vs      { font-size: 50px; font-weight: 900; color: #6d7686; letter-spacing: .08em; }
 .ticker-runtime-shell .spine-status  { font-weight: 800; font-size: 28px; color: #cfd6e2; }
 .ticker-runtime-shell .spine-time    { font-weight: 700; font-size: 22px; color: #9aa3b1; }

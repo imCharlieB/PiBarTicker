@@ -146,7 +146,8 @@
 .ticker-runtime-shell .d-slab.has-feat .slab-seam             { flex-basis: 260px; gap: 9px; }
 .ticker-runtime-shell .slab-seam:has(.meta)                    { flex-basis: 260px; }
 .ticker-runtime-shell .d-slab.has-feat .slab-seam:has(.meta)   { flex-basis: 310px; }
-.ticker-runtime-shell .d-slab.is-pre .slab-seam                { flex-basis: 340px; }
+/* Pre-game: seam was 340px which crushed halves to 150px — reduced so each half gets ~190px */
+.ticker-runtime-shell .d-slab.is-pre .slab-seam                { flex-basis: 260px; }
 .ticker-runtime-shell .slab-seam .meta             { justify-content: center; margin-top: 2px; }
 .ticker-runtime-shell .slab-seam .meta-i           { font-size: 18px; }
 .ticker-runtime-shell .slab-seam .sit-txt          { justify-content: center; text-align: center; }
@@ -156,6 +157,8 @@
 /* slab: logo + record + spread stacked vertically in team panels */
 .ticker-runtime-shell .slab-logo-group { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .ticker-runtime-shell .slab-spread { font-size: 24px; font-weight: 900; color: #F2C94C; letter-spacing: .04em; }
+/* Pre-game halves have no score — center the logo group vertically so it looks intentional */
+.ticker-runtime-shell .d-slab.is-pre .slab-half    { justify-content: center; }
 /* extra breathing room in live-feature mode */
 .ticker-runtime-shell .d-slab.has-feat .slab-half { padding-top: 28px; }
 

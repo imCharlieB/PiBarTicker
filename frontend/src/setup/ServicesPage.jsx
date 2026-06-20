@@ -169,6 +169,14 @@ export default function ServicesPage() {
                   <option value="weather">Weather</option>
                   <option value="printer">Printer</option>
                 </select>
+                <label className="toggle-switch" title={card.enabled !== false ? 'Card visible' : 'Card hidden'}>
+                  <input
+                    type="checkbox"
+                    checked={card.enabled !== false}
+                    onChange={(e) => updateCard(card.id, { enabled: e.target.checked })}
+                  />
+                  <span className="toggle-slider" />
+                </label>
                 <button className="ha-card-remove-btn" onClick={() => removeCard(card.id)}>×</button>
               </div>
             ))}

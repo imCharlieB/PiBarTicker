@@ -1526,7 +1526,7 @@
 
 .ha-card-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 130px 32px;
+  grid-template-columns: 1fr 1fr 130px 44px 32px;
   gap: 8px;
   align-items: center;
   margin-bottom: 6px;

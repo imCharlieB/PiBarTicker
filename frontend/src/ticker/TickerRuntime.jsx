@@ -476,7 +476,9 @@ function HATickerCards({ homeAssistantBoard, sensorValues }) {
   }
 
   return cards.map(card => {
+    if (card.enabled === false) return null
     const cardSensors = tickerSensors.filter(s => s.cardId === card.id)
+    if (cardSensors.length === 0) return null
     if (card.variant === 'weather') {
       return <HAWeatherCard key={card.id} card={card} sensors={cardSensors} sensorValues={sensorValues} />
     }

@@ -121,6 +121,7 @@ class HACardConfig(AppBaseModel):
     title: str
     sub: str = ""
     variant: Literal["home", "weather", "printer"] = "home"
+    enabled: bool = True
 
 
 class HomeAssistantBoardConfig(AppBaseModel):

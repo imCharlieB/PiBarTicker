@@ -195,6 +195,7 @@ function SoccerLive({ game }) {
         <span className="sc-line" />
         <span className="sc-goalpost sc-goalpost-l" style={{ background: 'var(--ca)' }} />
         <span className="sc-goalpost sc-goalpost-r" style={{ background: 'var(--ch)' }} />
+        <span className="sc-ball" style={{ left: `${Math.max(5, Math.min(95, sl.ballOn != null ? sl.ballOn : (attackRight ? 82 : 18)))}%` }} />
       </div>
       <div className="sc-sub">
         <span>SHOTS {sl.shots?.a ?? 0}–{sl.shots?.h ?? 0}</span>

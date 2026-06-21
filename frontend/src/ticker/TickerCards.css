@@ -495,6 +495,7 @@
 .ticker-runtime-shell .sc-goalpost   { position: absolute; top: 38%; bottom: 38%; width: 4px; }
 .ticker-runtime-shell .sc-goalpost-l { left: 0; }
 .ticker-runtime-shell .sc-goalpost-r { right: 0; }
+.ticker-runtime-shell .sc-ball       { position: absolute; top: 50%; width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 1.5px solid #0c120e; transform: translate(-50%,-50%); box-shadow: 0 0 8px rgba(255,255,255,.55); }
 .ticker-runtime-shell .sc-sub {
   font-size: 15px; font-weight: 800; color: #aeb6c2; letter-spacing: .03em;
   display: flex; gap: 12px; flex-wrap: wrap;

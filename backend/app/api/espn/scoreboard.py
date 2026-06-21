@@ -717,6 +717,21 @@ def get_scoreboard(
                     "shotsOnTarget": {"a": _int(a.get("shotsOnTarget", "0")),     "h": _int(h.get("shotsOnTarget", "0"))},
                     "corners":       {"a": _int(a.get("wonCorners", "0")),         "h": _int(h.get("wonCorners", "0"))},
                 }
+                try:
+                    plays_resp = _http_client.get_json(
+                        f"https://sports.core.api.espn.com/v2/sports/soccer/leagues/{entry.league}/events/{event_id}/competitions/{event_id}/plays?limit=300",
+                        use_cache=True,
+                        cache_ttl_seconds=20.0,
+                    )
+                    for play in reversed(plays_resp.get("items") or []):
+                        if not isinstance(play, dict):
+                            continue
+                        fx = play.get("fieldPositionX")
+                        if fx is not None and fx != 0.0:
+                            soccer_live["ballOn"] = max(0, min(100, round((float(fx) + 1.0) / 2.0 * 100)))
+                            break
+                except Exception:
+                    pass
                 for game in normalized_games:
                     if game["id"] == event_id:
                         game["soccerLive"] = soccer_live

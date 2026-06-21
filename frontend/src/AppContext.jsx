@@ -8,7 +8,7 @@ import {
 
 // Re-export pure helpers consumed by setup components
 export { parseLeagueApiParams, isIndividualSport } from './api/espnApi'
-export { harvestRacingEntities } from './api/espnApi'
+export { harvestRacingEntities, harvestPlayers } from './api/espnApi'
 
 // ── Internal config helpers ──────────────────────────────────────────────────
 
@@ -252,6 +252,16 @@ export function AppContextProvider({ children }) {
         const [item] = nextLeagues.splice(index, 1)
         nextLeagues.splice(target, 0, item)
         return { ...board, leagues: nextLeagues }
+      }),
+    }))
+  }
+
+  function removeLeague(leagueId) {
+    commitConfig((current) => ({
+      ...current,
+      boards: current.boards.map((board) => {
+        if (board.type !== 'sports') return board
+        return { ...board, leagues: board.leagues.filter((l) => l.id !== leagueId) }
       }),
     }))
   }
@@ -837,6 +847,18 @@ export function AppContextProvider({ children }) {
     }
   }, [isTickerRuntime, runtimeDisplayLeague?.id])
 
+  // Eagerly load cached logo meta for all leagues when in setup mode so the league
+  // list shows real synced-team counts without requiring the user to click each league.
+  useEffect(() => {
+    if (isTickerRuntime || !config) return
+    const leagues = sportsBoard?.leagues ?? []
+    leagues.forEach((league) => {
+      if (league.id && !leagueLogoMetaById[league.id]) {
+        loadLeagueLogoMeta(league.id)
+      }
+    })
+  }, [isTickerRuntime, config, sportsBoard?.leagues?.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     const token = String(config?.theme?.teamTheme?.league || '').trim().toLowerCase()
     if (!token) return
@@ -859,7 +881,7 @@ export function AppContextProvider({ children }) {
     isPending, startTransition, activePage, setActivePage,
     commitConfig, saveConfig, resetConfig,
     updateConfigSection, updateThemeTeam, applyThemeMode, setThemeOverride, clearThemeOverride,
-    updateBoard, updateLeague, moveLeague, toggleLeagueIncludedGroup, toggleLeagueIncludedTeam,
+    updateBoard, updateLeague, moveLeague, removeLeague, toggleLeagueIncludedGroup, toggleLeagueIncludedTeam,
     addLeagueFromCatalog,
     // Logo cache
     leagueLogoMetaById, setLeagueLogoMetaById, logoSyncingLeagues, setLogoSyncingLeagues,

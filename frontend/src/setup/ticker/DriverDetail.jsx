@@ -1,3 +1,5 @@
+import { parseLeagueApiParams, isIndividualSport } from '../../api/espnApi'
+
 function hexToRgba(hex, alpha) {
   if (!hex || hex.length < 6) return `rgba(100,100,100,${alpha})`
   const r = parseInt(hex.slice(0, 2), 16)
@@ -8,6 +10,12 @@ function hexToRgba(hex, alpha) {
 }
 
 export default function DriverDetail({ selectedTickerLeague, driver, onBack }) {
+  const leagueParams = parseLeagueApiParams(selectedTickerLeague?.url || '')
+  const isRacing = leagueParams.sport === 'racing'
+  // Any individual sport that isn't racing (golf, MMA, boxing, tennis, etc.) gets the athlete layout
+  const isIndividualAthlete = !isRacing && isIndividualSport(leagueParams.sport, leagueParams.league)
+
+  const displayName = driver.display_name || driver.name || ''
   const color = String(driver.color || '').replace(/^#/, '')
   const hexColor = color ? `#${color}` : '#888'
   const headshotPath = driver.logos?.headshot
@@ -30,13 +38,27 @@ export default function DriverDetail({ selectedTickerLeague, driver, onBack }) {
     <>
       <div className="section-heading">
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div className="driver-num-badge" style={badgeStyle}>
-            {carNum || driver.abbreviation || '?'}
-          </div>
+          {isIndividualAthlete ? (
+            headshotPath ? (
+              <img
+                src={`/logos/${headshotPath}`}
+                alt={displayName}
+                style={{ width: 52, height: 52, borderRadius: '50%', objectFit: 'cover', border: `2px solid ${hexColor}` }}
+              />
+            ) : (
+              <div className="ld-player-initials" style={{ flexShrink: 0 }}>
+                {displayName.split(' ').map((w) => w[0]).filter(Boolean).slice(0, 2).join('') || '?'}
+              </div>
+            )
+          ) : (
+            <div className="driver-num-badge" style={badgeStyle}>
+              {carNum || driver.abbreviation || '?'}
+            </div>
+          )}
           <div>
-            <p className="section-kicker">Driver</p>
-            <h2>{driver.display_name}</h2>
-            <p className="section-note">{selectedTickerLeague.name}{teamName ? ` · ${teamName}` : ''}</p>
+            <p className="section-kicker">{isIndividualAthlete ? 'Player' : 'Driver'}</p>
+            <h2>{displayName}</h2>
+            <p className="section-note">{selectedTickerLeague.name}{!isIndividualAthlete && teamName ? ` · ${teamName}` : ''}</p>
           </div>
         </div>
         <button type="button" className="button-secondary" onClick={onBack}>
@@ -46,14 +68,14 @@ export default function DriverDetail({ selectedTickerLeague, driver, onBack }) {
 
       <div className="team-details-grid">
         <div className="team-meta-card">
-          <h3>Driver info</h3>
+          <h3>{isIndividualAthlete ? 'Player info' : 'Driver info'}</h3>
           <div className="team-meta-grid">
-            <p><strong>Name</strong><span>{driver.display_name}</span></p>
-            {driver.abbreviation ? <p><strong>Code (TLA)</strong><span>{driver.abbreviation}</span></p> : null}
-            {carNum ? <p><strong>Car #</strong><span>{carNum}</span></p> : null}
-            <p><strong>Team</strong><span>{teamName || 'N/A'}</span></p>
-            {series ? <p><strong>Series</strong><span>{series}</span></p> : null}
-            {manufacturer ? <p><strong>Manufacturer</strong><span>{manufacturer}</span></p> : null}
+            <p><strong>Name</strong><span>{displayName}</span></p>
+            {driver.abbreviation ? <p><strong>{isIndividualAthlete ? 'ID' : 'Code (TLA)'}</strong><span>{driver.abbreviation}</span></p> : null}
+            {!isIndividualAthlete && carNum ? <p><strong>Car #</strong><span>{carNum}</span></p> : null}
+            {!isIndividualAthlete && <p><strong>Team</strong><span>{teamName || 'N/A'}</span></p>}
+            {!isIndividualAthlete && series ? <p><strong>Series</strong><span>{series}</span></p> : null}
+            {!isIndividualAthlete && manufacturer ? <p><strong>Manufacturer</strong><span>{manufacturer}</span></p> : null}
             {color ? (
               <p>
                 <strong>Colour</strong>
@@ -72,7 +94,7 @@ export default function DriverDetail({ selectedTickerLeague, driver, onBack }) {
             {headshotPath ? (
               <img
                 src={`/logos/${headshotPath}`}
-                alt={driver.display_name}
+                alt={displayName}
                 className="driver-headshot-img"
                 style={{ borderColor: hexColor }}
               />
@@ -81,35 +103,39 @@ export default function DriverDetail({ selectedTickerLeague, driver, onBack }) {
             )}
           </div>
 
-          <div className="team-card-panel">
-            <div className="team-card-panel-kicker">Car badge</div>
-            {badgePath ? (
-              <img
-                src={`/logos/${badgePath}`}
-                alt={`${driver.display_name} car badge`}
-                style={{ width: 120, height: 120, objectFit: 'contain', display: 'block', margin: '0 auto' }}
-              />
-            ) : (
-              <div className="driver-car-num-placeholder" style={{ color: hexColor }}>
-                {carNum || driver.abbreviation || '?'}
-              </div>
-            )}
-          </div>
+          {!isIndividualAthlete && (
+            <div className="team-card-panel">
+              <div className="team-card-panel-kicker">Car badge</div>
+              {badgePath ? (
+                <img
+                  src={`/logos/${badgePath}`}
+                  alt={`${displayName} car badge`}
+                  style={{ width: 120, height: 120, objectFit: 'contain', display: 'block', margin: '0 auto' }}
+                />
+              ) : (
+                <div className="driver-car-num-placeholder" style={{ color: hexColor }}>
+                  {carNum || driver.abbreviation || '?'}
+                </div>
+              )}
+            </div>
+          )}
 
-          <div className="team-card-panel driver-render-panel">
-            <div className="team-card-panel-kicker">Full render</div>
-            {renderPath ? (
-              <img
-                src={`/logos/${renderPath}`}
-                alt={`${driver.display_name} render`}
-                style={{ height: 200, width: 'auto', objectFit: 'contain', display: 'block', margin: '0 auto' }}
-              />
-            ) : (
-              <div className="driver-asset-placeholder" style={{ height: 180 }}>
-                car render — run sync from league page to download
-              </div>
-            )}
-          </div>
+          {!isIndividualAthlete && (
+            <div className="team-card-panel driver-render-panel">
+              <div className="team-card-panel-kicker">Full render</div>
+              {renderPath ? (
+                <img
+                  src={`/logos/${renderPath}`}
+                  alt={`${displayName} render`}
+                  style={{ height: 200, width: 'auto', objectFit: 'contain', display: 'block', margin: '0 auto' }}
+                />
+              ) : (
+                <div className="driver-asset-placeholder" style={{ height: 180 }}>
+                  car render — run sync from league page to download
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </>

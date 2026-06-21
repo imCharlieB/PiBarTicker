@@ -56,6 +56,9 @@ const NETWORK_LOGOS = {
   'PAC-12':              '/logos/networks/pac12.png',
   'P12':                 '/logos/networks/pac12.png',
   'DAZN':                '/logos/networks/dazn.png',
+  'HBO MAX':             '/logos/networks/hbomax.png',
+  'HBOMAX':              '/logos/networks/hbomax.png',
+  'MAX':                 '/logos/networks/max.png',
   'PARAMOUNT+':          '/logos/networks/paramount.png',
   'PARAMOUNT PLUS':      '/logos/networks/paramount.png',
   'TENNIS CHANNEL':      '/logos/networks/tennis.png',
@@ -293,36 +296,58 @@ function SlabCard({ game, flags }) {
   const a = game?.teams?.away
   const h = game?.teams?.home
   const isPre = String(game?.state || '').toLowerCase() === 'pre'
+  const isCombat = Boolean(game?.combat)
   const showFeat = flags.situation && hasLiveFeature(game)
   const aSpread = teamSpread(game?.oddsText, teamAbbr(a))
   const hSpread = teamSpread(game?.oddsText, teamAbbr(h))
 
   const Half = ({ team, side }) => {
     const spread = side === 'a' ? aSpread : hSpread
+    const record = String(team?.record || '').trim()
+    const fighterName = isCombat ? String(team?.name || team?.abbreviation || '').trim() : ''
     return (
       <div className={`slab-half slab-${side}`}>
         <i className="slab-bar" style={{ background: `var(--bar-${side})` }} />
         <div className="slab-logo-group">
           <LogoBox team={team} side={side} size="lg" />
-          {flags.records && String(team?.record || '').trim()
-            ? <span className="slab-rec">{team.record}</span>
+          {flags.records && !isCombat && record
+            ? <span className="slab-rec">{record}</span>
             : null}
           {spread ? <span className="slab-spread">{spread}</span> : null}
         </div>
-        {!isPre ? <ScoreOrDash team={team} game={game} /> : null}
+        {isCombat && fighterName ? <span className="combat-name">{fighterName}</span> : null}
+        {isCombat
+          ? (record ? <span className="rec-big">{record}</span> : null)
+          : (!isPre ? <ScoreOrDash team={team} game={game} /> : null)}
       </div>
     )
   }
 
+  const state = String(game?.state || '').toLowerCase()
   const st = statusText(game)
   const { date, time } = isPre ? splitDateTime(st) : { date: st, time: '' }
+
+  // Combat: live → round info; pre → fight date/time; post → nothing (chip + weight class sufficient)
+  const seamStatus = isCombat
+    ? (state === 'in'
+        ? String(game?.liveState?.detail || game?.status?.shortDetail || '').trim() || 'LIVE'
+        : state === 'pre'
+          ? String(game?.runtimeDateText || st || '').trim()
+          : '')
+    : date
+
+  const { date: seamDate, time: seamTime } = isCombat && state === 'pre'
+    ? splitDateTime(seamStatus)
+    : { date: seamStatus, time: '' }
+
   return (
-    <div className={`card d-slab ${showFeat ? 'has-feat' : ''} ${isPre ? 'is-pre' : ''}`}>
+    <div className={`card d-slab ${isCombat ? 'd-slab-combat' : ''} ${showFeat ? 'has-feat' : ''} ${isPre ? 'is-pre' : ''}`}>
       <Half team={a} side="a" />
       <div className="slab-seam">
         <StateChip game={game} />
-        {date ? <span className="slab-status">{date}</span> : null}
-        {time ? <span className="slab-time">{time}</span> : null}
+        {isCombat && game?.sessionLabel ? <span className="slab-time">{game.sessionLabel}</span> : null}
+        {seamDate ? <span className="slab-status">{seamDate}</span> : null}
+        {(isCombat ? seamTime : time) ? <span className="slab-time">{isCombat ? seamTime : time}</span> : null}
         {showFeat ? <LiveFeature game={game} compact /> : null}
         <MetaRow game={game} flags={flags} mono />
       </div>
@@ -337,6 +362,7 @@ function SpineCard({ game, flags }) {
   const a = game?.teams?.away
   const h = game?.teams?.home
   const isPre = String(game?.state || '').toLowerCase() === 'pre'
+  const isCombat = Boolean(game?.combat)
   const aSpread = teamSpread(game?.oddsText, teamAbbr(a))
   const hSpread = teamSpread(game?.oddsText, teamAbbr(h))
 
@@ -357,18 +383,22 @@ function SpineCard({ game, flags }) {
 
   const st = statusText(game)
   const { date, time } = isPre ? splitDateTime(st) : { date: st, time: '' }
+  const spineStatus = isCombat && String(game?.state || '').toLowerCase() === 'in'
+    ? String(game?.liveState?.detail || game?.status?.shortDetail || st || '').trim()
+    : date
   return (
     <div className={`card d-spine ${isPre ? 'is-pre' : ''}`}>
       <Flank team={a} side="a" />
       <div className="spine-mid">
         <StateChip game={game} />
+        {isCombat && game?.sessionLabel ? <span className="spine-time">{game.sessionLabel}</span> : null}
         <div className="spine-score">
-          {isPre
+          {(isPre || isCombat)
             ? <span className="spine-vs">VS</span>
             : (<><b>{a?.score}</b><s>–</s><b>{h?.score}</b></>)}
         </div>
-        {date ? <span className="spine-status">{date}</span> : null}
-        {time ? <span className="spine-time">{time}</span> : null}
+        {spineStatus ? <span className="spine-status">{spineStatus}</span> : null}
+        {!isCombat && time ? <span className="spine-time">{time}</span> : null}
         {flags.situation && hasLiveFeature(game) ? <LiveFeature game={game} /> : null}
         <MetaRow game={game} flags={flags} />
       </div>
@@ -381,6 +411,7 @@ function SpineCard({ game, flags }) {
 
 function DigitsCard({ game, flags }) {
   const isPre = String(game?.state || '').toLowerCase() === 'pre'
+  const isCombat = Boolean(game?.combat)
   const showFeat = flags.situation && hasLiveFeature(game)
 
   const Row = ({ team, side }) => (
@@ -391,16 +422,20 @@ function DigitsCard({ game, flags }) {
       {flags.records && String(team?.record || '').trim()
         ? <span className="dig-rec">{team.record}</span>
         : null}
-      <span className="dig-box">{isPre ? '·' : (team?.score ?? '—')}</span>
+      <span className="dig-box">{(isPre || isCombat) ? '·' : (team?.score ?? '—')}</span>
     </div>
   )
+
+  const digClock = isCombat && String(game?.state || '').toLowerCase() === 'in'
+    ? String(game?.liveState?.detail || game?.status?.shortDetail || '').trim() || 'LIVE'
+    : statusText(game)
 
   return (
     <div className="card d-digits">
       <div className="dig-head">
         <span className="dig-league">{game?.leagueName || ''}</span>
         <StateChip game={game} />
-        <span className="dig-clock">{statusText(game)}</span>
+        <span className="dig-clock">{isCombat && game?.sessionLabel ? game.sessionLabel : digClock}</span>
       </div>
       <Row team={game?.teams?.away} side="a" />
       <Row team={game?.teams?.home} side="h" />
@@ -420,10 +455,15 @@ function MarqueeCard({ game, flags }) {
   const a = game?.teams?.away
   const h = game?.teams?.home
   const isPre = String(game?.state || '').toLowerCase() === 'pre'
+  const isCombat = Boolean(game?.combat)
   const showFeat = flags.situation && hasLiveFeature(game)
   const sport = String(game?.sport || '').toLowerCase()
   const aSpread = teamSpread(game?.oddsText, teamAbbr(a))
   const hSpread = teamSpread(game?.oddsText, teamAbbr(h))
+
+  const marqClock = isCombat && String(game?.state || '').toLowerCase() === 'in'
+    ? String(game?.liveState?.detail || game?.status?.shortDetail || '').trim() || 'LIVE'
+    : statusText(game)
 
   return (
     <div className={`card d-marq ${showFeat ? 'has-feat' : ''}`}>
@@ -435,16 +475,17 @@ function MarqueeCard({ game, flags }) {
             : null}
           {aSpread ? <span className="marq-spread">{aSpread}</span> : null}
         </div>
-        <span className="marq-score">{isPre ? '' : (a?.score ?? '')}</span>
+        <span className="marq-score">{(isPre || isCombat) ? '' : (a?.score ?? '')}</span>
       </div>
       <div className={`marq-seam ${showFeat ? `marq-seam-${sport}` : ''}`}>
         <StateChip game={game} />
-        <span className="marq-clock">{statusText(game)}</span>
+        {isCombat && game?.sessionLabel ? <span className="marq-clock">{game.sessionLabel}</span> : null}
+        <span className="marq-clock">{marqClock}</span>
         {showFeat ? <LiveFeature game={game} compact /> : null}
         <MetaRow game={game} flags={flags} />
       </div>
       <div className="marq-half marq-h">
-        <span className="marq-score">{isPre ? '' : (h?.score ?? '')}</span>
+        <span className="marq-score">{(isPre || isCombat) ? '' : (h?.score ?? '')}</span>
         <div className="marq-logo-group">
           <LogoBox team={h} side="h" size="lg" />
           {flags.records && String(h?.record || '').trim()
@@ -461,6 +502,8 @@ function MarqueeCard({ game, flags }) {
 
 export function BoardCard({ game, isSoloSlate, renderLeague }) {
   const state = String(game?.state || '').toLowerCase()
+  const sport = String(game?.sport || '').toLowerCase()
+  const isGolf = sport === 'golf'
   const flags = densityFlags({ density: game?.density })
 
   const allEntries = Array.isArray(game?.racingEntries) ? game.racingEntries : []
@@ -470,7 +513,7 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
 
   const hasEntries = displayEntries.length > 0
   const title = racingCardTitle(game, renderLeague)
-  const seriesName = String(renderLeague?.name || renderLeague?.id || 'Race').trim()
+  const seriesName = String(renderLeague?.name || renderLeague?.id || (isGolf ? 'Tournament' : 'Race')).trim()
   const cs = game?.cardStyle
   const dirClass = cs && cs !== 'standard' && cs !== 'large-logo'
     ? `d-${cs === 'marquee' ? 'marq' : cs}`
@@ -494,7 +537,7 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
         </div>
         <div className="bpre-main">
           <div className="bpre-when">
-            <span className="bpre-label">STARTS</span>
+            <span className="bpre-label">{isGolf ? 'TEE TIME' : 'STARTS'}</span>
             <span className="bpre-time">{timeText || '—'}</span>
             {game?.broadcastText && flags.tv
               ? <span className="bpre-tv"><em>TV</em>{game.broadcastText}</span>
@@ -521,13 +564,16 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
   // Board with rows (live / post / pre+grid)
   const statusLabel = state === 'in'
     ? racingLiveHeader(game)
-    : state === 'pre' ? 'STARTING GRID' : 'RESULTS'
-  const unit = state === 'in' ? 'GAP' : state === 'pre' ? 'GRID' : 'RESULTS'
+    : state === 'pre'
+      ? (isGolf ? 'FIELD' : 'STARTING GRID')
+      : 'RESULTS'
 
   const rows = displayEntries.map((entry, i) => ({
     pos: entry.position ?? i + 1,
-    name: entry.shortName || entry.name || 'Driver',
-    detail: racingEntrySummary(entry) || String(entry?.score || ''),
+    name: entry.shortName || entry.name || (isGolf ? 'Player' : 'Driver'),
+    detail: isGolf
+      ? (String(entry?.score || '').trim() || racingEntrySummary(entry))
+      : (racingEntrySummary(entry) || String(entry?.score || '')),
     color: entryColor(entry),
     headshot: entry.headshot ? (entry.headshot.startsWith('http') ? entry.headshot : `/logos/${entry.headshot}`) : null,
     carBadge: entry.carBadge ? (entry.carBadge.startsWith('http') ? entry.carBadge : `/logos/${entry.carBadge}`) : null,

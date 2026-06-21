@@ -185,6 +185,35 @@ def discover_leagues(
                 }
             )
 
+    # Supplement with locally registered leagues not returned by ESPN's catalog
+    _REGISTRY_DISPLAY: dict[str, tuple[str, str]] = {
+        "ufc": ("UFC", "UFC"),
+        "pfl": ("PFL", "PFL"),
+    }
+    existing_slugs = {item["league"] for item in discovered}
+    sport_names: dict[str, str] = {}
+    for item in discovered:
+        sport_names.setdefault(item["sport"], item["sportName"])
+
+    for entry in list_registry_entries():
+        if entry.league in existing_slugs:
+            continue
+        if normalized_sport_filter and entry.sport != normalized_sport_filter:
+            continue
+        league_name, abbreviation = _REGISTRY_DISPLAY.get(
+            entry.league, (entry.league_id.upper(), entry.league_id.upper())
+        )
+        discovered.append({
+            "sport": entry.sport,
+            "sportName": sport_names.get(entry.sport, entry.sport.upper()),
+            "league": entry.league,
+            "leagueName": league_name,
+            "abbreviation": abbreviation,
+            "logo": "",
+            "id": entry.league,
+            "scoreboardUrl": entry.scoreboard_url,
+        })
+
     discovered.sort(key=lambda item: (item["sportName"].lower(), item["leagueName"].lower()))
     return {
         "sportFilter": normalized_sport_filter,

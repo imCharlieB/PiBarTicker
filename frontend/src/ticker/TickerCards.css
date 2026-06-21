@@ -121,6 +121,11 @@
 
 /* ── 1 · SLAB ───────────────────────────────────────────────────────────── */
 .ticker-runtime-shell .d-slab { width: 640px; }
+/* Combat (MMA / boxing / wrestling) — wider so flag + record fit without wrapping */
+.ticker-runtime-shell .d-slab-combat { width: 760px; }
+.ticker-runtime-shell .d-slab-combat .rec-big { white-space: nowrap; font-size: 42px; }
+.ticker-runtime-shell .d-slab-combat .slab-seam { flex-basis: 210px; }
+.ticker-runtime-shell .combat-name { font-size: 22px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
 .ticker-runtime-shell .slab-half {
   position: relative; flex: 1; display: flex; flex-direction: column;
   justify-content: space-between; align-items: flex-start;

@@ -18,10 +18,20 @@ _store = LogoStore()
 _cache_service = LogoCacheService()
 
 
+# ESPN league IDs (used as league.id in config) → internal cache league IDs
+# (where team-meta/{cache_id}.json is actually stored).
+_ESPN_TO_CACHE_ID: dict[str, str] = {
+    "nascar-premier":   "nascar-cup",
+    "nascar-secondary": "nascar-xfinity",
+    "nascar-truck":     "nascar-trucks",
+}
+
+
 @router.get("/meta/{league}")
 def get_league_logo_meta(league: str) -> dict:
     """Return cached team metadata + logo information for a league."""
-    meta = _store.load_league_meta(league)
+    cache_id = _ESPN_TO_CACHE_ID.get(league, league)
+    meta = _store.load_league_meta(cache_id)
     return {
         "league": meta.league,
         "ts": meta.ts,

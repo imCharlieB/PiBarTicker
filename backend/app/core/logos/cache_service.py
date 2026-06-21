@@ -105,7 +105,11 @@ class LogoCacheService:
             if not team_id:
                 continue
 
-            abbr = str(raw_team.get("abbreviation") or raw_team.get("shortDisplayName") or "").strip().upper()
+            abbr = str(raw_team.get("abbreviation") or raw_team.get("shortDisplayName") or raw_team.get("shortName") or "").strip().upper()
+            if not abbr:
+                name = str(raw_team.get("displayName") or raw_team.get("name") or "").strip()
+                parts = name.split()
+                abbr = parts[-1][:5].upper() if parts else ""
             if not abbr:
                 continue
 

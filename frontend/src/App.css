@@ -2187,6 +2187,21 @@
   margin-bottom: 2px;
 }
 
+.ld-player-initials {
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.5);
+  background: rgba(255,255,255,0.06);
+  border-radius: 50%;
+  margin-bottom: 2px;
+  flex-shrink: 0;
+}
+
 .ld-driver-name {
   font-size: 0.875rem;
   font-weight: 700;

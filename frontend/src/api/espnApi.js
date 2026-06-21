@@ -65,6 +65,44 @@ function toLeagueTeamsEndpoint(scoreboardUrl) {
   }
 }
 
+function toCoreAthletesEndpoint(scoreboardUrl) {
+  // Converts site.api scoreboard URL to sports.core.api athletes list
+  // e.g. https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard
+  //   -> https://sports.core.api.espn.com/v2/sports/golf/leagues/pga/athletes?limit=1000&active=true
+  const p = parseLeagueApiParams(scoreboardUrl)
+  if (!p.sport || !p.league) return ''
+  return `https://sports.core.api.espn.com/v2/sports/${p.sport}/leagues/${p.league}/athletes?limit=1000&active=true`
+}
+
+function normalizeCoreAthletesList(payload) {
+  // Handles sports.core.api.espn.com /athletes list response.
+  // Items may be $ref objects or inline athlete objects.
+  const items = payload?.items || []
+  const result = []
+  for (const item of items) {
+    if (item?.$ref) {
+      // Extract numeric athlete ID from the ref URL
+      const match = String(item.$ref).match(/\/athletes\/(\d+)/)
+      if (match) {
+        result.push({ id: match[1], name: '', shortName: '', abbreviation: '', logos: [], _isRef: true })
+      }
+      continue
+    }
+    const a = item?.athlete || item
+    if (!a?.id) continue
+    const headshot = a.headshot?.href || (typeof a.headshot === 'string' ? a.headshot : null)
+    const logos = headshot ? [{ href: headshot, alt: a.displayName || '' }] : (a.logos || [])
+    result.push({
+      id: String(a.id),
+      name: a.displayName || a.fullName || `${a.firstName || ''} ${a.lastName || ''}`.trim() || '',
+      shortName: a.shortName || '',
+      abbreviation: a.abbreviation || '',
+      logos,
+    })
+  }
+  return result
+}
+
 function selectTrustedTeamLogos(team, leagueId) {
   const rawLogos = Array.isArray(team?.logos)
     ? team.logos.filter((logo) => logo?.href)
@@ -122,10 +160,12 @@ function normalizeTeamDataFromScoreboard(payload) {
       for (const competitor of competitors) {
         const team = competitor?.team || {}
         const athlete = competitor?.athlete || {}
-        const entity = team.id ? team : athlete.id ? athlete : null
+        // Some leagues (MMA, etc.) place athlete id at competitor level, not inside competitor.athlete
+        const athleteId = athlete.id || (competitor.type === 'athlete' ? String(competitor.id || '') : '')
+        const entity = team.id ? team : athleteId ? { ...athlete, id: athleteId } : null
         if (!entity || !entity.id) continue
 
-        const isAthlete = !team.id && !!athlete.id
+        const isAthlete = !team.id
         let incomingLogos = Array.isArray(entity.logos)
           ? entity.logos
           : entity.logo
@@ -285,6 +325,75 @@ export async function harvestRacingEntities(league) {
   }
 
   return Array.from(entities.values())
+}
+
+// Generic player harvest for individual sports (golf, MMA, tennis, boxing, etc.)
+// Uses /athletes endpoint as the primary source (works between events), with scoreboard as fallback.
+export async function harvestPlayers(league) {
+  const players = new Map()
+  const sportLabel = parseLeagueApiParams(league.url || '').sport || 'individual sport'
+
+  // Primary: core API athletes list (works between events, active=true filters to current roster)
+  try {
+    const coreUrl = toCoreAthletesEndpoint(league.url)
+    const resp = await fetch(buildEspnProxyUrl(coreUrl, 300))
+    if (resp.ok) {
+      const data = await resp.json()
+      const fromCore = normalizeCoreAthletesList(data)
+
+      // For $ref-only items we need to fetch each athlete individually to get the name.
+      // Batch in parallel groups of 10 to avoid flooding the proxy.
+      const refItems = fromCore.filter(p => p._isRef)
+      const inlineItems = fromCore.filter(p => !p._isRef)
+      for (const a of inlineItems) players.set(a.id, { ...a, _source: 'core-inline' })
+      if (refItems.length > 0) {
+        const p = parseLeagueApiParams(league.url || '')
+        const BATCH = 10
+        for (let i = 0; i < refItems.length; i += BATCH) {
+          const batch = refItems.slice(i, i + BATCH)
+          await Promise.all(batch.map(async (refPlayer) => {
+            try {
+              const athleteUrl = `https://sports.core.api.espn.com/v2/sports/${p.sport}/leagues/${p.league}/athletes/${refPlayer.id}?lang=en&region=us`
+              const ar = await fetch(buildEspnProxyUrl(athleteUrl, 300))
+              if (ar.ok) {
+                const ad = await ar.json()
+                const headshot = ad?.headshot?.href || null
+                players.set(refPlayer.id, {
+                  id: refPlayer.id,
+                  name: ad?.displayName || ad?.fullName || `${ad?.firstName || ''} ${ad?.lastName || ''}`.trim() || refPlayer.id,
+                  shortName: ad?.shortName || '',
+                  abbreviation: ad?.abbreviation || ad?.shortName || '',
+                  logos: headshot ? [{ href: headshot, alt: ad?.displayName || '' }] : [],
+                  _source: 'core-ref',
+                })
+              }
+            } catch { /* skip individual failures */ }
+          }))
+        }
+      }
+    }
+  } catch (e) {
+    console.warn(`harvestPlayers (${sportLabel}): core athletes endpoint failed`, e)
+  }
+
+  // Secondary: scoreboard competitors (active event field)
+  try {
+    const sbResp = await fetch(buildEspnProxyUrl(league.url, 60))
+    if (sbResp.ok) {
+      const sbData = await sbResp.json()
+      const fromScoreboard = normalizeTeamDataFromScoreboard(sbData)
+      for (const p of fromScoreboard) {
+        const key = String(p.id)
+        if (!players.has(key)) {
+          players.set(key, { ...p, _source: 'scoreboard' })
+        }
+      }
+    }
+  } catch (e) {
+    console.warn(`harvestPlayers (${sportLabel}): scoreboard harvest failed`, e)
+  }
+
+  return Array.from(players.values())
 }
 
 export async function fetchLogoMeta(leagueId) {

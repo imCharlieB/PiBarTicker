@@ -42,6 +42,14 @@ _REGISTRY: dict[str, EspnLeagueRegistryEntry] = {
     "nascar-truck": EspnLeagueRegistryEntry("nascar-truck", "racing", "nascar-truck"),
     "f1": EspnLeagueRegistryEntry("f1", "racing", "f1"),
     "indycar": EspnLeagueRegistryEntry("indycar", "racing", "indycar"),
+    "ufc": EspnLeagueRegistryEntry("ufc", "mma", "ufc"),
+    "pfl": EspnLeagueRegistryEntry("pfl", "mma", "pfl"),
+    "pga": EspnLeagueRegistryEntry("pga", "golf", "pga"),
+    "lpga": EspnLeagueRegistryEntry("lpga", "golf", "lpga"),
+    "eur": EspnLeagueRegistryEntry("eur", "golf", "eur"),
+    "liv": EspnLeagueRegistryEntry("liv", "golf", "liv"),
+    "champions-tour": EspnLeagueRegistryEntry("champions-tour", "golf", "champions-tour"),
+    "ntw": EspnLeagueRegistryEntry("ntw", "golf", "ntw"),
 }
 
 

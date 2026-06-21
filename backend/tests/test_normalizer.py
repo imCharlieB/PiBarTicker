@@ -10,6 +10,7 @@ if str(BACKEND_ROOT) not in sys.path:
 
 from app.core.espn_normalizer import (
     _extract_competitors,
+    _is_athlete_competition,
     _map_live_state,
     _parse_event_datetime,
     _racing_entries,
@@ -80,35 +81,44 @@ def test_parse_event_datetime_invalid():
 # _extract_competitors
 # ---------------------------------------------------------------------------
 
-def _make_event(away_id: str, home_id: str) -> dict:
+def _make_competition(away_id: str, home_id: str) -> dict:
     return {
-        "competitions": [
-            {
-                "competitors": [
-                    {"homeAway": "away", "team": {"id": away_id}},
-                    {"homeAway": "home", "team": {"id": home_id}},
-                ]
-            }
+        "competitors": [
+            {"homeAway": "away", "team": {"id": away_id}},
+            {"homeAway": "home", "team": {"id": home_id}},
         ]
     }
 
 
 def test_extract_competitors_identifies_home_and_away():
-    home, away = _extract_competitors(_make_event("10", "20"))
+    home, away = _extract_competitors(_make_competition("10", "20"))
     assert home["team"]["id"] == "20"
     assert away["team"]["id"] == "10"
 
 
-def test_extract_competitors_empty_event():
+def test_extract_competitors_empty_competition():
     home, away = _extract_competitors({})
     assert home is None
     assert away is None
 
 
-def test_extract_competitors_no_competitions():
-    home, away = _extract_competitors({"competitions": []})
+def test_extract_competitors_no_competitors_key():
+    home, away = _extract_competitors({"competitors": []})
     assert home is None
     assert away is None
+
+
+def test_extract_competitors_fallback_order_when_no_homeaway():
+    # Individual sports (MMA, etc.) don't have homeAway — fall back to order in list
+    competition = {
+        "competitors": [
+            {"id": "1", "type": "athlete", "athlete": {"displayName": "Fighter A"}},
+            {"id": "2", "type": "athlete", "athlete": {"displayName": "Fighter B"}},
+        ]
+    }
+    home, away = _extract_competitors(competition)
+    assert home["id"] == "1"
+    assert away["id"] == "2"
 
 
 # ---------------------------------------------------------------------------
@@ -147,6 +157,67 @@ def test_team_model_missing_logos_and_records():
     result = _team_model(competitor)
     assert result["logo"] == ""
     assert result["record"] == ""
+
+
+def test_team_model_ufc_athlete_preferred_over_org_team():
+    # UFC: ESPN attaches team.displayName = "UFC" (org) for every fighter,
+    # but competitor.type = "athlete" → athlete name must win over the org name.
+    competitor = {
+        "id": "3134682",
+        "type": "athlete",
+        "homeAway": "home",
+        "athlete": {
+            "id": "3134682",
+            "displayName": "Jon Jones",
+            "shortName": "J. Jones",
+        },
+        "team": {
+            "id": "8",
+            "displayName": "UFC",
+            "abbreviation": "UFC",
+        },
+        "records": [{"summary": "27-1-0"}],
+    }
+    result = _team_model(competitor)
+    assert result["name"] == "Jon Jones", f"expected fighter name, got {result['name']!r}"
+    assert result["abbreviation"] == "J. Jones"
+    assert result["record"] == "27-1-0"
+
+
+def test_team_model_athlete_fallback_mma():
+    # MMA / individual sport: no team sub-object; id at competitor level, name in athlete
+    competitor = {
+        "id": "4881916",
+        "type": "athlete",
+        "winner": True,
+        "athlete": {
+            "displayName": "Darragh Kelly",
+            "shortName": "D. Kelly",
+            "flag": {"href": "https://a.espncdn.com/i/teamlogos/countries/500/irl.png", "alt": "Ireland"},
+        },
+        "records": [{"summary": "9-1-0"}],
+    }
+    result = _team_model(competitor)
+    assert result["id"] == "4881916"
+    assert result["name"] == "Darragh Kelly"
+    assert result["abbreviation"] == "D. Kelly"
+    assert result["record"] == "9-1-0"
+    assert result["winner"] is True
+    assert "irl.png" in result["logo"]
+
+
+def test_team_model_athlete_with_logos_prefers_logo_over_flag():
+    competitor = {
+        "id": "99",
+        "type": "athlete",
+        "athlete": {
+            "displayName": "Player",
+            "logos": [{"href": "https://example.com/headshot.png"}],
+            "flag": {"href": "https://example.com/flag.png"},
+        },
+    }
+    result = _team_model(competitor)
+    assert result["logo"] == "https://example.com/headshot.png"
 
 
 # ---------------------------------------------------------------------------
@@ -293,7 +364,7 @@ def test_map_live_state_hockey():
     assert result["clock"] == "4:00"
 
 
-def test_map_live_state_unknown_sport_generic():
+def test_map_live_state_soccer():
     result = _map_live_state(
         sport="soccer",
         status_type={"state": "in", "detail": "45'"},
@@ -302,7 +373,21 @@ def test_map_live_state_unknown_sport_generic():
     )
     assert result is not None
     assert result["sport"] == "soccer"
-    assert result["period"] == 1
+    assert result["half"] == 1
+    assert result["clock"] == "45:00"
+
+
+def test_map_live_state_unknown_sport_generic():
+    result = _map_live_state(
+        sport="mma",
+        status_type={"state": "in", "detail": "Round 2"},
+        status={"displayClock": "3:45", "period": 2},
+        competition={},
+    )
+    assert result is not None
+    assert result["sport"] == "mma"
+    assert result["period"] == 2
+    assert result["clock"] == "3:45"
 
 
 # ---------------------------------------------------------------------------
@@ -422,3 +507,137 @@ def test_normalize_startsInMinutes_is_int_or_none():
     now = datetime(2026, 9, 10, 20, 0, 0, tzinfo=timezone.utc)
     games = normalize_scoreboard_events(entry=_NFL, events=[event], now_utc=now)
     assert games[0]["startsInMinutes"] == 20  # 20 minutes until 20:20
+
+
+# ---------------------------------------------------------------------------
+# _is_athlete_competition
+# ---------------------------------------------------------------------------
+
+def test_is_athlete_competition_team_sport():
+    competition = {
+        "competitors": [
+            {"homeAway": "home", "team": {"id": "1", "displayName": "Bills"}},
+            {"homeAway": "away", "team": {"id": "2", "displayName": "Patriots"}},
+        ]
+    }
+    assert _is_athlete_competition(competition) is False
+
+
+def test_is_athlete_competition_mma_type_field():
+    competition = {
+        "competitors": [
+            {"id": "111", "type": "athlete", "athlete": {"displayName": "Fighter A"}},
+            {"id": "222", "type": "athlete", "athlete": {"displayName": "Fighter B"}},
+        ]
+    }
+    assert _is_athlete_competition(competition) is True
+
+
+def test_is_athlete_competition_no_team_id_with_competitor_id():
+    # ESPN pattern where type is absent but competitor carries the id
+    competition = {
+        "competitors": [
+            {"id": "333", "athlete": {"displayName": "Boxer A"}},
+        ]
+    }
+    assert _is_athlete_competition(competition) is True
+
+
+def test_is_athlete_competition_empty():
+    assert _is_athlete_competition({}) is False
+    assert _is_athlete_competition({"competitors": []}) is False
+
+
+# ---------------------------------------------------------------------------
+# normalize_scoreboard_events — multi-competition expansion (MMA fight card)
+# ---------------------------------------------------------------------------
+
+_MMA = EspnLeagueRegistryEntry("bellator", "mma", "bellator")
+
+
+def _make_mma_competition(
+    comp_id: str,
+    fighter_a_id: str,
+    fighter_a_name: str,
+    fighter_b_id: str,
+    fighter_b_name: str,
+    state: str = "pre",
+    weight_class: str = "Lightweight",
+) -> dict:
+    return {
+        "id": comp_id,
+        "date": "2026-06-21T22:00:00Z",
+        "type": {"abbreviation": weight_class},
+        "status": {
+            "type": {"state": state, "completed": False, "detail": "", "shortDetail": ""},
+            "displayClock": "0:00",
+            "period": 0,
+        },
+        "competitors": [
+            {"id": fighter_a_id, "type": "athlete", "athlete": {"displayName": fighter_a_name}, "score": "0"},
+            {"id": fighter_b_id, "type": "athlete", "athlete": {"displayName": fighter_b_name}, "score": "0"},
+        ],
+    }
+
+
+def _make_mma_event(comps: list[dict]) -> dict:
+    return {
+        "id": "9001",
+        "date": "2026-06-21T22:00:00Z",
+        "shortName": "Bellator 300",
+        "status": {
+            "type": {"state": "pre", "completed": False, "detail": "", "shortDetail": ""},
+            "displayClock": "0:00",
+            "period": 0,
+        },
+        "competitions": comps,
+    }
+
+
+def test_normalize_mma_fight_card_expands_to_multiple_games():
+    comp_a = _make_mma_competition("c1", "101", "Fighter Alpha", "102", "Fighter Beta", weight_class="Main Event")
+    comp_b = _make_mma_competition("c2", "201", "Fighter Gamma", "202", "Fighter Delta", weight_class="Lightweight")
+    event = _make_mma_event([comp_a, comp_b])
+    games = normalize_scoreboard_events(entry=_MMA, events=[event])
+    assert len(games) == 2
+
+
+def test_normalize_mma_fight_card_titles_are_per_fight():
+    comp_a = _make_mma_competition("c1", "101", "Fighter Alpha", "102", "Fighter Beta")
+    comp_b = _make_mma_competition("c2", "201", "Fighter Gamma", "202", "Fighter Delta")
+    event = _make_mma_event([comp_a, comp_b])
+    games = normalize_scoreboard_events(entry=_MMA, events=[event])
+    titles = {g["title"] for g in games}
+    assert "Fighter Alpha vs Fighter Beta" in titles
+    assert "Fighter Gamma vs Fighter Delta" in titles
+
+
+def test_normalize_mma_session_label_is_weight_class():
+    comp = _make_mma_competition("c1", "101", "Fighter Alpha", "102", "Fighter Beta", weight_class="Featherweight")
+    event = _make_mma_event([comp])
+    games = normalize_scoreboard_events(entry=_MMA, events=[event])
+    assert games[0]["sessionLabel"] == "Featherweight"
+
+
+def test_normalize_mma_competitors_in_teams():
+    comp = _make_mma_competition("c1", "101", "Fighter Alpha", "102", "Fighter Beta")
+    event = _make_mma_event([comp])
+    games = normalize_scoreboard_events(entry=_MMA, events=[event])
+    g = games[0]
+    home = g["teams"]["home"]
+    away = g["teams"]["away"]
+    assert home is not None
+    assert away is not None
+    names = {home["name"], away["name"]}
+    assert "Fighter Alpha" in names
+    assert "Fighter Beta" in names
+
+
+def test_normalize_single_competition_event_not_expanded():
+    # A single-competition event (even if athlete type) should NOT be expanded
+    comp = _make_mma_competition("c1", "101", "A", "102", "B")
+    event = _make_mma_event([comp])
+    # Remove one competition so only one remains → not multi
+    event["competitions"] = [event["competitions"][0]]
+    games = normalize_scoreboard_events(entry=_MMA, events=[event])
+    assert len(games) == 1

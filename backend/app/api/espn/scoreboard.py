@@ -723,6 +723,50 @@ def get_scoreboard(
             except Exception:
                 pass
 
+    # Generic individual sport enrichment — inject cached logos and ESPN CDN headshots.
+    # Covers leaderboard sports (golf racingEntries) and 1v1 matchup sports (MMA, boxing, tennis, etc.).
+    # Racing has its own enrichment block above; major team sports need no per-athlete injection.
+    _TEAM_SPORTS = {"football", "basketball", "baseball", "hockey", "soccer"}
+    if entry.sport not in _TEAM_SPORTS and entry.sport != "racing":
+        try:
+            _ind_store = LogoStore()
+            _ind_meta = _ind_store.load_league_meta(entry.league_id)
+        except Exception:
+            _ind_meta = None
+
+        for game in normalized_games:
+            # Leaderboard entries (golf tournament field, any future leaderboard sport)
+            for race_entry in game.get("racingEntries") or []:
+                athlete_id = str(race_entry.get("athleteId") or race_entry.get("id") or "").strip()
+                if not athlete_id or race_entry.get("headshot"):
+                    continue
+                if _ind_meta and athlete_id in _ind_meta.teams:
+                    player = _ind_meta.teams[athlete_id]
+                    local_hs = (
+                        player.logos.get("headshot")
+                        or player.logos.get("default")
+                        or player.logos.get("scoreboard")
+                    )
+                    if local_hs:
+                        race_entry["headshot"] = local_hs
+                if not race_entry.get("headshot"):
+                    race_entry["headshot"] = f"https://a.espncdn.com/i/headshots/{entry.sport}/players/full/{athlete_id}.png"
+
+            # 1v1 competitor entries (MMA, boxing, tennis, individual sport matchups)
+            teams_dict = game.get("teams") or {}
+            for side in ("home", "away"):
+                comp = teams_dict.get(side)
+                if not isinstance(comp, dict) or comp.get("logo") or not comp.get("id"):
+                    continue
+                athlete_id = comp["id"]
+                if _ind_meta and athlete_id in _ind_meta.teams:
+                    player = _ind_meta.teams[athlete_id]
+                    cached_logo = player.logos.get("headshot") or player.logos.get("default")
+                    if cached_logo:
+                        comp["logo"] = f"/logos/{cached_logo}"
+                if not comp.get("logo"):
+                    comp["logo"] = f"https://a.espncdn.com/i/headshots/{entry.sport}/players/full/{athlete_id}.png"
+
     event_count = len(filtered_events)
     return {
         "sport": entry.sport,

@@ -57,6 +57,8 @@ LOGOS = [
     ('paramount.png',    f'{CDN}/paramount-plus-us.png'),
     ('tennis.png',       f'{CDN}/tennis-channel-us.png'),
     ('olympic.png',      f'{CDN}/olympic-channel-us.png'),
+    ('hbomax.png',       f'{CDN}/hbo-max-us.png'),
+    ('max.png',          f'{CDN}/max-us.png'),
     # Canadian networks
     ('sportsnet.png',    'https://cdn.jsdelivr.net/gh/tv-logo/tv-logos@main/countries/canada/sportsnet-ca.png'),
     # Wikimedia Commons — requires User-Agent header

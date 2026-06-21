@@ -114,7 +114,7 @@ export function racingLiveHeader(game) {
   const lap = Number.isInteger(Number(game?.status?.period)) ? Number(game.status.period) : null
   if (lap && lap > 0) return detail ? `Lap ${lap} • ${detail}` : `Lap ${lap}`
   if (detail) return detail
-  return 'Race in progress'
+  return String(game?.sport || '').toLowerCase() === 'golf' ? 'In Progress' : 'Race in progress'
 }
 
 // ── Runtime game enrichment ────────────────────────────────────────────────────
@@ -212,7 +212,8 @@ export function buildRuntimeDetailStats({ rawEvent, game, league, baseballSituat
 }
 
 export function isRacingGame(game) {
-  return String(game?.sport || '').toLowerCase() === 'racing'
+  const sport = String(game?.sport || '').toLowerCase()
+  return sport === 'racing' || sport === 'golf'
 }
 
 export function formatRacingCalendarDate(value) {
@@ -540,7 +541,15 @@ export function prepareDisplayGames(games, rawEventsById, displayLeague, leagueL
         },
       },
       cardInfo: finalInfoParts.join(' • '),
-      cardStyle: displayLeague?.cardStyle || 'standard',
+      cardStyle: (() => {
+        const isCombat = /^(mma|boxing|wrestling)$/i.test(String(game?.sport || ''))
+        const configured = displayLeague?.cardStyle || 'standard'
+        if (isCombat) {
+          const WIREFRAME = new Set(['slab', 'spine', 'digits', 'marquee'])
+          return WIREFRAME.has(configured) ? configured : 'slab'
+        }
+        return configured
+      })(),
       slateOrder: index,
       broadcastText: displayLeague?.showTV ? broadcastText : '',
       venueText,
@@ -551,6 +560,7 @@ export function prepareDisplayGames(games, rawEventsById, displayLeague, leagueL
         game?.liveState?.downDistanceText || game?.liveState?.detail || ''
       ).trim(),
       leagueName: String(displayLeague?.name || displayLeague?.id || '').toUpperCase(),
+      combat: /^(mma|boxing|wrestling)$/i.test(String(game?.sport || '')),
     }
   })
   .sort((left, right) => {

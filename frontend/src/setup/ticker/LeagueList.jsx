@@ -88,9 +88,9 @@ function matchesLeagueCatalogRegionFilter(entry, filterValue) {
 
 export default function LeagueList({ sportsBoard, onSelectLeague }) {
   const {
-    leagueTeamsById, leagueGroupsById, leagueTickerPreviewById,
+    leagueTeamsById, leagueGroupsById, leagueTickerPreviewById, leagueLogoMetaById,
     getCachedOrRemoteLogo, loadLeagueTeams, loadLeagueGroups,
-    loadLeagueLogoMeta, loadLeagueTickerPreview, moveLeague, updateBoard,
+    loadLeagueLogoMeta, loadLeagueTickerPreview, moveLeague, removeLeague, updateBoard,
     showBoardSettings, setShowBoardSettings, showLeagueCatalog, setShowLeagueCatalog,
     leagueCatalog, setLeagueCatalog, leagueCatalogSport, setLeagueCatalogSport,
     leagueCatalogRegion, setLeagueCatalogRegion, leagueCatalogQuery, setLeagueCatalogQuery,
@@ -307,6 +307,10 @@ export default function LeagueList({ sportsBoard, onSelectLeague }) {
       <div className="league-summary-grid">
         {sportsBoard.leagues.map((league, leagueIndex) => {
           const teams = leagueTeamsById[league.id] || []
+          const cachedMeta = leagueLogoMetaById[league.id]
+          const cachedCount = cachedMeta ? Object.keys(cachedMeta.teams || {}).length : 0
+          const displayCount = teams.length || cachedCount
+          const isCached = !teams.length && cachedCount > 0
           const edgeColor = league.enabled ? '#7cf29b' : 'rgba(255,255,255,0.08)'
           return (
             <button
@@ -353,6 +357,19 @@ export default function LeagueList({ sportsBoard, onSelectLeague }) {
                   >
                     ↓
                   </button>
+                  <button
+                    type="button"
+                    className="button-link league-arrow-btn"
+                    title="Remove league"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      if (window.confirm(`Remove ${league.name} from your league list?`)) {
+                        removeLeague(league.id)
+                      }
+                    }}
+                  >
+                    ×
+                  </button>
                 </div>
               </div>
               <p className="league-id">{league.id}</p>
@@ -361,20 +378,27 @@ export default function LeagueList({ sportsBoard, onSelectLeague }) {
                 <span className={`league-status-badge ${league.enabled ? 'is-enabled' : 'is-disabled'}`}>
                   {league.enabled ? 'Enabled' : 'Disabled'}
                 </span>
-                <span className="league-teams-label">{teams.length} teams loaded</span>
+                <span className="league-teams-label">
+                  {displayCount > 0 ? `${displayCount} ${isCached ? 'cached' : 'loaded'}` : '0 synced'}
+                </span>
               </div>
               <div className="league-logo-strip">
-                {teams.slice(0, 4).map((team) => {
-                  const cached = getCachedOrRemoteLogo(league.id, team)
-                  const primaryLogoHref = cached || resolveTeamPrimaryLogo(team, league.id)
-                  return primaryLogoHref ? (
-                    <img
-                      key={`${league.id}-${team.id}`}
-                      src={primaryLogoHref}
-                      alt={team.abbreviation || team.name}
-                    />
-                  ) : null
-                })}
+                {teams.length > 0
+                  ? teams.slice(0, 4).map((team) => {
+                      const cached = getCachedOrRemoteLogo(league.id, team)
+                      const primaryLogoHref = cached || resolveTeamPrimaryLogo(team, league.id)
+                      return primaryLogoHref ? (
+                        <img key={`${league.id}-${team.id}`} src={primaryLogoHref} alt={team.abbreviation || team.name} />
+                      ) : null
+                    })
+                  : cachedMeta
+                    ? Object.entries(cachedMeta.teams || {}).slice(0, 4).map(([id, t]) => {
+                        const logo = t.logos?.default || t.logos?.scoreboard || t.logos?.headshot
+                        return logo ? (
+                          <img key={`${league.id}-${id}`} src={`/logos/${logo}`} alt={t.display_name || id} />
+                        ) : null
+                      })
+                    : null}
               </div>
             </button>
           )

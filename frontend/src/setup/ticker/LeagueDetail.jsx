@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useAppContext } from '../../AppContext'
-import { parseLeagueApiParams, isIndividualSport, harvestRacingEntities } from '../../api/espnApi'
+import { parseLeagueApiParams, isIndividualSport, harvestRacingEntities, harvestPlayers } from '../../api/espnApi'
 import { resolveTeamPrimaryLogo, getLeagueEntityType } from '../helpers'
 
 export default function LeagueDetail({
@@ -50,6 +50,13 @@ export default function LeagueDetail({
   const entityType = getLeagueEntityType(selectedTickerLeague)
   const leagueApiParams = parseLeagueApiParams(selectedTickerLeague?.url || '')
   const isRacingLeague = leagueApiParams.sport === 'racing'
+  const isGolfLeague = leagueApiParams.sport === 'golf'
+  // isIndividualLeague: any sport where athletes compete individually (racing, golf, MMA, boxing, tennis, etc.)
+  const isIndividualLeague = isIndividualSport(leagueApiParams.sport, leagueApiParams.league)
+  // isNonRacingIndividualLeague: individual sport that isn't racing — uses harvestPlayers and player grid
+  const isNonRacingIndividualLeague = isIndividualLeague && !isRacingLeague
+  // isBoardLeague: sports that display as a ranked leaderboard (racing standings, golf leaderboard)
+  const isBoardLeague = isRacingLeague || isGolfLeague
   const isNascarLeague = isRacingLeague && String(leagueApiParams.league || '').toLowerCase().includes('nascar')
 
   const _nascarCacheIdMap = { 'nascar-premier': 'nascar-cup', 'nascar-truck': 'nascar-trucks' }
@@ -58,8 +65,10 @@ export default function LeagueDetail({
   useEffect(() => {
     if (isNascarLeague) {
       _ALL_NASCAR_CACHE_IDS.forEach((id) => loadLeagueLogoMeta(id))
+    } else if (isNonRacingIndividualLeague) {
+      loadLeagueLogoMeta(selectedTickerLeague.id)
     }
-  }, [isNascarLeague, selectedTickerLeague.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isNascarLeague, isNonRacingIndividualLeague, selectedTickerLeague.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const nascarDriverList = isNascarLeague
     ? _ALL_NASCAR_CACHE_IDS.flatMap((id) => {
@@ -72,13 +81,54 @@ export default function LeagueDetail({
   const includedGroupIds = Array.isArray(selectedTickerLeague.includedGroups) ? selectedTickerLeague.includedGroups : []
   const leagueMeta = leagueLogoMetaById[selectedTickerLeague.id] || {}
 
+  // Individual non-racing leagues (golf, MMA, boxing, tennis, etc.): build player list from cached meta.
+  // Normalize logos so DriverDetail can find the headshot via player.logos.headshot
+  const individualPlayerList = isNonRacingIndividualLeague && leagueMeta?.teams
+    ? Object.entries(leagueMeta.teams)
+        .filter(([, p]) => p.display_name || p.abbreviation)
+        .map(([, p]) => {
+          const headshotKey = p.logos?.headshot || p.logos?.default || null
+          return {
+            key: p.id,
+            id: p.id,
+            name: p.display_name || p.abbreviation || p.id,
+            abbreviation: p.abbreviation || '',
+            color: p.color || '',
+            alternateColor: p.alternate_color || '',
+            logos: headshotKey ? { headshot: headshotKey } : {},
+          }
+        })
+        .sort((a, b) => a.name.localeCompare(b.name))
+    : []
+
   const syncTeamsAndLogos = async () => {
     await loadLeagueTeams(selectedTickerLeague)
     let teams = leagueTeamsById[selectedTickerLeague.id] || []
     const params = parseLeagueApiParams(selectedTickerLeague.url || '')
-    const isRacingOrIndividual = isIndividualSport(params.sport, params.league)
 
-    if (isRacingOrIndividual) {
+    if (isNonRacingIndividualLeague) {
+      // Golf, MMA, boxing, tennis, etc. — use generic player harvest
+      setLogoSyncingLeagues((prev) => ({ ...prev, [selectedTickerLeague.id]: 'Fetching players from ESPN…' }))
+      setNotice(`Syncing ${selectedTickerLeague.name} — fetching players...`)
+      try {
+        const players = await harvestPlayers(selectedTickerLeague)
+        if (players.length > 0) {
+          const byId = new Map(teams.map((t) => [String(t.id), t]))
+          for (const p of players) {
+            if (!byId.has(String(p.id))) byId.set(String(p.id), p)
+          }
+          teams = Array.from(byId.values())
+        }
+      } catch (e) {
+        console.warn('harvestPlayers failed', e)
+      }
+      setLogoSyncingLeagues((prev) => {
+        const copy = { ...prev }
+        if (typeof copy[selectedTickerLeague.id] === 'string') delete copy[selectedTickerLeague.id]
+        return copy
+      })
+    } else if (isRacingLeague) {
+      // Racing (F1, IndyCar, non-NASCAR) — use racing-specific harvest
       setLogoSyncingLeagues((prev) => ({ ...prev, [selectedTickerLeague.id]: 'Harvesting drivers from scoreboard…' }))
       setNotice(`Syncing ${selectedTickerLeague.name} — harvesting drivers/teams...`)
       try {
@@ -102,25 +152,26 @@ export default function LeagueDetail({
 
     if (teams.length > 0) {
       const isFootball = params.sport === 'football'
-      if (isFootball || isRacingOrIndividual) {
+      // Individual sport headshots come directly from harvestPlayers — skip the per-player ESPN enrich loop
+      if (isFootball || isRacingLeague) {
         setLogoSyncingLeagues((prev) => ({ ...prev, [selectedTickerLeague.id]: 'Enriching logos for drivers/teams…' }))
         teams = await enrichTeamsForLogoSync(selectedTickerLeague, teams)
         setLogoSyncingLeagues((prev) => {
           const copy = { ...prev }
-          if (typeof copy[selectedTickerLeague.id] === 'string' && copy[selectedTickerLeague.id].includes('Enriching')) delete copy[selectedTickerLeague.id]
+          if (typeof copy[selectedTickerLeague.id] === 'string') delete copy[selectedTickerLeague.id]
           return copy
         })
       }
       triggerLogoCacheForLeague(selectedTickerLeague.id, teams, params.sport).catch((err) => {
         console.warn('Logo cache failed:', err)
       })
-      if (isRacingOrIndividual) {
-        setTimeout(() => loadLeagueLogoMeta(selectedTickerLeague.id), 300)
-      }
+      setTimeout(() => loadLeagueLogoMeta(selectedTickerLeague.id), 300)
     } else {
-      setNotice(isRacingOrIndividual
-        ? `Sync for ${selectedTickerLeague.name} didn't find many drivers right now (common depending on season/events).`
-        : `Sync found no teams for ${selectedTickerLeague.name}. Try loading preview first or check the league URL.`)
+      setNotice(isNonRacingIndividualLeague
+        ? `Sync for ${selectedTickerLeague.name} found no players. The league may be off-season or the URL may be incorrect.`
+        : isRacingLeague
+          ? `Sync for ${selectedTickerLeague.name} didn't find many drivers right now (common depending on season/events).`
+          : `Sync found no teams for ${selectedTickerLeague.name}. Try loading preview first or check the league URL.`)
     }
   }
 
@@ -151,7 +202,9 @@ export default function LeagueDetail({
             <span className="ld-hero-count">
               {isNascarLeague && nascarDriverList.length > 0
                 ? `${nascarDriverList.length} drivers cached`
-                : `${selectedLeagueTeams.length} ${entityType.label.toLowerCase()} loaded`}
+                : isNonRacingIndividualLeague && individualPlayerList.length > 0
+                  ? `${individualPlayerList.length} players cached`
+                  : `${selectedLeagueTeams.length} ${entityType.label.toLowerCase()} loaded`}
             </span>
           </div>
         </div>
@@ -182,7 +235,7 @@ export default function LeagueDetail({
               </div>
             </div>
 
-            {isRacingLeague && (
+            {isBoardLeague && (
               <div className="ld-seg-control">
                 <span className="ld-seg-label">Entry limit</span>
                 <div className="seg-pill">
@@ -255,7 +308,7 @@ export default function LeagueDetail({
             <div className="ld-toggle-row">
               <div className="ld-toggle-left">
                 <span className="ld-toggle-label">Team colors</span>
-                <span className="ld-toggle-desc">{isRacingLeague ? 'How strongly driver / manufacturer colors tint each card.' : 'How strongly team brand colors tint each card.'}</span>
+                <span className="ld-toggle-desc">{isRacingLeague ? 'How strongly driver / manufacturer colors tint each card.' : isNonRacingIndividualLeague ? 'How strongly player colors tint each card.' : 'How strongly team brand colors tint each card.'}</span>
               </div>
               <div className="seg-pill" style={{ flexShrink: 0 }}>
                 {[['full','Full'],['accent','Accent'],['neutral','Neutral']].map(([val, label]) => (
@@ -300,8 +353,8 @@ export default function LeagueDetail({
             </div>
           </div>
 
-          {/* Conference / group filter (non-racing) */}
-          {!isRacingLeague && (
+          {/* Conference / group filter — only for team sports (not individual) */}
+          {!isIndividualLeague && (
             <div className="ld-sub-panel">
               <div className="ld-sub-panel-header">
                 <span className="ld-sub-panel-kicker">Conference / Division / Group Filter</span>
@@ -410,7 +463,7 @@ export default function LeagueDetail({
               ? nascarDriverList.length > 0
                 ? `${nascarDriverList.length} drivers synced from cf.nascar.com — badges shown below`
                 : 'Click "Sync NASCAR Drivers & Assets" to load driver badges'
-              : isRacingLeague
+              : isIndividualLeague
                 ? `Select ${entityType.label.toLowerCase()} to view details`
                 : `Select ${entityType.label.toLowerCase()} to include and open details`}
           </p>
@@ -421,7 +474,7 @@ export default function LeagueDetail({
               onClick={syncTeamsAndLogos}
               disabled={selectedLeagueLoadState.loading}
             >
-              {selectedLeagueLoadState.loading ? 'Syncing...' : 'Sync Teams & Logos'}
+              {selectedLeagueLoadState.loading ? 'Syncing...' : isNonRacingIndividualLeague ? 'Sync Players & Headshots' : 'Sync Teams & Logos'}
             </button>
           )}
           {selectedTickerLeague.id === 'f1' && (
@@ -498,7 +551,7 @@ export default function LeagueDetail({
           {logoClearMessageById[selectedTickerLeague.id]}
         </p>
       )}
-      {selectedLeagueLoadState.loading && <p className="field-help">Loading team data from ESPN...</p>}
+      {selectedLeagueLoadState.loading && !(isNonRacingIndividualLeague && individualPlayerList.length > 0) && <p className="field-help">Loading team data from ESPN...</p>}
       {selectedLeagueLoadState.error && <p className="field-error">{selectedLeagueLoadState.error}</p>}
       {logoSyncingLeagues[selectedTickerLeague.id] && (
         <p style={{ color: '#6b7480', fontStyle: 'italic', fontSize: '0.85rem', margin: '0 0 8px' }}>
@@ -511,7 +564,7 @@ export default function LeagueDetail({
         <p className="field-help">Loading driver data…</p>
       )}
 
-      {/* Driver grid — all racing leagues */}
+      {/* Driver grid — racing leagues */}
       {isRacingLeague && (
         isNascarLeague
           ? nascarDriverList.length > 0 && (
@@ -568,8 +621,30 @@ export default function LeagueDetail({
           )
       )}
 
-      {/* Team grid — all non-racing leagues */}
-      {!isRacingLeague && selectedLeagueTeams.length > 0 && (
+      {/* Player grid — individual non-racing leagues (golf, MMA, boxing, tennis, etc.) */}
+      {isNonRacingIndividualLeague && individualPlayerList.length > 0 && (
+        <div className="ld-driver-grid">
+          {individualPlayerList.map((player) => {
+            const cachedLogo = getCachedOrRemoteLogo(selectedTickerLeague.id, player)
+            const initials = player.name.split(' ').map((w) => w[0]).filter(Boolean).slice(0, 2).join('')
+            return (
+              <div key={player.id} className="ld-driver-card"
+                role="button" tabIndex={0}
+                onClick={() => onSelectDriver?.(player)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectDriver?.(player) } }}
+              >
+                {cachedLogo
+                  ? <img src={cachedLogo} alt={player.name} className="ld-driver-badge-img" />
+                  : <div className="ld-player-initials">{initials || '?'}</div>}
+                <div className="ld-driver-name">{player.name}</div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Team grid — team sports only */}
+      {!isIndividualLeague && selectedLeagueTeams.length > 0 && (
         <div className="ld-team-grid">
           {selectedLeagueTeams.map((team) => {
             const cachedMeta = leagueMeta?.teams?.[String(team.id)]

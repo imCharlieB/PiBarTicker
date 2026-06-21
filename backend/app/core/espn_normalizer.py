@@ -20,12 +20,8 @@ def _parse_event_datetime(value: object) -> datetime | None:
         return None
 
 
-def _extract_competitors(event: dict[str, Any]) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
-    competitions = event.get("competitions") or []
-    if not isinstance(competitions, list) or not competitions:
-        return None, None
-
-    competitors = (competitions[0] or {}).get("competitors") or []
+def _extract_competitors(competition: dict[str, Any]) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    competitors = competition.get("competitors") or []
     if not isinstance(competitors, list):
         return None, None
 
@@ -50,27 +46,82 @@ def _team_model(competitor: dict[str, Any] | None) -> dict[str, Any] | None:
         return None
 
     team = competitor.get("team") or {}
-    logos = team.get("logos") or []
-    logo_href = ""
-    if isinstance(logos, list) and logos:
-        logo_href = str((logos[0] or {}).get("href") or "")
+    athlete = competitor.get("athlete") or {}
+
+    # When competitor.type == "athlete" and the athlete sub-object carries meaningful data,
+    # treat the athlete as the primary entity even if ESPN also attaches an org/affiliation
+    # as "team" (e.g. UFC sets team.displayName = "UFC" for every fighter, so the team branch
+    # would return the org name instead of the fighter's name).
+    is_athlete_competitor = (
+        _normalized(competitor.get("type")) == "athlete"
+        and bool(athlete.get("id") or athlete.get("displayName") or athlete.get("fullName"))
+    )
+
+    if is_athlete_competitor:
+        entity = athlete
+        entity_id = str(athlete.get("id") or competitor.get("id") or "").strip()
+        logos = athlete.get("logos") or []
+        logo_href = str((logos[0] or {}).get("href") or "") if isinstance(logos, list) and logos else ""
+        if not logo_href:
+            logo_href = str((athlete.get("flag") or {}).get("href") or "").strip()
+    elif team.get("id") or team.get("displayName"):
+        entity = team
+        entity_id = str(team.get("id") or competitor.get("id") or "").strip()
+        logos = team.get("logos") or []
+        logo_href = str((logos[0] or {}).get("href") or "") if isinstance(logos, list) and logos else ""
+    else:
+        entity = athlete
+        entity_id = str(athlete.get("id") or competitor.get("id") or "").strip()
+        logos = athlete.get("logos") or []
+        logo_href = str((logos[0] or {}).get("href") or "") if isinstance(logos, list) and logos else ""
+        if not logo_href:
+            logo_href = str((athlete.get("flag") or {}).get("href") or "").strip()
 
     records = competitor.get("records") or []
     record_summary = ""
     if isinstance(records, list) and records:
         record_summary = str((records[0] or {}).get("summary") or "")
+    if not record_summary:
+        record_summary = str(athlete.get("record") or "").strip()
+
+    def _build_name(src: dict[str, Any]) -> str:
+        return (
+            str(src.get("displayName") or src.get("fullName") or src.get("name") or "").strip()
+            or f"{src.get('firstName', '')} {src.get('lastName', '')}".strip()
+        )
+
+    name = _build_name(entity) or _build_name(athlete) or _build_name(competitor)
 
     return {
-        "id": str(team.get("id") or "").strip(),
-        "name": team.get("displayName") or team.get("name"),
-        "abbreviation": team.get("abbreviation"),
-        "slug": team.get("slug"),
+        "id": entity_id,
+        "name": name or None,
+        "abbreviation": (
+            entity.get("abbreviation") or entity.get("shortName")
+            or athlete.get("abbreviation") or athlete.get("shortName")
+            or competitor.get("abbreviation") or competitor.get("shortName")
+            or ""
+        ),
+        "slug": entity.get("slug"),
         "homeAway": competitor.get("homeAway"),
         "score": str(competitor.get("score") or "").strip(),
         "record": record_summary,
         "winner": bool(competitor.get("winner")),
         "logo": logo_href,
     }
+
+
+def _is_athlete_competition(competition: dict[str, Any]) -> bool:
+    """True when competitors are individual athletes rather than teams (MMA, boxing, tennis, etc.)."""
+    competitors = competition.get("competitors") or []
+    if not isinstance(competitors, list) or not competitors:
+        return False
+    first = competitors[0]
+    if not isinstance(first, dict):
+        return False
+    return (
+        _normalized(first.get("type")) == "athlete"
+        or (not (first.get("team") or {}).get("id") and bool(first.get("id")))
+    )
 
 
 def _racing_entries(competition: dict[str, Any]) -> list[dict[str, Any]]:
@@ -85,6 +136,7 @@ def _racing_entries(competition: dict[str, Any]) -> list[dict[str, Any]]:
 
         athlete = competitor.get("athlete") or {}
         flag = athlete.get("flag") or {}
+        headshot = athlete.get("headshot") or {}
         team = competitor.get("team") or {}
         statistics = competitor.get("statistics") or []
         stat_items: list[dict[str, str]] = []
@@ -122,6 +174,7 @@ def _racing_entries(competition: dict[str, Any]) -> list[dict[str, Any]]:
                 "shortName": athlete.get("shortName") or athlete.get("displayName") or athlete.get("fullName"),
                 "score": str(competitor.get("score") or "").strip(),
                 "stats": stat_items[:4],
+                "headshot": str(headshot.get("href") or "").strip(),
                 "flag": {
                     "href": str(flag.get("href") or "").strip(),
                     "alt": str(flag.get("alt") or "").strip(),
@@ -251,83 +304,111 @@ def normalize_scoreboard_events(
 
     for event in events:
         competitions = event.get("competitions") or []
-        competition = _pick_best_competition(competitions)
-        # Prefer competition-level status (updated per-session) over event-level status.
-        comp_status_type = (competition.get("status") or {}).get("type") or {}
-        status = comp_status_type if comp_status_type else ((event.get("status") or {}).get("type") or {})
-        comp_status_block = competition.get("status") or {}
-        status_block = comp_status_block if comp_status_block else (event.get("status") or {})
-        start_time = _parse_event_datetime(competition.get("date") or event.get("date"))
+        if not isinstance(competitions, list):
+            competitions = []
 
-        home_comp, away_comp = _extract_competitors(event)
-        home_team = _team_model(home_comp)
-        away_team = _team_model(away_comp)
-
-        venue = competition.get("venue") or {}
-        broadcasts = competition.get("broadcasts") or []
-        broadcast_names: list[str] = []
-        if isinstance(broadcasts, list):
-            for broadcast in broadcasts:
-                if not isinstance(broadcast, dict):
-                    continue
-                names = broadcast.get("names") or []
-                if isinstance(names, list) and names:
-                    primary_name = str(names[0] or "").strip()
-                    if primary_name:
-                        broadcast_names.append(primary_name)
-
-        competition_odds = competition.get("odds") or []
-        odds_detail = ""
-        if isinstance(competition_odds, list) and competition_odds:
-            first_odds = competition_odds[0] or {}
-            if isinstance(first_odds, dict):
-                odds_detail = str(first_odds.get("details") or first_odds.get("displayValue") or "").strip()
-
-        state = _normalized(status.get("state"))
-        is_live = state == "in"
-        is_completed = bool(status.get("completed"))
-        normalized_games.append(
-            {
-                "id": str(event.get("id") or "").strip(),
-                "sport": entry.sport,
-                "league": entry.league,
-                "leagueId": entry.league_id,
-                "title": event.get("shortName") or event.get("name") or entry.league_id,
-                "startTimeUtc": start_time.isoformat() if start_time else "",
-                "startsInMinutes": int((start_time - now).total_seconds() // 60) if start_time else None,
-                "state": state or "unknown",
-                "isLive": is_live,
-                "isCompleted": is_completed,
-                "status": {
-                    "name": status.get("name"),
-                    "shortDetail": status.get("shortDetail"),
-                    "detail": status.get("detail"),
-                    "period": _safe_int(status_block.get("period")),
-                    "clock": status_block.get("displayClock"),
-                },
-                "teams": {
-                    "away": away_team,
-                    "home": home_team,
-                },
-                "venue": {
-                    "name": venue.get("fullName") or venue.get("name"),
-                    "city": (venue.get("address") or {}).get("city") if isinstance(venue, dict) else None,
-                    "state": (venue.get("address") or {}).get("state") if isinstance(venue, dict) else None,
-                },
-                "broadcasts": [name for name in broadcast_names if name],
-                "odds": {
-                    "details": odds_detail,
-                },
-                "sessionLabel": str((competition.get("type") or {}).get("abbreviation") or "").strip() if entry.sport == "racing" else "",
-                "racingEntries": _racing_entries(competition if isinstance(competition, dict) else {}) if entry.sport == "racing" else [],
-                "liveState": _map_live_state(
-                    sport=entry.sport,
-                    status_type=status,
-                    status=status_block,
-                    competition=competition if isinstance(competition, dict) else {},
-                ),
-            }
+        # Expand events where every competition is a 1v1 athlete matchup (MMA fight card,
+        # boxing card, tennis draw, etc.) — produce one game per bout instead of collapsing.
+        is_multi_athlete = (
+            len(competitions) > 1
+            and all(_is_athlete_competition(c) for c in competitions if isinstance(c, dict))
         )
+        comps_to_process = (
+            [c for c in competitions if isinstance(c, dict)]
+            if is_multi_athlete
+            else [_pick_best_competition(competitions)]
+        )
+
+        for competition in comps_to_process:
+            # Prefer competition-level status (updated per-session) over event-level status.
+            comp_status_type = (competition.get("status") or {}).get("type") or {}
+            status = comp_status_type if comp_status_type else ((event.get("status") or {}).get("type") or {})
+            comp_status_block = competition.get("status") or {}
+            status_block = comp_status_block if comp_status_block else (event.get("status") or {})
+            start_time = _parse_event_datetime(competition.get("date") or event.get("date"))
+
+            home_comp, away_comp = _extract_competitors(competition)
+            home_team = _team_model(home_comp)
+            away_team = _team_model(away_comp)
+
+            venue = competition.get("venue") or {}
+            broadcasts = competition.get("broadcasts") or []
+            broadcast_names: list[str] = []
+            if isinstance(broadcasts, list):
+                for broadcast in broadcasts:
+                    if not isinstance(broadcast, dict):
+                        continue
+                    names = broadcast.get("names") or []
+                    if isinstance(names, list) and names:
+                        primary_name = str(names[0] or "").strip()
+                        if primary_name:
+                            broadcast_names.append(primary_name)
+
+            competition_odds = competition.get("odds") or []
+            odds_detail = ""
+            if isinstance(competition_odds, list) and competition_odds:
+                first_odds = competition_odds[0] or {}
+                if isinstance(first_odds, dict):
+                    odds_detail = str(first_odds.get("details") or first_odds.get("displayValue") or "").strip()
+
+            state = _normalized(status.get("state"))
+            is_live = state == "in"
+            is_completed = bool(status.get("completed"))
+
+            # For expanded multi-bout events, build a per-fight title from the competitors
+            if is_multi_athlete and home_team and away_team:
+                home_name = str(home_team.get("name") or "").strip()
+                away_name = str(away_team.get("name") or "").strip()
+                title = (
+                    f"{home_name} vs {away_name}"
+                    if home_name and away_name
+                    else (event.get("shortName") or event.get("name") or entry.league_id)
+                )
+            else:
+                title = event.get("shortName") or event.get("name") or entry.league_id
+
+            normalized_games.append(
+                {
+                    "id": str(competition.get("id") or event.get("id") or "").strip(),
+                    "sport": entry.sport,
+                    "league": entry.league,
+                    "leagueId": entry.league_id,
+                    "title": title,
+                    "startTimeUtc": start_time.isoformat() if start_time else "",
+                    "startsInMinutes": int((start_time - now).total_seconds() // 60) if start_time else None,
+                    "state": state or "unknown",
+                    "isLive": is_live,
+                    "isCompleted": is_completed,
+                    "status": {
+                        "name": status.get("name"),
+                        "shortDetail": status.get("shortDetail"),
+                        "detail": status.get("detail"),
+                        "period": _safe_int(status_block.get("period")),
+                        "clock": status_block.get("displayClock"),
+                    },
+                    "teams": {
+                        "away": away_team,
+                        "home": home_team,
+                    },
+                    "venue": {
+                        "name": venue.get("fullName") or venue.get("name"),
+                        "city": (venue.get("address") or {}).get("city") if isinstance(venue, dict) else None,
+                        "state": (venue.get("address") or {}).get("state") if isinstance(venue, dict) else None,
+                    },
+                    "broadcasts": [name for name in broadcast_names if name],
+                    "odds": {
+                        "details": odds_detail,
+                    },
+                    "sessionLabel": str((competition.get("type") or {}).get("abbreviation") or "").strip(),
+                    "racingEntries": _racing_entries(competition if isinstance(competition, dict) else {}) if entry.sport in ("racing", "golf") else [],
+                    "liveState": _map_live_state(
+                        sport=entry.sport,
+                        status_type=status,
+                        status=status_block,
+                        competition=competition if isinstance(competition, dict) else {},
+                    ),
+                }
+            )
 
     return normalized_games
 

@@ -318,6 +318,7 @@
 .ticker-runtime-shell .d-board.d-digits { font-family: 'Spline Sans Mono', monospace; }
 .ticker-runtime-shell .board-head   { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .ticker-runtime-shell .board-titles { display: flex; flex-direction: column; line-height: 1.05; }
+.ticker-runtime-shell .board-title-row { display: flex; align-items: center; gap: 10px; }
 .ticker-runtime-shell .board-title  { font-weight: 900; font-size: 27px; color: #fff; }
 .ticker-runtime-shell .d-board.d-marq .board-title { font-style: italic; transform: skewX(-5deg); }
 .ticker-runtime-shell .board-sub    { font-size: 14px; color: #9aa3b1; font-weight: 700; margin-top: 5px; letter-spacing: .02em; }
@@ -335,16 +336,16 @@
 .ticker-runtime-shell .board-rows.cols-auto {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: 280px;
+  grid-auto-columns: 320px;
   column-gap: 14px;
-  row-gap: 2px;
+  row-gap: 4px;
 }
-.ticker-runtime-shell .board-multi .board-row            { padding: 2px 10px !important; }
+.ticker-runtime-shell .board-multi .board-row            { padding: 5px 10px !important; line-height: 1; }
 .ticker-runtime-shell .board-multi .board-row:first-child { background: #0a0c11; box-shadow: none; }
-.ticker-runtime-shell .board-multi .board-name           { font-size: 14px !important; }
-.ticker-runtime-shell .board-multi .board-detail         { font-size: 14px !important; }
-.ticker-runtime-shell .board-multi .board-pos            { font-size: 14px !important; width: 28px; }
-.ticker-runtime-shell .board-multi .board-dot            { width: 9px; height: 9px; border-radius: 2px; }
+.ticker-runtime-shell .board-multi .board-name           { font-size: 20px !important; }
+.ticker-runtime-shell .board-multi .board-detail         { font-size: 20px !important; }
+.ticker-runtime-shell .board-multi .board-pos            { font-size: 18px !important; width: 32px; }
+.ticker-runtime-shell .board-multi .board-dot            { width: 11px; height: 11px; border-radius: 2px; }
 .ticker-runtime-shell .board-multi .board-head           { margin-bottom: 0; }
 .ticker-runtime-shell .board-multi .board-foot           { padding-top: 4px; }
 .ticker-runtime-shell .d-board.d-slab.board-multi .board-detail { font-size: 17px; }
@@ -378,7 +379,7 @@
 .ticker-runtime-shell .d-board.d-slab .board-dot         { display: none; }
 .ticker-runtime-shell .d-board.d-slab .board-name        { font-weight: 900; }
 .ticker-runtime-shell .d-board.d-slab .board-detail      { font-size: 26px; font-weight: 900; }
-.ticker-runtime-shell .d-board.d-slab.board-multi .board-detail { font-size: 17px !important; }
+.ticker-runtime-shell .d-board.d-slab.board-multi .board-detail { font-size: 22px !important; }
 .ticker-runtime-shell .d-board.d-spine .board-head       { align-items: center; }
 .ticker-runtime-shell .d-board.d-digits .board-row       { background: #0a0c11; }
 .ticker-runtime-shell .d-board.d-digits .board-pos       { color: #7CF29B; }
@@ -403,14 +404,14 @@
   object-fit: cover; flex: 0 0 auto;
   border: 2px solid var(--rc, #333);
 }
-.ticker-runtime-shell .board-multi .board-hs { width: 24px; height: 24px; border-width: 1.5px; }
+.ticker-runtime-shell .board-multi .board-hs { width: 34px; height: 34px; border-width: 1.5px; }
 
 /* Board: NASCAR car number badge */
 .ticker-runtime-shell .board-badge {
   width: 38px; height: 38px; flex: 0 0 auto;
   object-fit: contain;
 }
-.ticker-runtime-shell .board-multi .board-badge { width: 28px; height: 28px; }
+.ticker-runtime-shell .board-multi .board-badge { width: 32px; height: 32px; }
 
 /* Board: pre-race circuit map */
 .ticker-runtime-shell .d-board.board-pre-circuit { width: 740px; }

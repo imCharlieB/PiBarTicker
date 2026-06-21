@@ -348,6 +348,7 @@ def get_scoreboard(
             # ESPN uses "nascar-premier" / "nascar-truck"; cf.nascar.com uses "nascar-cup" / "nascar-trucks".
             _NASCAR_ESPN_TO_CACHE: dict[str, str] = {
                 "nascar-premier": "nascar-cup",
+                "nascar-secondary": "nascar-xfinity",
                 "nascar-truck": "nascar-trucks",
             }
             nascar_drivers_meta = None
@@ -467,10 +468,10 @@ def get_scoreboard(
                 except Exception:
                     pass
 
-            # Fetch cf.nascar.com live feed for lap/flag data when a NASCAR race is active.
-            # Generic endpoint covers whichever series is currently live.
+            # Always fetch cf.nascar.com live feed for NASCAR — ESPN is often stale on race status
+            # (returns state=pre even mid-race). series_id in the cf response validates the match.
             nascar_live_data: dict | None = None
-            if _is_nascar and any(str(g.get("state") or "").lower() == "in" for g in normalized_games):
+            if _is_nascar:
                 try:
                     nascar_live_data = _http_client.get_json(
                         "https://cf.nascar.com/live/feeds/live-feed.json",
@@ -480,7 +481,71 @@ def get_scoreboard(
                 except Exception:
                     pass
 
+            # Validate cf data belongs to this series (ESPN's nascar-truck events return Cup labels)
+            _NASCAR_SERIES_IDS: dict[str, int] = {
+                "nascar-premier": 1, "nascar-cup": 1,
+                "nascar-secondary": 2, "nascar-xfinity": 2,
+                "nascar-truck": 3, "nascar-trucks": 3,
+            }
+            cf_series_id = int(nascar_live_data.get("series_id") or 0) if nascar_live_data else 0
+            expected_series_id = _NASCAR_SERIES_IDS.get(entry.league_id, 0)
+            cf_matches_series = cf_series_id > 0 and cf_series_id == expected_series_id
+            cf_lap_num = int(nascar_live_data.get("lap_number") or 0) if nascar_live_data else 0
+            cf_race_active = cf_matches_series and cf_lap_num > 0
+
+            # Build cf.nascar.com vehicle map: name.lower() → (delta_or_None, running_pos)
+            # Include all vehicles with a valid running_position even if delta is null
+            # (the leader and sometimes 2nd place carry null delta in the cf feed).
+            nascar_cf_vehicle_map: dict[str, tuple] = {}
+            if cf_matches_series and nascar_live_data:
+                for v in (nascar_live_data.get("vehicles") or []):
+                    if not isinstance(v, dict):
+                        continue
+                    drv = v.get("driver") or {}
+                    v_delta = v.get("delta")
+                    v_pos = v.get("running_position")
+                    if v_pos is None:
+                        continue  # no position = nothing to sort on
+                    # cf.nascar.com appends " #" to some driver names — strip it
+                    v_full = re.sub(r'\s*#.*$', '', str(drv.get("full_name") or "")).strip().lower()
+                    v_last = re.sub(r'\s*#.*$', '', str(drv.get("last_name") or "")).strip().lower()
+                    if v_full:
+                        nascar_cf_vehicle_map[v_full] = (v_delta, v_pos)
+                    if v_last and v_last != v_full:
+                        nascar_cf_vehicle_map[v_last] = (v_delta, v_pos)
+
+            # Lookup tables for fixing ESPN series mislabeling
+            _NASCAR_SERIES_LABELS: dict[str, str] = {
+                "nascar-premier": "NASCAR Cup Series", "nascar-cup": "NASCAR Cup Series",
+                "nascar-secondary": "NASCAR Xfinity Series", "nascar-xfinity": "NASCAR Xfinity Series",
+                "nascar-truck": "NASCAR Craftsman Truck Series", "nascar-trucks": "NASCAR Craftsman Truck Series",
+            }
+            _WRONG_SERIES_PREFIXES = [
+                "NASCAR Cup Series", "NASCAR Xfinity Series",
+                "NASCAR Craftsman Truck Series", "NASCAR O'Reilly Auto Parts Series",
+            ]
+
             for game in normalized_games:
+                # Override ESPN's stale state/title with cf.nascar.com authoritative data
+                if cf_race_active:
+                    game["state"] = "in"
+                    game["isLive"] = True
+                    cf_run_name = str(nascar_live_data.get("run_name") or "").strip()  # type: ignore[union-attr]
+                    if cf_run_name:
+                        game["title"] = cf_run_name
+
+                # Fix ESPN mislabeling non-Cup series (e.g., nascar-truck → "NASCAR Cup Series at …")
+                if _is_nascar:
+                    correct_series = _NASCAR_SERIES_LABELS.get(entry.league_id, "")
+                    if correct_series:
+                        title = str(game.get("title") or "").strip()
+                        for wp in _WRONG_SERIES_PREFIXES:
+                            if wp != correct_series and title.startswith(wp):
+                                suffix = title[len(wp):].lstrip(" -–·")
+                                game["title"] = (f"{correct_series} {suffix}".strip()
+                                                 if suffix else correct_series)
+                                break
+
                 for race_entry in game.get("racingEntries") or []:
                     if not race_entry.get("teamColor"):
                         team_id = str(race_entry.get("teamId") or "").strip()
@@ -499,7 +564,7 @@ def get_scoreboard(
                             if driver.logos.get("headshot") and not race_entry.get("headshot"):
                                 race_entry["headshot"] = driver.logos["headshot"]
 
-                    # NASCAR surname join — inject headshot, car number, badge image
+                    # NASCAR surname join — inject headshot, car number, badge image, gap
                     if _is_nascar:
                         # Fallback: ESPN CDN headshot from athleteId (no sync required)
                         athlete_id = str(race_entry.get("athleteId") or "").strip()
@@ -527,38 +592,67 @@ def get_scoreboard(
                                             race_entry["carBadge"] = cdn_badge
                                 if driver.color and not race_entry.get("teamColor"):
                                     race_entry["teamColor"] = driver.color
+                        # Inject gap-to-leader and running position from cf.nascar.com live feed
+                        if nascar_cf_vehicle_map and str(game.get("state") or "").lower() == "in":
+                            entry_name = str(race_entry.get("name") or "").strip().lower()
+                            surname_cf = entry_name.split()[-1] if entry_name else ""
+                            cf_match = nascar_cf_vehicle_map.get(entry_name) or (nascar_cf_vehicle_map.get(surname_cf) if surname_cf else None)
+                            if cf_match is not None:
+                                try:
+                                    cf_delta, cf_pos = cf_match
+                                    pos_int = int(cf_pos)
+                                    race_entry["position"] = pos_int
+                                    race_entry["_cfPos"] = pos_int
+                                    if pos_int == 1:
+                                        race_entry["score"] = "LEAD"
+                                    elif cf_delta is not None:
+                                        delta_f = float(cf_delta)
+                                        if delta_f == 0.0:
+                                            race_entry["score"] = "LEAD"
+                                        else:
+                                            race_entry["score"] = f"+{delta_f:.3f}s" if delta_f < 60 else f"+{delta_f:.1f}s"
+                                except (TypeError, ValueError):
+                                    pass
 
-            # Inject seriesLogo for NASCAR so the frontend can display the real series logo
-            if nascar_series_logo:
-                game["seriesLogo"] = nascar_series_logo
+                # Re-sort entries by live running position when cf data was applied.
+                # Use _cfPos (set only for cf-matched entries) so ESPN's starting grid
+                # positions don't conflict with cf running positions during sort.
+                if cf_race_active and nascar_cf_vehicle_map:
+                    entries = game.get("racingEntries")
+                    if isinstance(entries, list):
+                        entries.sort(key=lambda e: e.get("_cfPos") if isinstance(e.get("_cfPos"), int) else 9999)
 
-            # Inject lap number, laps to go, and flag state from cf.nascar.com live feed
-            if _is_nascar and nascar_live_data and str(game.get("state") or "").lower() == "in":
-                _FLAG_INT_MAP = {1: "green", 2: "yellow", 3: "red", 4: "checkered", 5: "white", 8: "yellow"}
-                lap_num = nascar_live_data.get("lap_number")
-                laps_go = nascar_live_data.get("laps_to_go")
-                flag_raw = nascar_live_data.get("flag_state")
-                if lap_num is not None:
-                    try:
-                        game["lapNumber"] = int(lap_num)
-                    except (TypeError, ValueError):
-                        pass
-                if laps_go is not None:
-                    try:
-                        game["lapsToGo"] = int(laps_go)
-                    except (TypeError, ValueError):
-                        pass
-                if isinstance(flag_raw, int):
-                    game["flagState"] = _FLAG_INT_MAP.get(flag_raw, "")
-                elif isinstance(flag_raw, str):
-                    fs = flag_raw.lower()
-                    if fs in ("green", "yellow", "red", "caution", "checkered", "white"):
-                        game["flagState"] = fs
+                # Inject seriesLogo for NASCAR so the frontend can display the real series logo
+                if nascar_series_logo:
+                    game["seriesLogo"] = nascar_series_logo
 
-            # Inject circuitImage + circuitName for F1 games.
-            # ESPN returns venue:null for all F1 events, so we match against the
-            # event title (shortName / name) which contains the race name.
-            if f1_circuit_lookup and not game.get("circuitImage"):
+                # Inject lap number, laps to go, and flag state from cf.nascar.com live feed
+                if _is_nascar and nascar_live_data and str(game.get("state") or "").lower() == "in":
+                    _FLAG_INT_MAP = {1: "green", 2: "yellow", 3: "red", 4: "checkered", 5: "white", 8: "yellow"}
+                    lap_num = nascar_live_data.get("lap_number")
+                    laps_go = nascar_live_data.get("laps_to_go")
+                    flag_raw = nascar_live_data.get("flag_state")
+                    if lap_num is not None:
+                        try:
+                            game["lapNumber"] = int(lap_num)
+                        except (TypeError, ValueError):
+                            pass
+                    if laps_go is not None:
+                        try:
+                            game["lapsToGo"] = int(laps_go)
+                        except (TypeError, ValueError):
+                            pass
+                    if isinstance(flag_raw, int):
+                        game["flagState"] = _FLAG_INT_MAP.get(flag_raw, "")
+                    elif isinstance(flag_raw, str):
+                        fs = flag_raw.lower()
+                        if fs in ("green", "yellow", "red", "caution", "checkered", "white"):
+                            game["flagState"] = fs
+
+                # Inject circuitImage + circuitName for F1 games.
+                # ESPN returns venue:null for all F1 events, so we match against the
+                # event title (shortName / name) which contains the race name.
+                if f1_circuit_lookup and not game.get("circuitImage"):
                     venue = game.get("venue") or {}
                     venue_city = str(venue.get("city") or "").strip().lower()
                     venue_name = str(venue.get("name") or "").strip().lower()

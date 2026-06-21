@@ -47,6 +47,7 @@ LOGOS = [
     ('accn.png',         f'{CDN}/acc-network-us.png'),
     ('btn.png',          f'{CDN}/big-ten-network-us.png'),
     ('usa.png',          f'{CDN}/usa-us.png'),
+    ('cw.png',           f'{CDN}/cw-us.png'),
     ('altitude.png',     f'{CDN}/altitude-sports-us.png'),
     ('ballysports.png',  f'{CDN}/bally-sports-us.png'),
     ('peacock.png',      f'{CDN}/nbc-peacock-flat-us.png'),

@@ -43,6 +43,10 @@ const NETWORK_LOGOS = {
   'BTN':                 '/logos/networks/btn.png',
   'USA NETWORK':         '/logos/networks/usa.png',
   'USA':                 '/logos/networks/usa.png',
+  'THE CW':              '/logos/networks/cw.png',
+  'CW':                  '/logos/networks/cw.png',
+  'THE CW NETWORK':      '/logos/networks/cw.png',
+  'CW NETWORK':          '/logos/networks/cw.png',
   'ALTITUDE':            '/logos/networks/altitude.png',
   'ALTITUDE SPORTS':     '/logos/networks/altitude.png',
   'BALLY SPORTS':        '/logos/networks/ballysports.png',
@@ -529,8 +533,8 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
     carBadge: entry.carBadge ? (entry.carBadge.startsWith('http') ? entry.carBadge : `/logos/${entry.carBadge}`) : null,
   }))
 
-  const MAX_PER_COL = 7
-  const MAX_COLS = 6
+  const MAX_PER_COL = 5
+  const MAX_COLS = 8
   const cols = rows.length > MAX_PER_COL
     ? Math.min(MAX_COLS, Math.ceil(rows.length / MAX_PER_COL))
     : 1
@@ -542,11 +546,13 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
     <div className={`card d-board ${dirClass} ${useGrid ? 'board-multi' : ''}`}>
       <div className="board-head">
         <div className="board-titles">
-          <span className="board-title">{title}</span>
+          <div className="board-title-row">
+            <span className="board-title">{title}</span>
+            {state === 'in' ? <FlagChip state={game?.flagState} /> : null}
+          </div>
           <span className="board-sub">{statusLabel}</span>
         </div>
         <StateChip game={game} />
-        {state === 'in' ? <FlagChip state={game?.flagState} /> : null}
       </div>
       <div
         className={`board-rows ${useGrid ? 'cols-auto' : ''}`}
@@ -566,8 +572,7 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
         ))}
       </div>
       <div className="board-foot">
-        <span className="board-unit">{unit}</span>
-        <MetaRow game={game} flags={{ ...flags, tv: false }} mono />
+        <MetaRow game={game} flags={flags} mono />
       </div>
     </div>
   )

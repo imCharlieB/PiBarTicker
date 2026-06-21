@@ -428,7 +428,31 @@ export function resolveEventTeamPalette(rawEvent, homeAway) {
   }
 }
 
-export function prepareDisplayGames(games, rawEventsById, displayLeague, leagueLogoMeta, payload) {
+function resolveCachedTeamLogo(cachedTeam, themeMode) {
+  const logos = cachedTeam?.logos
+  if (!logos || !Object.keys(logos).length) return null
+
+  // User override takes priority
+  const preferred = cachedTeam.preferred_variant
+  if (preferred && logos[preferred]) return `/logos/${logos[preferred]}`
+
+  // Prefer dark variant when not in light mode (dark mode, team mode, or default)
+  if (themeMode !== 'light') {
+    for (const v of ['dark', 'full_dark']) {
+      if (logos[v]) return `/logos/${logos[v]}`
+    }
+  }
+
+  // Default priority order
+  for (const v of ['scoreboard', 'default', 'dark', 'full', 'full_default']) {
+    if (logos[v]) return `/logos/${logos[v]}`
+  }
+
+  const first = Object.values(logos)[0]
+  return first ? `/logos/${first}` : null
+}
+
+export function prepareDisplayGames(games, rawEventsById, displayLeague, leagueLogoMeta, payload, themeMode) {
   return games.map((game, index) => {
     const rawEvent = rawEventsById.get(String(game?.id || '').trim())
     const oddsText = extractEventOdds(rawEvent) || String(game?.odds?.details || '').trim()
@@ -525,7 +549,7 @@ export function prepareDisplayGames(games, rawEventsById, displayLeague, leagueL
         ...game.teams,
         away: {
           ...(game?.teams?.away || {}),
-          logo: String(game?.teams?.away?.logo || awayLogoRaw || '').trim(),
+          logo: resolveCachedTeamLogo(awayCached, themeMode) || String(game?.teams?.away?.logo || awayLogoRaw || '').trim(),
           palette: {
             primary: sanitizeHexColor(awayCached?.color) || awayPaletteRaw.primary || sanitizeHexColor(game?.teams?.away?.color),
             alternate: sanitizeHexColor(awayCached?.alternate_color) || awayPaletteRaw.alternate || sanitizeHexColor(game?.teams?.away?.alternateColor),
@@ -533,7 +557,7 @@ export function prepareDisplayGames(games, rawEventsById, displayLeague, leagueL
         },
         home: {
           ...(game?.teams?.home || {}),
-          logo: String(game?.teams?.home?.logo || homeLogoRaw || '').trim(),
+          logo: resolveCachedTeamLogo(homeCached, themeMode) || String(game?.teams?.home?.logo || homeLogoRaw || '').trim(),
           palette: {
             primary: sanitizeHexColor(homeCached?.color) || homePaletteRaw.primary || sanitizeHexColor(game?.teams?.home?.color),
             alternate: sanitizeHexColor(homeCached?.alternate_color) || homePaletteRaw.alternate || sanitizeHexColor(game?.teams?.home?.alternateColor),

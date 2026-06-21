@@ -109,9 +109,10 @@ function App() {
       activeGames, eventsById, runtimeDisplayLeague,
       runtimeDisplayLeague ? leagueLogoMetaById[runtimeDisplayLeague.id] : null,
       activeRuntimePayload,
+      config?.theme?.mode,
     )
     return displayGames.length ? displayGames : stableGames
-  }, [activeRuntimePayload, runtimeDisplayLeague, stableGoodGamesByLeagueId, leagueLogoMetaById]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeRuntimePayload, runtimeDisplayLeague, stableGoodGamesByLeagueId, leagueLogoMetaById, config?.theme?.mode]) // eslint-disable-line react-hooks/exhaustive-deps
   const runtimeRenderLeague = runtimeVisibleLeague || (runtimeMarqueeGames.length ? runtimeDisplayLeague : null)
   const brandLeague = runtimeRenderLeague || runtimeDisplayLeague || runtimeLeagues[0] || null
 

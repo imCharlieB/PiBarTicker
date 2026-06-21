@@ -62,13 +62,17 @@ export default function LeagueDetail({
   const _nascarCacheIdMap = { 'nascar-premier': 'nascar-cup', 'nascar-truck': 'nascar-trucks' }
   const _ALL_NASCAR_CACHE_IDS = ['nascar-cup', 'nascar-xfinity', 'nascar-trucks']
 
+  const isF1League = selectedTickerLeague.id === 'f1'
+
   useEffect(() => {
     if (isNascarLeague) {
       _ALL_NASCAR_CACHE_IDS.forEach((id) => loadLeagueLogoMeta(id))
+    } else if (isF1League && !leagueTeamsById['f1']?.length) {
+      loadLeagueTeams(selectedTickerLeague)
     } else if (isNonRacingIndividualLeague) {
       loadLeagueLogoMeta(selectedTickerLeague.id)
     }
-  }, [isNascarLeague, isNonRacingIndividualLeague, selectedTickerLeague.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isNascarLeague, isF1League, isNonRacingIndividualLeague, selectedTickerLeague.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const nascarDriverList = isNascarLeague
     ? _ALL_NASCAR_CACHE_IDS.flatMap((id) => {
@@ -469,7 +473,7 @@ export default function LeagueDetail({
           </p>
         </div>
         <div className="ld-explorer-actions">
-          {!isNascarLeague && (
+          {!isNascarLeague && !isF1League && (
             <button type="button" className="ld-explorer-btn"
               onClick={syncTeamsAndLogos}
               disabled={selectedLeagueLoadState.loading}
@@ -604,8 +608,8 @@ export default function LeagueDetail({
                 return (
                   <div key={`${selectedTickerLeague.id}-${team.id}`} className="ld-driver-card"
                     role="button" tabIndex={0}
-                    onClick={() => { onSelectDriver?.(team) }}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectDriver?.(team) } }}
+                    onClick={() => { if (isF1League) { onSelectTeam?.(team.id); loadTeamLogosForLeagueTeam(selectedTickerLeague, team); loadLeagueLogoMeta(selectedTickerLeague.id) } else { onSelectDriver?.(team) } }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (isF1League) { onSelectTeam?.(team.id); loadTeamLogosForLeagueTeam(selectedTickerLeague, team) } else { onSelectDriver?.(team) } } }}
                   >
                     {cachedLogo
                       ? <img src={cachedLogo} alt={team.name} className="ld-driver-badge-img" />

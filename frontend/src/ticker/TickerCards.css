@@ -366,7 +366,7 @@
 .ticker-runtime-shell .bpre-label   { font-size: 12px; font-weight: 900; letter-spacing: .2em; color: #7CF29B; }
 .ticker-runtime-shell .bpre-time    { font-weight: 900; font-size: 32px; line-height: 1.04; color: #fff; letter-spacing: -.01em; }
 .ticker-runtime-shell .bpre-time em { font-style: normal; font-size: 17px; color: #9aa3b1; margin-left: 7px; font-weight: 800; }
-.ticker-runtime-shell .bpre-tv      { font-size: 14px; font-weight: 800; color: #cfd6e2; letter-spacing: .03em; }
+.ticker-runtime-shell .bpre-tv      { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .ticker-runtime-shell .bpre-tv em   { font-style: normal; color: #6b7480; margin-right: 7px; font-size: 11px; letter-spacing: .12em; }
 .ticker-runtime-shell .bpre-field   { flex: 1; display: flex; flex-direction: column; gap: 5px; justify-content: center; }
 .ticker-runtime-shell .bpre-fhead   { font-size: 11px; font-weight: 900; letter-spacing: .18em; color: #6b7480; margin-bottom: 2px; }

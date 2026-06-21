@@ -541,7 +541,9 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
             <span className="bpre-label">{isGolf ? 'TEE TIME' : 'STARTS'}</span>
             <span className="bpre-time">{timeText || '—'}</span>
             {game?.broadcastText && flags.tv
-              ? <span className="bpre-tv"><em>TV</em>{game.broadcastText}</span>
+              ? <span className="bpre-tv">
+                  {game.broadcastText.split(/\s*\/\s*/).filter(Boolean).map((n, i) => <NetworkLogo key={i} name={n} />)}
+                </span>
               : null}
           </div>
           {circuitImg ? (

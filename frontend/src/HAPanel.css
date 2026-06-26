@@ -160,3 +160,69 @@
   color: var(--text-muted, #9aa3b1);
   font-size: 1.4cqh;
 }
+
+/* Weather card extras */
+.ha-panel-wx-feels {
+  font-size: 1.1cqh;
+  color: var(--text-muted, #9aa3b1);
+  margin-left: 0.3cqh;
+}
+
+.ha-panel-wx-gust,
+.ha-panel-wx-bearing {
+  color: var(--text-muted, #9aa3b1);
+  font-size: 1.1cqh;
+}
+
+/* Forecast strips */
+.ha-panel-wx-forecast {
+  width: 100%;
+  min-width: 0;
+}
+
+.ha-panel-wx-forecast-label {
+  font-size: 1cqh;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted, #9aa3b1);
+  margin-bottom: 0.2cqh;
+}
+
+.ha-panel-wx-forecast-strip {
+  display: flex;
+  gap: 0.6cqh;
+  overflow: hidden;
+}
+
+.ha-panel-wx-forecast-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15cqh;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.ha-panel-wx-fc-time {
+  font-size: 1cqh;
+  color: var(--text-muted, #9aa3b1);
+  white-space: nowrap;
+}
+
+.ha-panel-wx-fc-icon {
+  font-size: 1.8cqh;
+  color: var(--ic, #9aa3b1);
+}
+
+.ha-panel-wx-fc-temp {
+  font-size: 1.2cqh;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ha-panel-wx-fc-lo {
+  font-size: 1cqh;
+  color: var(--text-muted, #9aa3b1);
+  white-space: nowrap;
+}

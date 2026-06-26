@@ -123,6 +123,8 @@ class HACardConfig(AppBaseModel):
     sub: str = ""
     variant: Literal["home", "weather", "printer"] = "home"
     enabled: bool = True
+    hourlySensorId: str = ""
+    dailySensorId: str = ""
 
 
 class HomeAssistantBoardConfig(AppBaseModel):

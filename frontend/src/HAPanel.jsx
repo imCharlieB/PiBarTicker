@@ -28,6 +28,20 @@ function HAPanelSensorCard({ card, sensors, sensorValues }) {
   )
 }
 
+function bearingToCompass(deg) {
+  const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW']
+  return dirs[Math.round(deg / 22.5) % 16]
+}
+
+function fmtDay(dt) {
+  return new Date(dt).toLocaleDateString('en-US', { weekday: 'short' })
+}
+
+function fmtHour(dt) {
+  const h = new Date(dt).getHours()
+  return h === 0 ? '12AM' : h < 12 ? `${h}AM` : h === 12 ? '12PM' : `${h - 12}PM`
+}
+
 function HAPanelWeatherCard({ card, sensors, sensorValues }) {
   let live = null
   for (const s of sensors) {
@@ -38,13 +52,20 @@ function HAPanelWeatherCard({ card, sensors, sensorValues }) {
   const condition = live?.state ?? '—'
   const wx = WEATHER_ICON_MAP[condition] ?? { icon: 'mdi-weather-cloudy', color: '#9aa3b1' }
   const temp = live?.attributes?.temperature
+  const feelsLike = live?.attributes?.apparent_temperature
   const tempUnit = live?.attributes?.temperature_unit ?? '°'
   const humidity = live?.attributes?.humidity
   const windSpeed = live?.attributes?.wind_speed
   const windUnit = live?.attributes?.wind_speed_unit ?? ''
-  const forecast0 = live?.attributes?.forecast?.[0]
-  const hiTemp = forecast0?.temperature ?? forecast0?.high_temperature
-  const loTemp = forecast0?.templow ?? forecast0?.low_temperature
+  const windBearing = live?.attributes?.wind_bearing
+  const windGust = live?.attributes?.wind_gust_speed
+  const pressure = live?.attributes?.pressure
+  const pressureUnit = live?.attributes?.pressure_unit ?? ''
+
+  const hourlyLive = card.hourlySensorId ? sensorValues[card.hourlySensorId] : null
+  const dailyLive = card.dailySensorId ? sensorValues[card.dailySensorId] : null
+  const hourlyForecast = hourlyLive?.attributes?.forecast ?? null
+  const dailyForecast = dailyLive?.attributes?.forecast ?? null
 
   return (
     <div className="ha-panel-card ha-panel-weather">
@@ -55,15 +76,12 @@ function HAPanelWeatherCard({ card, sensors, sensorValues }) {
       <div className="ha-panel-wx-hero">
         <i className={`mdi ${wx.icon} ha-panel-wx-icon`} style={{ '--ic': wx.color }} />
         <div className="ha-panel-wx-temp">{temp != null ? temp : '—'}<span className="ha-panel-wx-deg">{tempUnit}</span></div>
-        <div className="ha-panel-wx-cond">{condition}</div>
+        <div className="ha-panel-wx-cond">
+          {condition}
+          {feelsLike != null && <span className="ha-panel-wx-feels"> · feels {feelsLike}{tempUnit}</span>}
+        </div>
       </div>
       <div className="ha-panel-wx-stats">
-        {hiTemp != null && loTemp != null && (
-          <div className="ha-panel-wx-stat">
-            <i className="mdi mdi-thermometer" style={{ '--ic': '#f0894e' }} />
-            <span>{hiTemp}° / {loTemp}°</span>
-          </div>
-        )}
         {humidity != null && (
           <div className="ha-panel-wx-stat">
             <i className="mdi mdi-water-percent" style={{ '--ic': '#5ac8fa' }} />
@@ -73,10 +91,57 @@ function HAPanelWeatherCard({ card, sensors, sensorValues }) {
         {windSpeed != null && (
           <div className="ha-panel-wx-stat">
             <i className="mdi mdi-weather-windy" style={{ '--ic': '#4fd1c5' }} />
-            <span>{windSpeed}{windUnit ? ` ${windUnit}` : ''}</span>
+            <span>
+              {windSpeed}{windUnit ? ` ${windUnit}` : ''}
+              {windGust != null && <span className="ha-panel-wx-gust"> G{windGust}</span>}
+              {windBearing != null && <span className="ha-panel-wx-bearing"> {bearingToCompass(windBearing)}</span>}
+            </span>
+          </div>
+        )}
+        {pressure != null && (
+          <div className="ha-panel-wx-stat">
+            <i className="mdi mdi-gauge" style={{ '--ic': '#a78bfa' }} />
+            <span>{pressure}{pressureUnit ? ` ${pressureUnit}` : ''}</span>
           </div>
         )}
       </div>
+      {hourlyForecast && hourlyForecast.length > 0 && (
+        <div className="ha-panel-wx-forecast">
+          <div className="ha-panel-wx-forecast-label">Hourly</div>
+          <div className="ha-panel-wx-forecast-strip">
+            {hourlyForecast.slice(0, 5).map((h, i) => {
+              const hwx = WEATHER_ICON_MAP[h.condition] ?? { icon: 'mdi-weather-cloudy', color: '#9aa3b1' }
+              return (
+                <div key={i} className="ha-panel-wx-forecast-item">
+                  <span className="ha-panel-wx-fc-time">{fmtHour(h.datetime)}</span>
+                  <i className={`mdi ${hwx.icon} ha-panel-wx-fc-icon`} style={{ '--ic': hwx.color }} />
+                  <span className="ha-panel-wx-fc-temp">{h.temperature}°</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+      {dailyForecast && dailyForecast.length > 0 && (
+        <div className="ha-panel-wx-forecast">
+          <div className="ha-panel-wx-forecast-label">Daily</div>
+          <div className="ha-panel-wx-forecast-strip">
+            {dailyForecast.slice(0, 6).map((d, i) => {
+              const dwx = WEATHER_ICON_MAP[d.condition] ?? { icon: 'mdi-weather-cloudy', color: '#9aa3b1' }
+              const hi = d.temperature ?? d.high_temperature
+              const lo = d.templow ?? d.low_temperature
+              return (
+                <div key={i} className="ha-panel-wx-forecast-item">
+                  <span className="ha-panel-wx-fc-time">{fmtDay(d.datetime)}</span>
+                  <i className={`mdi ${dwx.icon} ha-panel-wx-fc-icon`} style={{ '--ic': dwx.color }} />
+                  <span className="ha-panel-wx-fc-temp">{hi != null ? `${hi}°` : '—'}</span>
+                  {lo != null && <span className="ha-panel-wx-fc-lo">{lo}°</span>}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

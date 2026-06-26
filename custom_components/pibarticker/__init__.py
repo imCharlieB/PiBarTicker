@@ -113,6 +113,21 @@ async def _push_sensor(hass: HomeAssistant, entry: ConfigEntry, state) -> None:
         brightness = state.attributes.get("brightness")
         if brightness is not None:
             attrs["brightness"] = brightness
+    elif domain == "weather":
+        for key in (
+            "temperature", "apparent_temperature", "dew_point", "temperature_unit",
+            "humidity", "cloud_coverage", "pressure", "pressure_unit",
+            "wind_bearing", "wind_speed", "wind_speed_unit", "wind_gust_speed",
+            "visibility", "visibility_unit", "precipitation_unit", "ozone",
+            "attribution", "forecast",
+        ):
+            val = state.attributes.get(key)
+            if val is not None:
+                attrs[key] = val
+    elif domain == "sensor":
+        forecast = state.attributes.get("forecast")
+        if forecast is not None:
+            attrs["forecast"] = forecast
 
     try:
         await session.post(

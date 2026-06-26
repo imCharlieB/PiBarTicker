@@ -1567,6 +1567,31 @@
   width: 100%;
 }
 
+.ha-card-block {
+  margin-bottom: 6px;
+}
+
+.ha-card-block .ha-card-row {
+  margin-bottom: 0;
+}
+
+.ha-card-weather-sensors {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 6px 0 0 0;
+  margin-bottom: 6px;
+}
+
+.ha-card-weather-sensor-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11.5px;
+  color: #93969c;
+  font-weight: 500;
+}
+
 .ha-card-remove-btn:hover {
   background: rgba(239,68,68,0.15);
   color: #f87171;

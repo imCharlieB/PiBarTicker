@@ -148,37 +148,73 @@ export default function ServicesPage() {
               </p>
             )}
             {haCards.map((card) => (
-              <div key={card.id} className="ha-card-row">
-                <input
-                  className="ha-card-input"
-                  value={card.title}
-                  onChange={(e) => updateCard(card.id, { title: e.target.value })}
-                  placeholder="Title"
-                />
-                <input
-                  className="ha-card-input"
-                  value={card.sub}
-                  onChange={(e) => updateCard(card.id, { sub: e.target.value })}
-                  placeholder="Subtitle (optional)"
-                />
-                <select
-                  className="ha-card-select"
-                  value={card.variant}
-                  onChange={(e) => updateCard(card.id, { variant: e.target.value })}
-                >
-                  <option value="home">Home</option>
-                  <option value="weather">Weather</option>
-                  <option value="printer">Printer</option>
-                </select>
-                <label className="toggle-switch" title={card.enabled !== false ? 'Card visible' : 'Card hidden'}>
+              <div key={card.id} className="ha-card-block">
+                <div className="ha-card-row">
                   <input
-                    type="checkbox"
-                    checked={card.enabled !== false}
-                    onChange={(e) => updateCard(card.id, { enabled: e.target.checked })}
+                    className="ha-card-input"
+                    value={card.title}
+                    onChange={(e) => updateCard(card.id, { title: e.target.value })}
+                    placeholder="Title"
                   />
-                  <span className="toggle-slider" />
-                </label>
-                <button className="ha-card-remove-btn" onClick={() => removeCard(card.id)}>×</button>
+                  <input
+                    className="ha-card-input"
+                    value={card.sub}
+                    onChange={(e) => updateCard(card.id, { sub: e.target.value })}
+                    placeholder="Subtitle (optional)"
+                  />
+                  <select
+                    className="ha-card-select"
+                    value={card.variant}
+                    onChange={(e) => updateCard(card.id, { variant: e.target.value })}
+                  >
+                    <option value="home">Home</option>
+                    <option value="weather">Weather</option>
+                    <option value="printer">Printer</option>
+                  </select>
+                  <label className="toggle-switch" title={card.enabled !== false ? 'Card visible' : 'Card hidden'}>
+                    <input
+                      type="checkbox"
+                      checked={card.enabled !== false}
+                      onChange={(e) => updateCard(card.id, { enabled: e.target.checked })}
+                    />
+                    <span className="toggle-slider" />
+                  </label>
+                  <button className="ha-card-remove-btn" onClick={() => removeCard(card.id)}>×</button>
+                </div>
+                {card.variant === 'weather' && (
+                  <div className="ha-card-weather-sensors">
+                    <label className="ha-card-weather-sensor-label">
+                      <span>Hourly forecast</span>
+                      <select
+                        className="ha-card-select"
+                        value={card.hourlySensorId || ''}
+                        onChange={(e) => updateCard(card.id, { hourlySensorId: e.target.value })}
+                      >
+                        <option value="">— none —</option>
+                        {pushedSensors.map((s) => (
+                          <option key={s.entity_id} value={s.entity_id}>
+                            {s.friendly_name || s.entity_id}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="ha-card-weather-sensor-label">
+                      <span>Daily forecast</span>
+                      <select
+                        className="ha-card-select"
+                        value={card.dailySensorId || ''}
+                        onChange={(e) => updateCard(card.id, { dailySensorId: e.target.value })}
+                      >
+                        <option value="">— none —</option>
+                        {pushedSensors.map((s) => (
+                          <option key={s.entity_id} value={s.entity_id}>
+                            {s.friendly_name || s.entity_id}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                )}
               </div>
             ))}
           </div>

@@ -223,6 +223,10 @@ apply_display_mode() {
     return
   fi
 
+  # Remove any stale PiBarTicker logical monitor from a previous run so it
+  # does not conflict when we rebuild the combined virtual screen below.
+  xrandr --delmonitor PiBarTicker 2>/dev/null || true
+
   if [ "${SWAP_OUTPUTS:-false}" = "true" ] && [ "${#outputs[@]}" -ge 2 ]; then
     local tmp="${outputs[0]}"
     outputs[0]="${outputs[1]}"

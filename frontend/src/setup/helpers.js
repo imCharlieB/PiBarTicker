@@ -59,10 +59,6 @@ export function computeThemeErrors(config) {
   }
 }
 
-export function computeServicesErrors(_config) {
-  return {}
-}
-
 export function computeSectionChecks(config) {
   return [
     {
@@ -74,11 +70,6 @@ export function computeSectionChecks(config) {
       id: 'theme',
       label: 'Theme',
       errors: Object.values(computeThemeErrors(config)).filter(Boolean),
-    },
-    {
-      id: 'services',
-      label: 'Services',
-      errors: Object.values(computeServicesErrors(config)).filter(Boolean),
     },
   ].map((check) => ({
     ...check,
@@ -152,7 +143,6 @@ export function getSectionSnapshots(cfg) {
   return {
     display: { monitor: cfg.monitor, kiosk: cfg.kiosk, layout: cfg.layout },
     theme: { theme: cfg.theme },
-    services: {},
     ticker: {
       sportsBoard,
       haBoard: homeAssistantBoard

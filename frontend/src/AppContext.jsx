@@ -36,7 +36,7 @@ function addRecommendedPiFlags(currentFlags) {
   return [...existing, ...toAdd]
 }
 
-const EDITABLE_PAGE_SEQUENCE = ['display', 'theme', 'services', 'ticker']
+const EDITABLE_PAGE_SEQUENCE = ['display', 'theme', 'ticker']
 
 // ── Context ──────────────────────────────────────────────────────────────────
 

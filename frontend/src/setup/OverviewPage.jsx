@@ -67,15 +67,6 @@ export default function OverviewPage() {
             <div className="overview-kv-row"><span>Accent</span><span>{config.theme.accent || 'Default'}</span></div>
           </div>
         </button>
-        <button type="button" className="overview-item" onClick={() => setActivePage('services')}>
-          <div className="overview-item-header">
-            <h3>Services</h3>
-            <span className="overview-item-arrow">›</span>
-          </div>
-          <div className="overview-kv-list">
-            <div className="overview-kv-row"><span>Alerts</span><span>HA automation</span></div>
-          </div>
-        </button>
         <button type="button" className="overview-item" onClick={() => setActivePage('ticker')}>
           <div className="overview-item-header">
             <h3>Ticker</h3>

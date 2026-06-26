@@ -11,7 +11,6 @@ import LayoutShell from './LayoutShell'
 import HAPanel from './HAPanel'
 import OverviewPage from './setup/OverviewPage'
 import DisplayPage from './setup/DisplayPage'
-import ServicesPage from './setup/ServicesPage'
 import ThemePage from './setup/ThemePage'
 import TickerPage from './setup/TickerPage'
 
@@ -197,7 +196,6 @@ function App() {
     { id: 'overview', label: 'Overview' },
     { id: 'display', label: 'Display' },
     { id: 'theme', label: 'Theme' },
-    { id: 'services', label: 'Services' },
     { id: 'ticker', label: 'Ticker' },
   ]
 
@@ -214,9 +212,6 @@ function App() {
     theme: savedSectionSnapshots
       ? JSON.stringify(sectionSnapshots.theme) !== JSON.stringify(savedSectionSnapshots.theme)
       : false,
-    services: savedSectionSnapshots
-      ? JSON.stringify(sectionSnapshots.services) !== JSON.stringify(savedSectionSnapshots.services)
-      : false,
     ticker: savedSectionSnapshots
       ? JSON.stringify(sectionSnapshots.ticker) !== JSON.stringify(savedSectionSnapshots.ticker)
       : false,
@@ -230,7 +225,6 @@ function App() {
     if (activePage === 'overview') return <OverviewPage />
     if (activePage === 'display') return <DisplayPage />
     if (activePage === 'theme') return <ThemePage />
-    if (activePage === 'services') return <ServicesPage />
     return <TickerPage />
   }
 

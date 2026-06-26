@@ -157,6 +157,43 @@ export default function HADetail({ onBack }) {
         </p>
       )}
 
+      <div className="ha-alert-example" style={{ marginTop: '1.5rem' }}>
+        <div className="ha-alert-example-title">Alert automations</div>
+        <div className="ha-alert-example-desc">
+          Use <code>pibarticker.notify</code> with a <code>key</code> and <code>ttl: 0</code> to show a persistent alert on the ticker.
+          Use <code>pibarticker.clear_alert</code> with the same key to dismiss it.
+        </div>
+        <pre className="ha-alert-yaml">{`alias: PiBarTicker — Water Leak
+trigger:
+  - platform: state
+    entity_id: binary_sensor.water_sensor
+    to: "on"
+    id: wet
+  - platform: state
+    entity_id: binary_sensor.water_sensor
+    to: "off"
+    id: dry
+action:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: wet
+        sequence:
+          - service: pibarticker.notify
+            data:
+              message: "Water detected!"
+              level: critical
+              key: water_leak
+              ttl: 0
+      - conditions:
+          - condition: trigger
+            id: dry
+        sequence:
+          - service: pibarticker.clear_alert
+            data:
+              key: water_leak`}</pre>
+      </div>
+
       {loadingState === 'done' && pushedSensors.length > 0 && (
         <div className="ha-sensor-list">
           <div className={`ha-sensor-list-head ${haCards.length > 0 ? 'ha-sensor-list-head-cards' : 'ha-sensor-list-head-pushed'}`}>

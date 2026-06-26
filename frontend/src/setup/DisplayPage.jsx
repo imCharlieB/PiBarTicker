@@ -15,7 +15,9 @@ export default function DisplayPage() {
       const res = await fetch('/api/v1/display/resolution')
       const data = await res.json()
       if (data.detected) {
-        const monitorCount = config.monitor.mode === 'dual' ? 2 : 1
+        const monitorCount = data.outputs?.length || 1
+        const mode = monitorCount >= 2 ? 'dual' : 'single'
+        updateConfigSection('monitor', 'mode', mode)
         updateConfigSection('monitor', 'width', Math.round(data.width / monitorCount))
         updateConfigSection('monitor', 'height', data.height)
       } else {

@@ -348,7 +348,7 @@ export function AppContextProvider({ children }) {
 
   async function saveConfig({ continueToNextPage = false, setupReady, firstSetupError, hasUnsavedChanges } = {}) {
     if (!config) return
-    if (!setupReady) { setError(`Setup is incomplete: ${firstSetupError}`); return }
+    if (continueToNextPage && !setupReady) { setError(`Setup is incomplete: ${firstSetupError}`); return }
     if (!hasUnsavedChanges) { setNotice('No unsaved changes.'); return }
 
     setError('')

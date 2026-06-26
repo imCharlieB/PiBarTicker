@@ -253,7 +253,7 @@ function App() {
               type="button"
               className="button-primary"
               onClick={() => saveConfig({ continueToNextPage: false, setupReady, firstSetupError, hasUnsavedChanges })}
-              disabled={!setupReady || isPending || !hasUnsavedChanges}
+              disabled={isPending || !hasUnsavedChanges}
               title={!setupReady ? firstSetupError : ''}
             >
               {isPending ? 'Saving...' : 'Save changes'}

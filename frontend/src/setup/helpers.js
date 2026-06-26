@@ -146,7 +146,7 @@ export function getSectionSnapshots(cfg) {
     ticker: {
       sportsBoard,
       haBoard: homeAssistantBoard
-        ? { enabled: homeAssistantBoard.enabled, slotIndex: homeAssistantBoard.slotIndex, rotateSeconds: homeAssistantBoard.rotateSeconds, haSensors: homeAssistantBoard.haSensors, haCards: homeAssistantBoard.haCards }
+        ? { enabled: homeAssistantBoard.enabled, slotIndex: homeAssistantBoard.slotIndex, haSensors: homeAssistantBoard.haSensors, haCards: homeAssistantBoard.haCards }
         : null,
     },
   }

@@ -410,7 +410,7 @@ export default function LeagueList({ sportsBoard, onSelectLeague, onSelectHA }) 
                     {isEnabled ? 'Enabled' : 'Disabled'}
                   </span>
                   <span className="league-teams-label">
-                    {haBoard?.haCards?.length ?? 0} cards • {haBoard?.rotateSeconds ?? 30}s
+                    {haBoard?.haCards?.length ?? 0} cards
                   </span>
                 </div>
               </button>

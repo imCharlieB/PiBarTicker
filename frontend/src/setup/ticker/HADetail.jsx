@@ -81,14 +81,6 @@ export default function HADetail({ onBack }) {
             onChange={(e) => updateBoard('home-assistant', { enabled: e.target.checked })}
           />
         </label>
-        <label className="field">
-          <span>Rotate seconds</span>
-          <input
-            type="number"
-            value={haBoard?.rotateSeconds ?? 30}
-            onChange={(e) => updateBoard('home-assistant', { rotateSeconds: Number(e.target.value) })}
-          />
-        </label>
       </div>
 
       <div className="ha-card-builder">

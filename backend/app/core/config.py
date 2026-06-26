@@ -122,7 +122,6 @@ class HomeAssistantBoardConfig(AppBaseModel):
     type: Literal["home-assistant"] = "home-assistant"
     name: str = "Home Assistant"
     enabled: bool = True
-    rotateSeconds: int = 30
     slotIndex: int = -1  # position in ticker rotation: 0=before first league, -1=end
     haSensors: list[HAEntityConfig] = Field(default_factory=list)
     haCards: list[HACardConfig] = Field(default_factory=list)
@@ -225,6 +224,15 @@ class ConfigStore:
                     data.pop(_deprecated_key)
                     changed = True
 
+            # Migration: strip rotateSeconds from home-assistant board (removed field).
+            _boards = data.get("boards")
+            if isinstance(_boards, list):
+                for _board in _boards:
+                    if isinstance(_board, dict) and _board.get("type") == "home-assistant":
+                        if "rotateSeconds" in _board:
+                            _board.pop("rotateSeconds")
+                            changed = True
+
             # One-time hygiene: strip fields removed from LeagueConfig so strict
             # extra="forbid" validation passes on old config.json files.
             _LEGACY_LEAGUE_KEYS = {
@@ -318,7 +326,22 @@ class ConfigStore:
             if changed:
                 self._path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
-            return AppConfig.model_validate(data)
+            try:
+                return AppConfig.model_validate(data)
+            except Exception:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "config.json failed validation — resetting to defaults. "
+                    "Previous config backed up to config.json.bak"
+                )
+                bak = self._path.with_suffix(".json.bak")
+                try:
+                    bak.write_text(json.dumps(data, indent=2), encoding="utf-8")
+                except Exception:
+                    pass
+                config = default_config()
+                self._write_unlocked(config)
+                return config
 
     def save(self, config: AppConfig) -> AppConfig:
         with self._lock:

@@ -30,12 +30,11 @@ class KioskConfig(AppBaseModel):
             "--force-device-scale-factor=1",
             "--enable-gpu-rasterization",
             "--enable-zero-copy",
-            "--ignore-gpu-blocklist",
             "--disable-smooth-scrolling",
             "--overscroll-history-navigation=0",
             "--disable-translate",
             "--disable-features=TranslateUI",
-            "--enable-features=OverlayScrollbar,VaapiVideoDecoder",
+            "--enable-features=OverlayScrollbar",
             "--disable-webgpu",
             "--disable-session-crashed-bubble",
             "--check-for-update-interval=31536000",
@@ -284,8 +283,9 @@ class ConfigStore:
                         "--ozone-platform=x11",
                         "--use-gl=egl",
                         "--start-maximized",
+                        "--ignore-gpu-blocklist",
                     }
-                    _WAYLAND_FEATURES = {"WaylandWindowDecorations"}
+                    _WAYLAND_FEATURES = {"WaylandWindowDecorations", "VaapiVideoDecoder"}
                     _cleaned = []
                     for _f in _flags:
                         _s = str(_f).strip()

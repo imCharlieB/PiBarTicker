@@ -64,18 +64,19 @@ BAD_FLAGS = [
     "--ozone-platform=x11",
     "--use-gl=egl",
     "--start-maximized",
+    "--ignore-gpu-blocklist",
 ]
 RECOMMENDED = [
     "--noerrdialogs", "--disable-infobars",
     "--force-device-scale-factor=1", "--enable-gpu-rasterization",
-    "--enable-zero-copy", "--ignore-gpu-blocklist",
+    "--enable-zero-copy",
     "--disable-smooth-scrolling", "--overscroll-history-navigation=0",
     "--disable-translate", "--disable-features=TranslateUI",
-    "--enable-features=OverlayScrollbar,VaapiVideoDecoder",
+    "--enable-features=OverlayScrollbar",
     "--disable-webgpu", "--disable-session-crashed-bubble",
     "--check-for-update-interval=31536000",
 ]
-WAYLAND_FEATURES = {"WaylandWindowDecorations"}
+WAYLAND_FEATURES = {"WaylandWindowDecorations", "VaapiVideoDecoder"}
 BAD_SET = {b.strip() for b in BAD_FLAGS}
 cleaned = []
 for f in flags:
@@ -117,7 +118,7 @@ CHROMIUM_FLAGS=("${CONFIG_LINES[@]:4}")
 _safe_flags=()
 for _f in "${CHROMIUM_FLAGS[@]}"; do
   case "${_f}" in
-    --no-decommit-pooled-pages|--kiosk|--ozone-platform=wayland|--ozone-platform=x11|--use-gl=egl)
+    --no-decommit-pooled-pages|--kiosk|--ozone-platform=wayland|--ozone-platform=x11|--use-gl=egl|--ignore-gpu-blocklist)
       echo "Stripped bad Chromium flag: ${_f}" ;;
     *)
       _safe_flags+=("${_f}") ;;

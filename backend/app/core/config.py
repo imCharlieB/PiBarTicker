@@ -140,6 +140,19 @@ BoardConfig = Annotated[
 ]
 
 
+class PanelConfig(AppBaseModel):
+    id: str
+    type: Literal["ha"] = "ha"  # "weather" and "news" added in Phase 3/4
+    position: Literal["bottom", "top", "left", "right"] = "bottom"
+    size: int = 20  # percent of screen height (top/bottom) or width (left/right)
+    enabled: bool = True
+
+
+class LayoutConfig(AppBaseModel):
+    mode: Literal["unified-scroll", "grid"] = "unified-scroll"
+    panels: list[PanelConfig] = Field(default_factory=list)
+
+
 class AppConfig(AppBaseModel):
     monitor: MonitorConfig = Field(default_factory=MonitorConfig)
     homeAssistant: HomeAssistantConfig = Field(default_factory=HomeAssistantConfig)
@@ -147,6 +160,7 @@ class AppConfig(AppBaseModel):
     kiosk: KioskConfig = Field(default_factory=KioskConfig)
     boards: list[BoardConfig] = Field(default_factory=list)
     theme: ThemeConfig = Field(default_factory=ThemeConfig)
+    layout: LayoutConfig = Field(default_factory=LayoutConfig)
 
 
 def default_config() -> AppConfig:
@@ -283,6 +297,25 @@ class ConfigStore:
                         _cleaned.append(_s)
                     if changed:
                         _kiosk_data["chromiumFlags"] = _cleaned
+
+            # Migration: strip old layout fields (tickerPosition, tickerSize, gridRows, gridCols)
+            # replaced by panels list in LayoutConfig.
+            _layout_data = data.get("layout")
+            _LEGACY_LAYOUT_KEYS = {"tickerPosition", "tickerSize", "gridRows", "gridCols", "panels"}
+            if isinstance(_layout_data, dict):
+                for _key in list(_LEGACY_LAYOUT_KEYS):
+                    if _key in _layout_data and _key not in {"panels"}:
+                        _layout_data.pop(_key)
+                        changed = True
+                # Also clear panels that have old PanelConfig shape (gridArea field)
+                if isinstance(_layout_data.get("panels"), list):
+                    _clean_panels = [
+                        p for p in _layout_data["panels"]
+                        if isinstance(p, dict) and "gridArea" not in p
+                    ]
+                    if len(_clean_panels) != len(_layout_data["panels"]):
+                        _layout_data["panels"] = _clean_panels
+                        changed = True
 
             if changed:
                 self._path.write_text(json.dumps(data, indent=2), encoding="utf-8")

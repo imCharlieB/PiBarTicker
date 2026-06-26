@@ -128,12 +128,6 @@ CHROMIUM_FLAGS=("${_safe_flags[@]+"${_safe_flags[@]}"}")
 WIDTH=$(echo "$DISPLAY_MODE" | cut -d'x' -f1)
 HEIGHT=$(echo "$DISPLAY_MODE" | cut -d'x' -f2)
 
-if [ "$MONITOR_MODE" = "dual" ]; then
-  CHROMIUM_WINDOW_WIDTH=$((WIDTH * 2))
-else
-  CHROMIUM_WINDOW_WIDTH=$WIDTH
-fi
-
 # Write openbox application rules with the exact pixel dimensions for this monitor
 # mode. This is more reliable than --start-maximized because it does not depend on
 # which xrandr logical monitor happens to be flagged as primary. OpenBox applies
@@ -343,7 +337,7 @@ while true; do
   pkill -f pcmanfm 2>/dev/null || true
   sleep 0.5
 
-  echo "=== Chromium launch $(date) | mode=${MONITOR_MODE} window=${CHROMIUM_WINDOW_WIDTH}x${HEIGHT} ==="
+  echo "=== Chromium launch $(date) | mode=${MONITOR_MODE} ==="
   echo "--- xrandr monitors ---"
   xrandr --listmonitors 2>&1 || true
   echo "--- end monitors ---"
@@ -353,7 +347,6 @@ while true; do
 
   "${CHROMIUM_BIN}" \
     --window-position=0,0 \
-    --window-size="${CHROMIUM_WINDOW_WIDTH},${HEIGHT}" \
     --user-data-dir=/tmp/pibarticker-kiosk \
     --incognito \
     --no-first-run \

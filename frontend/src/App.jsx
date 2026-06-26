@@ -7,6 +7,8 @@ import { computeSectionChecks, getSectionSnapshots } from './setup/helpers'
 import {
   prepareDisplayGames,
 } from './ticker/cardHelpers'
+import LayoutShell from './LayoutShell'
+import HAPanel from './HAPanel'
 import OverviewPage from './setup/OverviewPage'
 import DisplayPage from './setup/DisplayPage'
 import ServicesPage from './setup/ServicesPage'
@@ -152,7 +154,7 @@ function App() {
   }
 
   if (isTickerRuntime) {
-    return (
+    const tickerEl = (
       <TickerRuntime
         leagues={runtimeLeagues}
         displayLeague={runtimeDisplayLeague}
@@ -176,6 +178,17 @@ function App() {
         onAdvance={handleRuntimeAdvance}
         onHandoffCheck={onHandoffCheck}
       />
+    )
+    const panelContent = {}
+    const haLayoutPanel = config.layout?.panels?.find(p => p.type === 'ha' && p.enabled !== false)
+    if (haLayoutPanel) {
+      panelContent.ha = <HAPanel homeAssistantBoard={homeAssistantBoard} />
+    }
+
+    return (
+      <LayoutShell layout={config.layout} shellStyle={shellStyle} panelContent={panelContent}>
+        {tickerEl}
+      </LayoutShell>
     )
   }
 

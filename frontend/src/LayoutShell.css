@@ -1,0 +1,19 @@
+.layout-shell {
+  display: grid;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--ticker-bg, #0c0e12);
+}
+
+.layout-panel {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Ticker shell fills its grid cell rather than the full viewport */
+.layout-panel .ticker-runtime-shell {
+  height: 100%;
+}

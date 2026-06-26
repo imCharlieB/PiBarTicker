@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import subprocess
 
 from fastapi import APIRouter
@@ -132,8 +133,39 @@ def _xrandr_power(on: bool, env: dict) -> None:
                 _log.warning("xrandr %s rc=%d: %s", " ".join(cmd[1:]), r.returncode, r.stderr.decode(errors="replace"))
 
 
+def _parse_xrandr_resolution(stdout: str) -> tuple[int, int] | None:
+    m = re.search(r"current\s+(\d+)\s*x\s*(\d+)", stdout)
+    if m:
+        return int(m.group(1)), int(m.group(2))
+    m = re.search(r"^\s+(\d+)x(\d+)\s+[\d.]+\*", stdout, re.MULTILINE)
+    if m:
+        return int(m.group(1)), int(m.group(2))
+    return None
+
+
 class DisplayPowerRequest(BaseModel):
     on: bool
+
+
+@router.get("/resolution")
+def get_display_resolution() -> dict:
+    env = _x11_env()
+    try:
+        result = subprocess.run(
+            ["xrandr"], capture_output=True, text=True, timeout=5, env=env
+        )
+        outputs = [
+            line.split()[0]
+            for line in result.stdout.splitlines()
+            if " connected" in line
+        ]
+        if result.returncode == 0:
+            resolution = _parse_xrandr_resolution(result.stdout)
+            if resolution:
+                return {"detected": True, "width": resolution[0], "height": resolution[1], "outputs": outputs}
+        return {"detected": False, "width": None, "height": None, "outputs": outputs}
+    except Exception:
+        return {"detected": False, "width": None, "height": None, "outputs": []}
 
 
 @router.get("/power")

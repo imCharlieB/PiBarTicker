@@ -159,7 +159,7 @@ export function getSectionSnapshots(cfg) {
   const homeAssistantBoard = findBoardByType(cfg, 'home-assistant')
   const sportsBoard = findBoardByType(cfg, 'sports')
   return {
-    display: { monitor: cfg.monitor, kiosk: cfg.kiosk },
+    display: { monitor: cfg.monitor, kiosk: cfg.kiosk, layout: cfg.layout },
     theme: { theme: cfg.theme },
     services: {
       homeAssistant: cfg.homeAssistant,

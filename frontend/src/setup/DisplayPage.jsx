@@ -1,9 +1,31 @@
+import { useState } from 'react'
 import { useAppContext } from '../AppContext'
 import { parseList, listToText, computeDisplayErrors } from './helpers'
 
 export default function DisplayPage() {
   const { config, updateConfigSection } = useAppContext()
   const displayErrors = computeDisplayErrors(config)
+  const [detecting, setDetecting] = useState(false)
+  const [detectError, setDetectError] = useState(null)
+
+  async function detectResolution() {
+    setDetecting(true)
+    setDetectError(null)
+    try {
+      const res = await fetch('/api/v1/display/resolution')
+      const data = await res.json()
+      if (data.detected) {
+        updateConfigSection('monitor', 'width', data.width)
+        updateConfigSection('monitor', 'height', data.height)
+      } else {
+        setDetectError('No display detected — run this on the Pi.')
+      }
+    } catch {
+      setDetectError('Detection failed — check the Pi backend.')
+    } finally {
+      setDetecting(false)
+    }
+  }
 
   return (
     <article className="page-card">
@@ -57,6 +79,69 @@ export default function DisplayPage() {
           {displayErrors.height ? <small className="field-error">{displayErrors.height}</small> : null}
           <small className="field-help">Used to set the display hardware resolution on Pi. Ticker content scales automatically — no manual height tuning needed.</small>
         </label>
+
+        <div className="field field-full">
+          <button type="button" className="button-secondary" onClick={detectResolution} disabled={detecting}>
+            {detecting ? 'Detecting…' : 'Detect resolution'}
+          </button>
+          {detectError ? <small className="field-error">{detectError}</small> : null}
+          <small className="field-help">Reads the active display resolution from xrandr on the Pi and populates the fields above.</small>
+        </div>
+
+        <div className="field field-full" style={{ marginTop: '0.5rem' }}>
+          <p className="section-kicker">Layout</p>
+        </div>
+
+        <label className="field field-full">
+          <span>Layout mode</span>
+          <select value={config.layout.mode} onChange={(e) => updateConfigSection('layout', 'mode', e.target.value)}>
+            <option value="unified-scroll">Unified Scroll</option>
+            <option value="grid">Grid</option>
+          </select>
+          <small className="field-help">Unified Scroll: ticker fills the full display. Grid: divide the screen into configurable panel slots.</small>
+        </label>
+
+        {config.layout.mode === 'grid' && (() => {
+          const haPanel = config.layout.panels.find(p => p.type === 'ha')
+
+          function setPanelPosition(type, position) {
+            let panels = config.layout.panels.filter(p => p.type !== type)
+            if (position) panels = [...panels, { id: type, type, position, size: 20, enabled: true }]
+            updateConfigSection('layout', 'panels', panels)
+          }
+
+          function setPanelSize(type, size) {
+            const panels = config.layout.panels.map(p => p.type === type ? { ...p, size } : p)
+            updateConfigSection('layout', 'panels', panels)
+          }
+
+          return (
+            <>
+              <div className="field field-full"><p className="section-kicker" style={{ marginBottom: 0 }}>Panels</p></div>
+
+              <label className="field">
+                <span>Home Assistant</span>
+                <select value={haPanel?.position || ''} onChange={(e) => setPanelPosition('ha', e.target.value)}>
+                  <option value="">In ticker (default)</option>
+                  <option value="bottom">Own panel — bottom</option>
+                  <option value="top">Own panel — top</option>
+                  <option value="left">Own panel — left</option>
+                  <option value="right">Own panel — right</option>
+                </select>
+                <small className="field-help">Show HA cards in a dedicated section instead of the ticker scroll. More panel types (weather, news) added in future phases.</small>
+              </label>
+
+              {haPanel && (
+                <label className="field">
+                  <span>HA panel size (%)</span>
+                  <input type="number" min="5" max="95" value={haPanel.size}
+                    onChange={(e) => setPanelSize('ha', Number(e.target.value))} />
+                  <small className="field-help">How much of the screen height (top/bottom) or width (left/right) this panel occupies.</small>
+                </label>
+              )}
+            </>
+          )
+        })()}
 
         <label className="field field-full">
           <span>Chromium flags</span>

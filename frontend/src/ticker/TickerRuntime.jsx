@@ -616,16 +616,38 @@ function TickerRuntime({
   const [watermarkSize, setWatermarkSize] = useState('82%')
   const sensorValues = useHASensors()
   const haSensors = homeAssistantBoard?.haSensors ?? []
+  const shellRef = useRef(null)
   const trackRef = useRef(null)
   const windowRef = useRef(null)
   const firstCardRef = useRef(null)
   const animRef = useRef(null)
   const backupTimerRef = useRef(null)
+  // Measured container dimensions — state drives watermark layout (needs re-render); width ref drives animation (must not re-render).
+  // Init from window.innerWidth/innerHeight so the very first render uses the actual browser size, not the config value.
+  const [containerWidth, setContainerWidth] = useState(() => window.innerWidth || boardWidth || 1920)
+  const [containerHeight, setContainerHeight] = useState(() => window.innerHeight || Number(config?.monitor?.height) || 380)
+  const containerWidthRef = useRef(containerWidth)
+  const [watermarkImageRatio, setWatermarkImageRatio] = useState(1)
 
   const onAdvanceRef = useRef(onAdvance)
   useEffect(() => { onAdvanceRef.current = onAdvance }, [onAdvance])
   const onHandoffCheckRef = useRef(onHandoffCheck)
   useEffect(() => { onHandoffCheckRef.current = onHandoffCheck }, [onHandoffCheck])
+
+  // ── ResizeObserver — measure actual container, set --panel-height CSS var ──
+  useEffect(() => {
+    const shell = shellRef.current
+    if (!shell) return
+    const obs = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect
+      containerWidthRef.current = width
+      setContainerWidth(width)
+      setContainerHeight(height)
+      shell.style.setProperty('--panel-height', `${height}px`)
+    })
+    obs.observe(shell)
+    return () => obs.disconnect()
+  }, [])
 
   // ── Animation setup (synchronous pre-paint) ───────────────────────────────
   // WAA with literal pixel values — compositor thread, no CSS var() issue.
@@ -657,9 +679,9 @@ function TickerRuntime({
     if (totalWidth < 10) return
 
     const speed = sportsBoard?.scrollSpeed ?? 110
-    const startX = boardWidth          // cards enter from right edge
-    const endX = -totalWidth           // last card fully off left before advance
-    const scrollDist = startX - endX   // boardWidth + totalWidth
+    const startX = containerWidthRef.current  // cards enter from right edge (measured)
+    const endX = -totalWidth                  // last card fully off left before advance
+    const scrollDist = startX - endX          // container width + totalWidth
     const dur = Math.max(3000, Math.round(scrollDist / speed * 1000))
 
     const cardGap = sportsBoard?.cardGap ?? 50
@@ -742,6 +764,7 @@ function TickerRuntime({
       let sizePercent = (targetHeight / img.naturalHeight) * 100
       sizePercent = Math.max(60, Math.min(95, sizePercent))
       setWatermarkSize(`${sizePercent.toFixed(0)}%`)
+      if (img.naturalHeight > 0) setWatermarkImageRatio(img.naturalWidth / img.naturalHeight)
     }
     img.src = watermarkUrl
   }, [watermarkUrl, config?.monitor?.height])
@@ -753,24 +776,33 @@ function TickerRuntime({
 
   const brandLogoUrl = resolveLeagueLogo(brandLeague, payloadByLeagueId[brandLeague?.id])
 
+  // Divide the container into equal sections and center one copy in each section.
+  // Pixel positions avoid the CSS percentage-of-remaining-space math that causes
+  // wide watermark images to cluster together regardless of count.
   let watermarkPositions = 'center'
   let watermarkImages = 'none'
   if (watermarkUrl) {
     const url = `url(${watermarkUrl})`
-    if (boardWidth > 3000) {
-      watermarkPositions = '8% center, 30% center, 70% center, 92% center'
-      watermarkImages = `${url}, ${url}, ${url}, ${url}`
-    } else if (boardWidth > 1800) {
-      watermarkPositions = '12% center, 88% center'
-      watermarkImages = `${url}, ${url}`
-    } else {
-      watermarkPositions = '15% center, 85% center'
-      watermarkImages = `${url}, ${url}`
-    }
+    const desiredCount = Math.max(1, sportsBoard?.watermarkCount ?? 2)
+    // background-size is "auto <sizePercent>%" — height is sizePercent% of container height,
+    // width scales automatically by aspect ratio. Subtract half the rendered width so each
+    // copy is centered in its section rather than left-edge-aligned.
+    const renderedH = containerHeight * (parseFloat(watermarkSize) / 100)
+    const renderedW = renderedH * watermarkImageRatio
+    // Cap count to however many copies actually fit without overlapping.
+    const maxFit = renderedW > 0 ? Math.max(1, Math.floor(containerWidth / renderedW)) : desiredCount
+    const count = Math.min(desiredCount, maxFit)
+    const sectionW = containerWidth / count
+    const positions = Array.from({ length: count }, (_, i) => {
+      const sectionCenter = sectionW * (i + 0.5)
+      return `${Math.round(sectionCenter - renderedW / 2)}px center`
+    })
+    watermarkPositions = positions.join(', ')
+    watermarkImages = Array(count).fill(url).join(', ')
   }
 
   return (
-    <main className={`ticker-runtime-shell ${themeTokens.modeClass}`} style={{ ...shellStyle, '--ticker-watermark-size': watermarkSize }}>
+    <main ref={shellRef} className={`ticker-runtime-shell ${themeTokens.modeClass}`} style={{ ...shellStyle, '--ticker-watermark-size': watermarkSize }}>
       <AlertOverlay />
       {!hasEnabledLeagues ? (
         <p className="ticker-runtime-empty">Enable at least one league.</p>
@@ -778,9 +810,6 @@ function TickerRuntime({
         <section
           className="ticker-runtime-board"
           style={{
-            width: '100%',
-            maxWidth: `${boardWidth}px`,
-            height: '100%',
             '--ticker-watermark-images': watermarkImages,
             '--ticker-watermark-positions': watermarkPositions,
           }}

@@ -197,6 +197,18 @@ export default function LeagueList({ sportsBoard, onSelectLeague }) {
                 onChange={(event) => updateBoard('sports', { cardGap: Number(event.target.value) })}
               />
             </label>
+            <label className="field">
+              <span>Watermark copies</span>
+              <select
+                value={sportsBoard.watermarkCount ?? 2}
+                onChange={(event) => updateBoard('sports', { watermarkCount: Number(event.target.value) })}
+              >
+                <option value={1}>1 — centered</option>
+                <option value={2}>2 — left &amp; right</option>
+                <option value={4}>4 — four positions</option>
+              </select>
+              <small className="field-help">How many times to tile the watermark logo across the display.</small>
+            </label>
           </div>
         </div>
       ) : null}

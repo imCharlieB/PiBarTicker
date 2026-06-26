@@ -103,8 +103,9 @@ class SportsBoardConfig(AppBaseModel):
     scroll: bool = True
     refreshSeconds: int = 45
     skipIfEmpty: bool = False
-    scrollSpeed: int = 110  # px/s — how fast cards scroll across the display
-    cardGap: int = 50       # px — gap between game cards
+    scrollSpeed: int = 110   # px/s — how fast cards scroll across the display
+    cardGap: int = 50        # px — gap between game cards
+    watermarkCount: int = 2  # how many watermark copies to tile across the display (1, 2, or 4)
     leagues: list[LeagueConfig] = Field(default_factory=list)
 
 

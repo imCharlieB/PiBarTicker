@@ -48,12 +48,14 @@ export default function DisplayPage() {
           <input type="number" value={config.monitor.width} onChange={(event) => updateConfigSection('monitor', 'width', Number(event.target.value))} />
           {displayErrors.width ? <small className="field-error">{displayErrors.width}</small> : null}
           {config.monitor.mode === 'dual' ? <small className="field-help">Total span: {config.monitor.width * 2}px</small> : null}
+          <small className="field-help">Used to configure the display hardware (xrandr) on Pi. The ticker content auto-sizes to fill whatever space the browser window provides.</small>
         </label>
 
         <label className="field">
           <span>Height</span>
           <input type="number" value={config.monitor.height} onChange={(event) => updateConfigSection('monitor', 'height', Number(event.target.value))} />
           {displayErrors.height ? <small className="field-error">{displayErrors.height}</small> : null}
+          <small className="field-help">Used to set the display hardware resolution on Pi. Ticker content scales automatically — no manual height tuning needed.</small>
         </label>
 
         <label className="field field-full">

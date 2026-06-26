@@ -20,6 +20,7 @@
   padding: 0.1rem 0 0;
   background: transparent;
   position: relative;
+  container-type: size;
 }
 
 /* Faint team/custom logo watermark behind the games */

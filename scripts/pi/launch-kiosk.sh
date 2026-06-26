@@ -235,7 +235,7 @@ apply_display_mode() {
 
   # Find or create the custom mode on all connected outputs.
   local modename
-  modename=$(xrandr | grep -E "^\s+${WIDTH}x${HEIGHT}" | awk '{print $1}' | head -1)
+  modename=$(xrandr | grep -m 1 -E "^\s+${WIDTH}x${HEIGHT}" | awk '{print $1}')
   if [ -z "$modename" ]; then
     local modeline
     modeline=$(cvt "${WIDTH}" "${HEIGHT}" 60 2>/dev/null | grep Modeline | cut -d' ' -f2-)

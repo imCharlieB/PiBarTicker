@@ -160,12 +160,20 @@ def get_display_resolution() -> dict:
             if " connected" in line
         ]
         if result.returncode == 0:
-            resolution = _parse_xrandr_resolution(result.stdout)
-            if resolution:
-                total_w, total_h = resolution
-                monitor_count = max(len(outputs), 1)
-                per_monitor_w = total_w // monitor_count
-                return {"detected": True, "width": per_monitor_w, "height": total_h, "outputs": outputs}
+            # Parse per-monitor width directly from the first active connected
+            # output's geometry string (e.g. "1920x380+0+0") rather than
+            # dividing the virtual screen total, which can be wrong when a
+            # previous xrandr session left a bad framebuffer size.
+            for line in result.stdout.splitlines():
+                if " connected" in line:
+                    m = re.search(r"\b(\d+)x(\d+)\+\d+\+\d+", line)
+                    if m:
+                        return {
+                            "detected": True,
+                            "width": int(m.group(1)),
+                            "height": int(m.group(2)),
+                            "outputs": outputs,
+                        }
         return {"detected": False, "width": None, "height": None, "outputs": outputs}
     except Exception:
         return {"detected": False, "width": None, "height": None, "outputs": []}

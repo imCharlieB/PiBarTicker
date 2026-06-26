@@ -235,7 +235,7 @@ apply_display_mode() {
 
   # Find or create the custom mode on all connected outputs.
   local modename
-  modename=$(xrandr | grep -m 1 -E "^\s+${WIDTH}x${HEIGHT}" | awk '{print $1}')
+  modename=$(xrandr | grep -E "^\s+${WIDTH}x${HEIGHT}" | awk '{print $1}' | head -1) || true
   if [ -z "$modename" ]; then
     local modeline
     modeline=$(cvt "${WIDTH}" "${HEIGHT}" 60 2>/dev/null | grep Modeline | cut -d' ' -f2-)
@@ -283,8 +283,8 @@ apply_display_mode() {
     sleep 1
     local combined_width=$(( WIDTH * ${#outputs[@]} ))
     local per_mm_w per_mm_h
-    per_mm_w=$(xrandr 2>/dev/null | grep "^${anchor} connected" | sed -n 's/.* \([0-9]*\)mm x \([0-9]*\)mm.*/\1/p' | head -1)
-    per_mm_h=$(xrandr 2>/dev/null | grep "^${anchor} connected" | sed -n 's/.* \([0-9]*\)mm x \([0-9]*\)mm.*/\2/p' | head -1)
+    per_mm_w=$(xrandr 2>/dev/null | grep "^${anchor} connected" | sed -n 's/.* \([0-9]*\)mm x \([0-9]*\)mm.*/\1/p' | head -1) || true
+    per_mm_h=$(xrandr 2>/dev/null | grep "^${anchor} connected" | sed -n 's/.* \([0-9]*\)mm x \([0-9]*\)mm.*/\2/p' | head -1) || true
     per_mm_w=${per_mm_w:-160}
     per_mm_h=${per_mm_h:-90}
     local combined_mm_w=$(( per_mm_w * ${#outputs[@]} ))

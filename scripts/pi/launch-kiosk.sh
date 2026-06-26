@@ -330,6 +330,13 @@ display_explicitly_off() {
 # Use --app so the window spans both monitors freely; openbox rc.xml removes decorations.
 CHROMIUM_APP_ARG="--app=${URL}"
 
+# Explicit window size so Chromium fills the full X screen regardless of xrandr state.
+if [ "${MONITOR_MODE}" = "dual" ]; then
+  WINDOW_WIDTH=$(( WIDTH * 2 ))
+else
+  WINDOW_WIDTH=${WIDTH}
+fi
+
 while true; do
   # Kill any desktop panel that could respawn and sit on top of the kiosk window.
   pkill -f lxpanel 2>/dev/null || true
@@ -337,7 +344,7 @@ while true; do
   pkill -f pcmanfm 2>/dev/null || true
   sleep 0.5
 
-  echo "=== Chromium launch $(date) | mode=${MONITOR_MODE} ==="
+  echo "=== Chromium launch $(date) | mode=${MONITOR_MODE} window=${WINDOW_WIDTH}x${HEIGHT} ==="
   echo "--- xrandr monitors ---"
   xrandr --listmonitors 2>&1 || true
   echo "--- end monitors ---"
@@ -347,6 +354,7 @@ while true; do
 
   "${CHROMIUM_BIN}" \
     --window-position=0,0 \
+    --window-size=${WINDOW_WIDTH},${HEIGHT} \
     --user-data-dir=/tmp/pibarticker-kiosk \
     --incognito \
     --no-first-run \

@@ -162,7 +162,10 @@ def get_display_resolution() -> dict:
         if result.returncode == 0:
             resolution = _parse_xrandr_resolution(result.stdout)
             if resolution:
-                return {"detected": True, "width": resolution[0], "height": resolution[1], "outputs": outputs}
+                total_w, total_h = resolution
+                monitor_count = max(len(outputs), 1)
+                per_monitor_w = total_w // monitor_count
+                return {"detected": True, "width": per_monitor_w, "height": total_h, "outputs": outputs}
         return {"detected": False, "width": None, "height": None, "outputs": outputs}
     except Exception:
         return {"detected": False, "width": None, "height": None, "outputs": []}

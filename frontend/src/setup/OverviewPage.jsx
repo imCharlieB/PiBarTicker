@@ -73,9 +73,7 @@ export default function OverviewPage() {
             <span className="overview-item-arrow">›</span>
           </div>
           <div className="overview-kv-list">
-            <div className="overview-kv-row"><span>HTTP</span><span>{config.http.enabled ? `Enabled · :${config.http.port}` : 'Disabled'}</span></div>
-            <div className="overview-kv-row"><span>Home Assistant</span><span>{config.homeAssistant.url || 'Not set'}</span></div>
-            <div className="overview-kv-row"><span>Sensors</span><span>{homeAssistantBoard?.haSensors.length || 0}</span></div>
+            <div className="overview-kv-row"><span>Alerts</span><span>HA automation</span></div>
           </div>
         </button>
         <button type="button" className="overview-item" onClick={() => setActivePage('ticker')}>
@@ -86,7 +84,7 @@ export default function OverviewPage() {
           <div className="overview-kv-list">
             <div className="overview-kv-row"><span>Board</span><span>{sportsBoard?.enabled ? 'Enabled' : 'Disabled'}</span></div>
             <div className="overview-kv-row"><span>Leagues enabled</span><span>{enabledLeagues.length}</span></div>
-            <div className="overview-kv-row"><span>Rotation</span><span>{sportsBoard?.rotateSeconds || 0}s</span></div>
+            <div className="overview-kv-row"><span>HA sensors</span><span>{homeAssistantBoard?.haSensors.length || 0}</span></div>
           </div>
         </button>
       </div>

@@ -21,16 +21,6 @@ class MonitorConfig(AppBaseModel):
     swapOutputs: bool = False
 
 
-class HomeAssistantConfig(AppBaseModel):
-    url: str = ""
-    token: str = ""
-
-
-class HttpConfig(AppBaseModel):
-    enabled: bool = False
-    port: int = 8080
-
-
 class KioskConfig(AppBaseModel):
     autoStart: Literal["disabled", "autostart"] = "autostart"
     chromiumFlags: list[str] = Field(
@@ -132,6 +122,8 @@ class HomeAssistantBoardConfig(AppBaseModel):
     type: Literal["home-assistant"] = "home-assistant"
     name: str = "Home Assistant"
     enabled: bool = True
+    rotateSeconds: int = 30
+    slotIndex: int = -1  # position in ticker rotation: 0=before first league, -1=end
     haSensors: list[HAEntityConfig] = Field(default_factory=list)
     haCards: list[HACardConfig] = Field(default_factory=list)
 
@@ -157,8 +149,6 @@ class LayoutConfig(AppBaseModel):
 
 class AppConfig(AppBaseModel):
     monitor: MonitorConfig = Field(default_factory=MonitorConfig)
-    homeAssistant: HomeAssistantConfig = Field(default_factory=HomeAssistantConfig)
-    http: HttpConfig = Field(default_factory=HttpConfig)
     kiosk: KioskConfig = Field(default_factory=KioskConfig)
     boards: list[BoardConfig] = Field(default_factory=list)
     theme: ThemeConfig = Field(default_factory=ThemeConfig)
@@ -228,6 +218,13 @@ class ConfigStore:
             raw_text = self._path.read_text(encoding="utf-8")
             data = json.loads(raw_text)
 
+            # Migration: remove deprecated top-level config blocks.
+            changed = False
+            for _deprecated_key in ("homeAssistant", "http"):
+                if _deprecated_key in data:
+                    data.pop(_deprecated_key)
+                    changed = True
+
             # One-time hygiene: strip fields removed from LeagueConfig so strict
             # extra="forbid" validation passes on old config.json files.
             _LEGACY_LEAGUE_KEYS = {
@@ -241,7 +238,6 @@ class ConfigStore:
                 "showStatVenue",
                 "showStatOdds",
             }
-            changed = False
             boards = data.get("boards")
             if isinstance(boards, list):
                 for board in boards:

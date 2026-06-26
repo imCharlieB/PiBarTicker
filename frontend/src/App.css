@@ -686,6 +686,29 @@
   line-height: 1;
 }
 
+.league-drag-handle {
+  font-size: 1rem;
+  color: #6b7077;
+  cursor: grab;
+  user-select: none;
+  line-height: 1;
+}
+.league-drag-handle:active {
+  cursor: grabbing;
+}
+
+.league-summary-card.is-drag-over {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.league-summary-card[draggable] {
+  cursor: grab;
+}
+.league-summary-card[draggable]:active {
+  cursor: grabbing;
+}
+
 .league-order-label {
   font-size: 0.74rem;
   font-weight: 700;

@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react'
 import { useAppContext } from '../../AppContext'
 import { resolveTeamPrimaryLogo } from '../helpers'
 
@@ -86,16 +87,79 @@ function matchesLeagueCatalogRegionFilter(entry, filterValue) {
   return true
 }
 
-export default function LeagueList({ sportsBoard, onSelectLeague }) {
+export default function LeagueList({ sportsBoard, onSelectLeague, onSelectHA }) {
   const {
+    config, commitConfig,
     leagueTeamsById, leagueGroupsById, leagueTickerPreviewById, leagueLogoMetaById,
     getCachedOrRemoteLogo, loadLeagueTeams, loadLeagueGroups,
-    loadLeagueLogoMeta, loadLeagueTickerPreview, moveLeague, removeLeague, updateBoard,
+    loadLeagueLogoMeta, loadLeagueTickerPreview, removeLeague, updateBoard,
     showBoardSettings, setShowBoardSettings, showLeagueCatalog, setShowLeagueCatalog,
     leagueCatalog, setLeagueCatalog, leagueCatalogSport, setLeagueCatalogSport,
     leagueCatalogRegion, setLeagueCatalogRegion, leagueCatalogQuery, setLeagueCatalogQuery,
     leagueCatalogState, addLeagueFromCatalog, loadLeagueCatalog,
   } = useAppContext()
+
+  const haBoard = config.boards.find((b) => b.type === 'home-assistant') || null
+  const numLeagues = sportsBoard.leagues.length
+  const rawSlotIndex = haBoard?.slotIndex ?? -1
+  const haSlotPos = rawSlotIndex < 0 || rawSlotIndex > numLeagues ? numLeagues : rawSlotIndex
+
+  // Build combined ordered items: leagues + HA slot interleaved
+  const combinedItems = []
+  for (let i = 0; i <= numLeagues; i++) {
+    if (i === haSlotPos && haBoard) combinedItems.push({ type: 'ha' })
+    if (i < numLeagues) combinedItems.push({ type: 'league', leagueIndex: i })
+  }
+
+  // Drag-and-drop state
+  const dragFromIndex = useRef(null)
+  const [dragOverIndex, setDragOverIndex] = useState(null)
+
+  function handleDragStart(e, index) {
+    dragFromIndex.current = index
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  function handleDragOver(e, index) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (dragOverIndex !== index) setDragOverIndex(index)
+  }
+
+  function handleDrop(e, toIndex) {
+    e.preventDefault()
+    const fromIndex = dragFromIndex.current
+    setDragOverIndex(null)
+    dragFromIndex.current = null
+    if (fromIndex === null || fromIndex === toIndex) return
+
+    const newItems = [...combinedItems]
+    const [dragged] = newItems.splice(fromIndex, 1)
+    newItems.splice(toIndex, 0, dragged)
+
+    const newLeagues = newItems
+      .filter((i) => i.type === 'league')
+      .map((i) => sportsBoard.leagues[i.leagueIndex])
+
+    const haNewIdx = newItems.findIndex((i) => i.type === 'ha')
+    const leaguesBeforeHa = haNewIdx === -1
+      ? numLeagues
+      : newItems.slice(0, haNewIdx).filter((i) => i.type === 'league').length
+
+    commitConfig((current) => ({
+      ...current,
+      boards: current.boards.map((board) => {
+        if (board.type === 'sports') return { ...board, leagues: newLeagues }
+        if (board.type === 'home-assistant' && haBoard) return { ...board, slotIndex: leaguesBeforeHa }
+        return board
+      }),
+    }))
+  }
+
+  function handleDragEnd() {
+    setDragOverIndex(null)
+    dragFromIndex.current = null
+  }
 
   const loadedLeagueCatalogCount = leagueCatalog.length
   const filteredLeagueCatalog = leagueCatalog.filter((entry) => {
@@ -317,71 +381,76 @@ export default function LeagueList({ sportsBoard, onSelectLeague }) {
       ) : null}
 
       <div className="league-summary-grid">
-        {sportsBoard.leagues.map((league, leagueIndex) => {
+        {combinedItems.map((item, displayIndex) => {
+          const isDragOver = dragOverIndex === displayIndex && dragFromIndex.current !== displayIndex
+
+          if (item.type === 'ha') {
+            const isEnabled = haBoard?.enabled !== false
+            return (
+              <button
+                key="ha-slot"
+                type="button"
+                draggable
+                className={`league-summary-card ${isEnabled ? 'is-enabled' : 'is-disabled'}${isDragOver ? ' is-drag-over' : ''}`}
+                onDragStart={(e) => handleDragStart(e, displayIndex)}
+                onDragOver={(e) => handleDragOver(e, displayIndex)}
+                onDrop={(e) => handleDrop(e, displayIndex)}
+                onDragEnd={handleDragEnd}
+                onClick={() => onSelectHA?.()}
+              >
+                <div className="league-edge" style={{ background: isEnabled ? '#7cf29b' : 'rgba(255,255,255,0.08)' }} />
+                <div className="league-order-controls">
+                  <span className="league-order-badge">#{displayIndex + 1}</span>
+                  <span className="league-drag-handle" title="Drag to reorder">⠿</span>
+                </div>
+                <p className="league-id">home-assistant</p>
+                <h3>Home Assistant</h3>
+                <div className="league-card-status-row">
+                  <span className={`league-status-badge ${isEnabled ? 'is-enabled' : 'is-disabled'}`}>
+                    {isEnabled ? 'Enabled' : 'Disabled'}
+                  </span>
+                  <span className="league-teams-label">
+                    {haBoard?.haCards?.length ?? 0} cards • {haBoard?.rotateSeconds ?? 30}s
+                  </span>
+                </div>
+              </button>
+            )
+          }
+
+          const league = sportsBoard.leagues[item.leagueIndex]
           const teams = leagueTeamsById[league.id] || []
           const cachedMeta = leagueLogoMetaById[league.id]
           const cachedCount = cachedMeta ? Object.keys(cachedMeta.teams || {}).length : 0
           const displayCount = teams.length || cachedCount
           const isCached = !teams.length && cachedCount > 0
-          const edgeColor = league.enabled ? '#7cf29b' : 'rgba(255,255,255,0.08)'
           return (
             <button
               key={league.id}
               type="button"
-              className={`league-summary-card ${league.enabled ? 'is-enabled' : 'is-disabled'}`}
+              draggable
+              className={`league-summary-card ${league.enabled ? 'is-enabled' : 'is-disabled'}${isDragOver ? ' is-drag-over' : ''}`}
+              onDragStart={(e) => handleDragStart(e, displayIndex)}
+              onDragOver={(e) => handleDragOver(e, displayIndex)}
+              onDrop={(e) => handleDrop(e, displayIndex)}
+              onDragEnd={handleDragEnd}
               onClick={async () => {
                 onSelectLeague(league.id)
-                if (!leagueTeamsById[league.id]) {
-                  await loadLeagueTeams(league)
-                }
-                if (!leagueGroupsById[league.id]) {
-                  await loadLeagueGroups(league)
-                }
-                if (!leagueTickerPreviewById[league.id]) {
-                  await loadLeagueTickerPreview(league)
-                }
+                if (!leagueTeamsById[league.id]) await loadLeagueTeams(league)
+                if (!leagueGroupsById[league.id]) await loadLeagueGroups(league)
+                if (!leagueTickerPreviewById[league.id]) await loadLeagueTickerPreview(league)
                 loadLeagueLogoMeta(league.id)
               }}
             >
-              <div className="league-edge" style={{ background: edgeColor }} />
-              <div className="league-order-controls" aria-label={`League order controls for ${league.name}`}>
-                <span className="league-order-badge">#{leagueIndex + 1}</span>
+              <div className="league-edge" style={{ background: league.enabled ? '#7cf29b' : 'rgba(255,255,255,0.08)' }} />
+              <div className="league-order-controls">
+                <span className="league-order-badge">#{displayIndex + 1}</span>
                 <div className="inline-actions">
-                  <button
-                    type="button"
-                    className="button-link league-arrow-btn"
-                    disabled={leagueIndex === 0}
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      moveLeague(leagueIndex, -1)
-                    }}
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    className="button-link league-arrow-btn"
-                    disabled={leagueIndex === sportsBoard.leagues.length - 1}
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      moveLeague(leagueIndex, 1)
-                    }}
-                  >
-                    ↓
-                  </button>
-                  <button
-                    type="button"
-                    className="button-link league-arrow-btn"
-                    title="Remove league"
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      if (window.confirm(`Remove ${league.name} from your league list?`)) {
-                        removeLeague(league.id)
-                      }
-                    }}
-                  >
-                    ×
-                  </button>
+                  <span className="league-drag-handle" title="Drag to reorder">⠿</span>
+                  <button type="button" className="button-link league-arrow-btn" title="Remove league"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (window.confirm(`Remove ${league.name} from your league list?`)) removeLeague(league.id)
+                    }}>×</button>
                 </div>
               </div>
               <p className="league-id">{league.id}</p>

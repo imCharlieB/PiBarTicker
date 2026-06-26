@@ -4,12 +4,14 @@ import LeagueList from './ticker/LeagueList'
 import LeagueDetail from './ticker/LeagueDetail'
 import TeamDetail from './ticker/TeamDetail'
 import DriverDetail from './ticker/DriverDetail'
+import HADetail from './ticker/HADetail'
 
 export default function TickerPage() {
   const { config, leagueTeamsById, leagueLoadStateById } = useAppContext()
   const [selectedTickerLeagueId, setSelectedTickerLeagueId] = useState('')
   const [selectedTickerTeamId, setSelectedTickerTeamId] = useState('')
   const [selectedDriver, setSelectedDriver] = useState(null)
+  const [showHADetail, setShowHADetail] = useState(false)
 
   const sportsBoard = config.boards.find((b) => b.type === 'sports')
 
@@ -31,7 +33,9 @@ export default function TickerPage() {
 
   return (
     <article className="card page-card">
-      {!selectedTickerLeague ? (
+      {showHADetail ? (
+        <HADetail onBack={() => setShowHADetail(false)} />
+      ) : !selectedTickerLeague ? (
         <LeagueList
           sportsBoard={sportsBoard}
           onSelectLeague={(id) => {
@@ -39,6 +43,7 @@ export default function TickerPage() {
             setSelectedTickerTeamId('')
             setSelectedDriver(null)
           }}
+          onSelectHA={() => setShowHADetail(true)}
         />
       ) : selectedDriver ? (
         <DriverDetail

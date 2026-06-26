@@ -59,17 +59,8 @@ export function computeThemeErrors(config) {
   }
 }
 
-export function computeServicesErrors(config) {
-  return {
-    url: isHttpUrl(config.homeAssistant.url)
-      ? ''
-      : 'Home Assistant URL must start with http:// or https://.',
-    port:
-      !config.http.enabled ||
-      (Number.isInteger(config.http.port) && config.http.port >= 1 && config.http.port <= 65535)
-        ? ''
-        : 'HTTP port must be between 1 and 65535 when HTTP is enabled.',
-  }
+export function computeServicesErrors(_config) {
+  return {}
 }
 
 export function computeSectionChecks(config) {
@@ -161,12 +152,12 @@ export function getSectionSnapshots(cfg) {
   return {
     display: { monitor: cfg.monitor, kiosk: cfg.kiosk, layout: cfg.layout },
     theme: { theme: cfg.theme },
-    services: {
-      homeAssistant: cfg.homeAssistant,
-      http: cfg.http,
-      haSensors: homeAssistantBoard?.haSensors || [],
-      haCards: homeAssistantBoard?.haCards || [],
+    services: {},
+    ticker: {
+      sportsBoard,
+      haBoard: homeAssistantBoard
+        ? { enabled: homeAssistantBoard.enabled, slotIndex: homeAssistantBoard.slotIndex, rotateSeconds: homeAssistantBoard.rotateSeconds, haSensors: homeAssistantBoard.haSensors, haCards: homeAssistantBoard.haCards }
+        : null,
     },
-    ticker: { sportsBoard },
   }
 }

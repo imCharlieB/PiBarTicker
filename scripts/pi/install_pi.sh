@@ -176,7 +176,6 @@ BAD_FLAGS = [
     "--ozone-platform=x11",
     "--use-gl=egl",
     "--start-maximized",
-    "--ignore-gpu-blocklist",
 ]
 RECOMMENDED = [
     "--noerrdialogs",
@@ -184,16 +183,17 @@ RECOMMENDED = [
     "--force-device-scale-factor=1",
     "--enable-gpu-rasterization",
     "--enable-zero-copy",
+    "--ignore-gpu-blocklist",
     "--disable-smooth-scrolling",
     "--overscroll-history-navigation=0",
     "--disable-translate",
     "--disable-features=TranslateUI",
-    "--enable-features=OverlayScrollbar",
+    "--enable-features=OverlayScrollbar,VaapiVideoDecoder",
     "--disable-webgpu",
     "--disable-session-crashed-bubble",
     "--check-for-update-interval=31536000",
 ]
-WAYLAND_FEATURES = {"WaylandWindowDecorations", "VaapiVideoDecoder"}
+WAYLAND_FEATURES = {"WaylandWindowDecorations"}
 BAD_SET = {b.strip() for b in BAD_FLAGS}
 cleaned = []
 for f in flags:

@@ -20,6 +20,7 @@ function HARotationSlot({ homeAssistantBoard, rotateMs, shellStyle, themeTokens,
   advanceRef.current = onAdvance
   const sensorValues = useHASensors()
   const trackRef = useRef(null)
+  const boardRef = useRef(null)
   const animRef = useRef(null)
   const timerRef = useRef(null)
 
@@ -27,41 +28,38 @@ function HARotationSlot({ homeAssistantBoard, rotateMs, shellStyle, themeTokens,
     if (animRef.current) { try { animRef.current.cancel() } catch (_) {} animRef.current = null }
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null }
 
+    const track = trackRef.current
+    const board = boardRef.current
+    if (!track || !board) {
+      timerRef.current = setTimeout(() => advanceRef.current(), rotateMs)
+      return
+    }
+
+    const totalWidth = track.scrollWidth
+    const containerWidth = board.clientWidth || window.innerWidth
+
     const doAdvance = () => {
       if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null }
       advanceRef.current()
     }
 
-    const track = trackRef.current
-    if (!track) {
+    if (totalWidth < 10 || containerWidth < 10) {
       timerRef.current = setTimeout(doAdvance, rotateMs)
       return
     }
 
-    const totalWidth = track.scrollWidth
-    const containerWidth = track.parentElement?.clientWidth || window.innerWidth
+    const speed = scrollSpeed ?? 110
+    const startX = containerWidth
+    const endX = -totalWidth
+    const dur = Math.round((startX - endX) / speed * 1000)
 
-    // Cards start at position 0 — immediately visible.
-    // If content fits, hold statically then advance. If wider, scroll left after hold.
-    if (totalWidth <= containerWidth || totalWidth < 10) {
-      timerRef.current = setTimeout(doAdvance, rotateMs)
-      return
-    }
-
-    const speed = scrollSpeed ?? 60
-    const exitDur = Math.round(totalWidth / speed * 1000)
-    const staticMs = Math.max(2000, rotateMs - exitDur - 1000)
-
-    timerRef.current = setTimeout(() => {
-      timerRef.current = null
-      const anim = track.animate(
-        [{ transform: 'translateX(0px)' }, { transform: `translateX(${-totalWidth}px)` }],
-        { duration: exitDur, fill: 'forwards', easing: 'linear' },
-      )
-      animRef.current = anim
-      anim.finished.then(doAdvance).catch(() => {})
-      timerRef.current = setTimeout(doAdvance, exitDur + 2000)
-    }, staticMs)
+    const anim = track.animate(
+      [{ transform: `translateX(${startX}px)` }, { transform: `translateX(${endX}px)` }],
+      { duration: dur, fill: 'forwards', easing: 'linear' },
+    )
+    animRef.current = anim
+    anim.finished.then(doAdvance).catch(() => {})
+    timerRef.current = setTimeout(doAdvance, dur + 2000)
 
     return () => {
       if (animRef.current) { try { animRef.current.cancel() } catch (_) {} animRef.current = null }
@@ -71,7 +69,7 @@ function HARotationSlot({ homeAssistantBoard, rotateMs, shellStyle, themeTokens,
 
   return (
     <main className={`ticker-runtime-shell ${themeTokens?.modeClass ?? ''}`} style={shellStyle}>
-      <section className="ticker-runtime-board">
+      <section className="ticker-runtime-board" ref={boardRef}>
         <div className="ticker-runtime-marquee-window">
           <div className="ticker-runtime-track" ref={trackRef} role="list" aria-label="Home Assistant">
             <HATickerCards homeAssistantBoard={homeAssistantBoard} sensorValues={sensorValues} />

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import './App.css'
 import { deriveThemeTokens } from './themeTokens'
 import TickerRuntime from './ticker/TickerRuntime'
@@ -13,6 +13,20 @@ import OverviewPage from './setup/OverviewPage'
 import DisplayPage from './setup/DisplayPage'
 import ThemePage from './setup/ThemePage'
 import TickerPage from './setup/TickerPage'
+
+function HARotationSlot({ homeAssistantBoard, rotateMs, shellStyle, onAdvance }) {
+  const advanceRef = useRef(onAdvance)
+  advanceRef.current = onAdvance
+  useEffect(() => {
+    const id = setTimeout(() => advanceRef.current(), rotateMs)
+    return () => clearTimeout(id)
+  }, [rotateMs])
+  return (
+    <div className="ticker-runtime-shell" style={shellStyle}>
+      <HAPanel homeAssistantBoard={homeAssistantBoard} />
+    </div>
+  )
+}
 
 function App() {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '/'
@@ -83,9 +97,20 @@ function App() {
       : (Number(config?.monitor?.width) || 1920)
   )
 
-  const activeRuntimeLeague = runtimeLeagues.length
-    ? runtimeLeagues[runtimeLeagueIndex % runtimeLeagues.length]
-    : null
+  const _haInRotation = homeAssistantBoard != null && homeAssistantBoard.enabled !== false
+  const runtimeSlots = useMemo(() => {
+    const leagueSlots = runtimeLeagues.map((l) => ({ type: 'league', league: l }))
+    if (!_haInRotation) return leagueSlots
+    const pos = homeAssistantBoard.slotIndex >= 0
+      ? Math.min(homeAssistantBoard.slotIndex, leagueSlots.length)
+      : leagueSlots.length
+    const result = [...leagueSlots]
+    result.splice(pos, 0, { type: 'ha' })
+    return result
+  }, [runtimeLeagues, _haInRotation, homeAssistantBoard?.slotIndex]) // eslint-disable-line react-hooks/exhaustive-deps
+  const _activeSlot = runtimeSlots.length ? runtimeSlots[runtimeLeagueIndex % runtimeSlots.length] : null
+  const activeSlotIsHA = _activeSlot?.type === 'ha'
+  const activeRuntimeLeague = _activeSlot?.type === 'league' ? _activeSlot.league : null
   const runtimeVisibleLeague = runtimeLeagues.find((league) => league.id === runtimeVisibleLeagueId) || null
   const logicalDisplayLeague = runtimeVisibleLeague || activeRuntimeLeague
   const runtimeDisplayLeague = initialPreFetchesComplete
@@ -184,9 +209,14 @@ function App() {
       panelContent.ha = <HAPanel homeAssistantBoard={homeAssistantBoard} />
     }
 
+    const rotateMs = (sportsBoard?.rotateSeconds || 30) * 1000
+    const mainContent = activeSlotIsHA
+      ? <HARotationSlot homeAssistantBoard={homeAssistantBoard} rotateMs={rotateMs} shellStyle={shellStyle} onAdvance={handleRuntimeAdvance} />
+      : tickerEl
+
     return (
       <LayoutShell layout={config.layout} shellStyle={shellStyle} panelContent={panelContent}>
-        {tickerEl}
+        {mainContent}
       </LayoutShell>
     )
   }

@@ -718,17 +718,31 @@ export function AppContextProvider({ children }) {
   const runtimeLeagues = sportsBoard?.leagues?.filter((league) => league.enabled) ?? []
   const runtimeLeagueIdsKey = runtimeLeagues.map((league) => league.id).join('|')
 
+  // Build ordered rotation slots: sports leagues interleaved with the HA slot at slotIndex
+  const haBoard = config?.boards?.find((b) => b.type === 'home-assistant') ?? null
+  const _haInRotation = haBoard != null && haBoard.enabled !== false
+  const runtimeSlots = (() => {
+    const leagueSlots = runtimeLeagues.map((l) => ({ type: 'league', league: l }))
+    if (!_haInRotation) return leagueSlots
+    const pos = haBoard.slotIndex >= 0 ? Math.min(haBoard.slotIndex, leagueSlots.length) : leagueSlots.length
+    const result = [...leagueSlots]
+    result.splice(pos, 0, { type: 'ha' })
+    return result
+  })()
+  const runtimeSlotsKey = runtimeSlots.map((s) => (s.type === 'ha' ? 'ha' : s.league.id)).join('|')
+
   // ── Ticker rotation effects ─────────────────────────────────────────────
   useEffect(() => {
-    currentLeaguesLengthRef.current = runtimeLeagues.length
-  }, [runtimeLeagues.length])
+    currentLeaguesLengthRef.current = runtimeSlots.length
+  }, [runtimeSlots.length])
 
   useEffect(() => {
     currentRuntimeLeagueIndexRef.current = runtimeLeagueIndex
   }, [runtimeLeagueIndex])
 
   const runtimeVisibleLeague = runtimeLeagues.find((league) => league.id === runtimeVisibleLeagueId) || null
-  const activeRuntimeLeague = runtimeLeagues.length ? runtimeLeagues[runtimeLeagueIndex % runtimeLeagues.length] : null
+  const _activeSlot = runtimeSlots.length ? runtimeSlots[runtimeLeagueIndex % runtimeSlots.length] : null
+  const activeRuntimeLeague = _activeSlot?.type === 'league' ? _activeSlot.league : null
   const logicalDisplayLeague = runtimeVisibleLeague || activeRuntimeLeague
   const runtimeDisplayLeague = initialPreFetchesComplete ? logicalDisplayLeague : (runtimeLeagues[0] || logicalDisplayLeague)
 
@@ -813,15 +827,16 @@ export function AppContextProvider({ children }) {
   }, [isTickerRuntime, runtimeLeagueIdsKey, runtimeLeagues.length, sportsBoard, initialPreFetchesComplete, runtimeLeagueIndex])
 
   useEffect(() => {
-    if (!isTickerRuntime || runtimeLeagues.length <= 1) return
+    if (!isTickerRuntime || runtimeSlots.length <= 1) return
     if (!initialPreFetchesComplete) return
     if (Date.now() < tickerEntryGraceRef.current) return
     if (Date.now() < handoffGraceRef.current) return
     if (!runtimeHasAnyGamesAcrossEnabledLeagues) return
 
-    const idx = runtimeLeagueIndex % runtimeLeagues.length
-    const league = runtimeLeagues[idx]
-    if (!league) return
+    const idx = runtimeLeagueIndex % runtimeSlots.length
+    const _slot = runtimeSlots[idx]
+    if (!_slot || _slot.type === 'ha') return // HA slot always shows; never skip it
+    const league = _slot.league
 
     const p = runtimePayloadByLeagueId[league.id]
     const hasP = Array.isArray(p?.normalizedGames) && p.normalizedGames.length > 0

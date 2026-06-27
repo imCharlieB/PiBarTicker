@@ -5,7 +5,7 @@ import WireframeCard, { BoardCard } from './WireframeCards.jsx'
 import BaseballCard from './BaseballCard.jsx'
 import GameCard from './GameCard.jsx'
 import { sanitizeHexColor, rgbaFromHex, hexToRgb } from './cardHelpers.js'
-import { useHASensors, renderEntityValue, haIconFor, haColorFor, WEATHER_ICON_MAP } from './haHelpers.js'
+import { useHASensors, renderEntityValue, haIconFor, haColorFor, WEATHER_ICON_MAP, HATickerCards } from './haHelpers.js'
 
 // ── TickerRuntime-only helpers ───────────────────────────────────────────────
 
@@ -166,7 +166,7 @@ function SensorCornerWidgets({ haSensors, sensorValues }) {
   })
 }
 
-function LowerThird({ clockFormat }) {
+function LowerThird({ clockFormat, haSlotActive }) {
   const [now, setNow] = useState(() => new Date())
   const [cur, setCur] = useState({ league: '', logo: '' })
   const curRef = useRef(cur)
@@ -206,7 +206,9 @@ function LowerThird({ clockFormat }) {
   const time = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: clockFormat !== '24h' })
   return (
     <div className="ticker-runtime-lower l3-insert" aria-label="Lower third">
-      <LeagueMark league={cur.league} logo={cur.logo} />
+      {haSlotActive
+        ? <span className="l3-badge">HOME</span>
+        : <LeagueMark league={cur.league} logo={cur.logo} />}
       <span className="l3-time">{time}</span>
     </div>
   )
@@ -289,6 +291,8 @@ function TickerRuntime({
   currentSlotLeagueIdRef,
   onAdvance,
   onHandoffCheck,
+  haSlotActive,
+  haRotateMs,
 }) {
   const [watermarkSize, setWatermarkSize] = useState('82%')
   const sensorValues = useHASensors()
@@ -340,6 +344,12 @@ function TickerRuntime({
 
     const track = trackRef.current
     if (!track) return
+
+    if (haSlotActive) {
+      track.style.opacity = '1'
+      return
+    }
+
     track.style.opacity = '0'
 
     if (!displayLeague || !initialPreFetchesComplete || games.length === 0) {
@@ -387,7 +397,7 @@ function TickerRuntime({
     backupTimerRef.current = setTimeout(doAdvance, dur + 2000)
 
     setTimeout(() => onHandoffCheckRef.current(), 600)
-  }, [displayLeague?.id, games.length, sessionKey, initialPreFetchesComplete, boardWidth, sportsBoard?.scrollSpeed, sportsBoard?.cardGap]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [displayLeague?.id, games.length, sessionKey, initialPreFetchesComplete, boardWidth, sportsBoard?.scrollSpeed, sportsBoard?.cardGap, haSlotActive]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Image preload + reveal ────────────────────────────────────────────────
   // Animation is already running; we just need to make the track visible once
@@ -446,6 +456,15 @@ function TickerRuntime({
     img.src = watermarkUrl
   }, [watermarkUrl, config?.monitor?.height])
 
+  // ── HA advance timer ─────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!haSlotActive) return
+    if (animRef.current) { try { animRef.current.cancel() } catch (_) {} animRef.current = null }
+    if (backupTimerRef.current) { clearTimeout(backupTimerRef.current); backupTimerRef.current = null }
+    const id = setTimeout(() => onAdvanceRef.current(), haRotateMs)
+    return () => clearTimeout(id)
+  }, [haSlotActive, haRotateMs]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   const seamlessGames = games
@@ -481,7 +500,7 @@ function TickerRuntime({
   return (
     <main ref={shellRef} className={`ticker-runtime-shell ${themeTokens.modeClass}`} style={{ ...shellStyle, '--ticker-watermark-size': watermarkSize }}>
       <AlertOverlay />
-      {!hasEnabledLeagues ? (
+      {!hasEnabledLeagues && !haSlotActive ? (
         <p className="ticker-runtime-empty">Enable at least one league.</p>
       ) : (
         <section
@@ -498,7 +517,9 @@ function TickerRuntime({
               role="list"
               aria-label="Ticker games"
             >
-              {seamlessGames.map((item, index) => {
+              {haSlotActive
+                ? <HATickerCards homeAssistantBoard={homeAssistantBoard} sensorValues={sensorValues} />
+                : seamlessGames.map((item, index) => {
                 if (item && item._spacer) {
                   return (
                     <div
@@ -536,7 +557,7 @@ function TickerRuntime({
             </div>
           </div>
 
-          <LowerThird clockFormat={config?.theme?.clockFormat ?? '12h'} />
+          <LowerThird clockFormat={config?.theme?.clockFormat ?? '12h'} haSlotActive={haSlotActive} />
           <SensorCornerWidgets haSensors={haSensors} sensorValues={sensorValues} />
         </section>
       )}

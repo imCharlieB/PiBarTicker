@@ -10,6 +10,13 @@
   gap: 1px;
 }
 
+/* Override ticker-runtime-shell styles that conflict with panel sizing */
+.ha-panel.ticker-runtime-shell {
+  height: 100%;
+  padding: 0;
+  justify-content: flex-start;
+}
+
 /* Wide panel (bottom/top bar): cards side by side */
 @container (min-aspect-ratio: 2/1) {
   .ha-panel { flex-direction: row; }

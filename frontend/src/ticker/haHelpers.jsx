@@ -147,7 +147,7 @@ export function HATickerCards({ homeAssistantBoard, sensorValues }) {
   return cardEls
 }
 
-function HASensorCard({ card, sensors, sensorValues }) {
+export function HASensorCard({ card, sensors, sensorValues }) {
   if (sensors.length === 0) return null
   return (
     <div className="card d-ha ticker-runtime-card" role="listitem">
@@ -177,7 +177,7 @@ function HASensorCard({ card, sensors, sensorValues }) {
   )
 }
 
-function HAWeatherCard({ card, sensors, sensorValues }) {
+export function HAWeatherCard({ card, sensors, sensorValues }) {
   let live = null
   for (const s of sensors) {
     const v = sensorValues[s.entityId]
@@ -236,7 +236,7 @@ function HAWeatherCard({ card, sensors, sensorValues }) {
   )
 }
 
-function HAPrinterCard({ card, sensors, sensorValues }) {
+export function HAPrinterCard({ card, sensors, sensorValues }) {
   if (sensors.length === 0) return null
   let progressSensor = null
   let progressPct = null

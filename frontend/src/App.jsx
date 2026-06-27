@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import './App.css'
 import { deriveThemeTokens } from './themeTokens'
 import TickerRuntime from './ticker/TickerRuntime'
@@ -9,99 +9,10 @@ import {
 } from './ticker/cardHelpers'
 import LayoutShell from './LayoutShell'
 import HAPanel from './HAPanel'
-import { HATickerCards, useHASensors } from './ticker/haHelpers'
 import OverviewPage from './setup/OverviewPage'
 import DisplayPage from './setup/DisplayPage'
 import ThemePage from './setup/ThemePage'
 import TickerPage from './setup/TickerPage'
-
-function HALowerThird({ clockFormat }) {
-  const [now, setNow] = useState(() => new Date())
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000)
-    return () => clearInterval(id)
-  }, [])
-  const time = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: clockFormat !== '24h' })
-  return (
-    <div className="ticker-runtime-lower l3-insert" aria-label="Lower third">
-      <span className="l3-badge">HOME</span>
-      <span className="l3-time">{time}</span>
-    </div>
-  )
-}
-
-function HARotationSlot({ homeAssistantBoard, rotateMs, shellStyle, themeTokens, scrollSpeed, clockFormat, watermarkUrl, onAdvance }) {
-  const advanceRef = useRef(onAdvance)
-  advanceRef.current = onAdvance
-  const sensorValues = useHASensors()
-  const trackRef = useRef(null)
-  const boardRef = useRef(null)
-  const animRef = useRef(null)
-  const timerRef = useRef(null)
-
-  useEffect(() => {
-    if (animRef.current) { try { animRef.current.cancel() } catch (_) {} animRef.current = null }
-    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null }
-
-    const track = trackRef.current
-    const board = boardRef.current
-    if (!track || !board) {
-      timerRef.current = setTimeout(() => advanceRef.current(), rotateMs)
-      return
-    }
-
-    const totalWidth = track.scrollWidth
-    const containerWidth = board.clientWidth || window.innerWidth
-
-    const doAdvance = () => {
-      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null }
-      advanceRef.current()
-    }
-
-    if (totalWidth < 10 || containerWidth < 10) {
-      timerRef.current = setTimeout(doAdvance, rotateMs)
-      return
-    }
-
-    const speed = scrollSpeed ?? 110
-    const startX = containerWidth
-    const endX = -totalWidth
-    const dur = Math.round((startX - endX) / speed * 1000)
-
-    const anim = track.animate(
-      [{ transform: `translateX(${startX}px)` }, { transform: `translateX(${endX}px)` }],
-      { duration: dur, fill: 'forwards', easing: 'linear' },
-    )
-    animRef.current = anim
-    anim.finished.then(doAdvance).catch(() => {})
-    timerRef.current = setTimeout(doAdvance, dur + 2000)
-
-    return () => {
-      if (animRef.current) { try { animRef.current.cancel() } catch (_) {} animRef.current = null }
-      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null }
-    }
-  }, [rotateMs, scrollSpeed]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  return (
-    <main className={`ticker-runtime-shell ${themeTokens?.modeClass ?? ''}`} style={shellStyle}>
-      <section
-        className="ticker-runtime-board"
-        ref={boardRef}
-        style={{
-          '--ticker-watermark-images': watermarkUrl ? `url(${watermarkUrl})` : 'none',
-          '--ticker-watermark-positions': 'center',
-        }}
-      >
-        <div className="ticker-runtime-marquee-window">
-          <div className="ticker-runtime-track" ref={trackRef} role="list" aria-label="Home Assistant">
-            <HATickerCards homeAssistantBoard={homeAssistantBoard} sensorValues={sensorValues} />
-          </div>
-        </div>
-        <HALowerThird clockFormat={clockFormat ?? '12h'} />
-      </section>
-    </main>
-  )
-}
 
 function App() {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '/'
@@ -253,6 +164,7 @@ function App() {
   }
 
   if (isTickerRuntime) {
+    const rotateMs = (sportsBoard?.rotateSeconds || 30) * 1000
     const tickerEl = (
       <TickerRuntime
         leagues={runtimeLeagues}
@@ -276,22 +188,19 @@ function App() {
         currentSlotLeagueIdRef={currentSlotLeagueIdRef}
         onAdvance={handleRuntimeAdvance}
         onHandoffCheck={onHandoffCheck}
+        haSlotActive={activeSlotIsHA}
+        haRotateMs={rotateMs}
       />
     )
     const panelContent = {}
     const haLayoutPanel = config.layout?.panels?.find(p => p.type === 'ha' && p.enabled !== false)
     if (haLayoutPanel) {
-      panelContent.ha = <HAPanel homeAssistantBoard={homeAssistantBoard} />
+      panelContent.ha = <HAPanel homeAssistantBoard={homeAssistantBoard} scrollSpeed={sportsBoard?.scrollSpeed} />
     }
-
-    const rotateMs = (sportsBoard?.rotateSeconds || 30) * 1000
-    const mainContent = activeSlotIsHA
-      ? <HARotationSlot homeAssistantBoard={homeAssistantBoard} rotateMs={rotateMs} shellStyle={shellStyle} themeTokens={themeTokens} scrollSpeed={sportsBoard?.scrollSpeed} clockFormat={config?.theme?.clockFormat ?? '12h'} watermarkUrl={tickerWatermarkUrl} onAdvance={handleRuntimeAdvance} />
-      : tickerEl
 
     return (
       <LayoutShell layout={config.layout} shellStyle={shellStyle} panelContent={panelContent}>
-        {mainContent}
+        {tickerEl}
       </LayoutShell>
     )
   }

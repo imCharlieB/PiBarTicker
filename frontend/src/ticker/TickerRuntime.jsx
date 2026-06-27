@@ -338,38 +338,49 @@ function TickerRuntime({
   // Animation starts running immediately (track opacity:0). The image-preload effect
   // below simply sets opacity:1 once textures are decoded. This avoids pause/play
   // timing edge cases and keeps the code simple.
+  // ── HA slot animation (separate effect — HA-only deps so sports dep changes don't restart it) ──
   useLayoutEffect(() => {
+    if (!haSlotActive) return
+
     if (animRef.current) { try { animRef.current.cancel() } catch (_) {} animRef.current = null }
     if (backupTimerRef.current) { clearTimeout(backupTimerRef.current); backupTimerRef.current = null }
 
     const track = trackRef.current
     if (!track) return
 
-    if (haSlotActive) {
-      track.style.opacity = '1'
-      const totalWidth = track.scrollWidth
-      if (totalWidth < 10) {
-        backupTimerRef.current = setTimeout(() => onAdvanceRef.current(), haRotateMs)
-        return
-      }
-      const speed = sportsBoard?.scrollSpeed ?? 110
-      const startX = containerWidthRef.current
-      const endX = -totalWidth
-      const scrollDist = startX - endX
-      const dur = Math.max(3000, Math.round(scrollDist / speed * 1000))
-      const doHaAdvance = () => {
-        if (backupTimerRef.current) { clearTimeout(backupTimerRef.current); backupTimerRef.current = null }
-        onAdvanceRef.current()
-      }
-      const anim = track.animate(
-        [{ transform: `translateX(${startX}px)` }, { transform: `translateX(${endX}px)` }],
-        { duration: dur, fill: 'forwards', easing: 'linear' }
-      )
-      animRef.current = anim
-      anim.finished.then(doHaAdvance).catch(() => {})
-      backupTimerRef.current = setTimeout(doHaAdvance, dur + 2000)
+    track.style.opacity = '1'
+    const totalWidth = track.scrollWidth
+    if (totalWidth < 10) {
+      backupTimerRef.current = setTimeout(() => onAdvanceRef.current(), haRotateMs)
       return
     }
+    const speed = sportsBoard?.scrollSpeed ?? 110
+    const startX = containerWidthRef.current
+    const endX = -totalWidth
+    const scrollDist = startX - endX
+    const dur = Math.max(3000, Math.round(scrollDist / speed * 1000))
+    const doHaAdvance = () => {
+      if (backupTimerRef.current) { clearTimeout(backupTimerRef.current); backupTimerRef.current = null }
+      onAdvanceRef.current()
+    }
+    const anim = track.animate(
+      [{ transform: `translateX(${startX}px)` }, { transform: `translateX(${endX}px)` }],
+      { duration: dur, fill: 'forwards', easing: 'linear' }
+    )
+    animRef.current = anim
+    anim.finished.then(doHaAdvance).catch(() => {})
+    backupTimerRef.current = setTimeout(doHaAdvance, dur + 2000)
+  }, [haSlotActive, haRotateMs, sportsBoard?.scrollSpeed]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Sports animation ──────────────────────────────────────────────────────
+  useLayoutEffect(() => {
+    if (haSlotActive) return  // HA effect owns the track when active
+
+    if (animRef.current) { try { animRef.current.cancel() } catch (_) {} animRef.current = null }
+    if (backupTimerRef.current) { clearTimeout(backupTimerRef.current); backupTimerRef.current = null }
+
+    const track = trackRef.current
+    if (!track) return
 
     track.style.opacity = '0'
 
@@ -418,7 +429,7 @@ function TickerRuntime({
     backupTimerRef.current = setTimeout(doAdvance, dur + 2000)
 
     setTimeout(() => onHandoffCheckRef.current(), 600)
-  }, [displayLeague?.id, games.length, sessionKey, initialPreFetchesComplete, boardWidth, sportsBoard?.scrollSpeed, sportsBoard?.cardGap, haSlotActive]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [displayLeague?.id, games.length, sessionKey, initialPreFetchesComplete, boardWidth, sportsBoard?.scrollSpeed, sportsBoard?.cardGap]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Image preload + reveal ────────────────────────────────────────────────
   // Animation is already running; we just need to make the track visible once

@@ -112,6 +112,162 @@ export function haIconFor(live, sensor) {
   }
 }
 
+export function HATickerCards({ homeAssistantBoard, sensorValues }) {
+  const sensors = homeAssistantBoard?.haSensors ?? []
+  const cards = homeAssistantBoard?.haCards ?? []
+  const tickerSensors = sensors.filter((s) => s.position === 'ticker')
+
+  if (cards.length === 0) {
+    if (tickerSensors.length === 0) return null
+    return <HASensorCard card={{ title: 'HOME', sub: '' }} sensors={tickerSensors} sensorValues={sensorValues} />
+  }
+
+  return cards.map((card) => {
+    if (card.enabled === false) return null
+    const cardSensors = tickerSensors.filter((s) => s.cardId === card.id)
+    if (cardSensors.length === 0) return null
+    if (card.variant === 'weather') return <HAWeatherCard key={card.id} card={card} sensors={cardSensors} sensorValues={sensorValues} />
+    if (card.variant === 'printer') return <HAPrinterCard key={card.id} card={card} sensors={cardSensors} sensorValues={sensorValues} />
+    return <HASensorCard key={card.id} card={card} sensors={cardSensors} sensorValues={sensorValues} />
+  })
+}
+
+function HASensorCard({ card, sensors, sensorValues }) {
+  if (sensors.length === 0) return null
+  return (
+    <div className="card d-ha ticker-runtime-card" role="listitem">
+      <div className="ha-head">
+        <div className="ha-titles">
+          <span className="ha-title">{card.title}</span>
+          {card.sub && <span className="ha-sub">{card.sub}</span>}
+        </div>
+        <span className="ha-badge"><i className="mdi mdi-home-assistant" />HOME</span>
+      </div>
+      <div className="ha-rows">
+        {sensors.map((sensor) => {
+          const live = sensorValues[sensor.entityId]
+          const label = sensor.label || sensor.entityId.split('.').pop().replace(/_/g, ' ')
+          const icon = haIconFor(live, sensor)
+          const color = haColorFor(live, sensor)
+          return (
+            <div key={sensor.entityId} className="ha-row">
+              <i className={`mdi ${icon} ha-row-icon`} style={{ '--ic': color }} />
+              <span className="ha-row-label">{label}</span>
+              <span className="ha-row-val">{renderEntityValue(live, sensor, 'ha-unit')}</span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function HAWeatherCard({ card, sensors, sensorValues }) {
+  let live = null
+  for (const s of sensors) {
+    const v = sensorValues[s.entityId]
+    if ((v?.domain || s.entityId.split('.')[0]) === 'weather') { live = v; break }
+  }
+  const condition = live?.state ?? '—'
+  const wx = WEATHER_ICON_MAP[condition] ?? { icon: 'mdi-weather-cloudy', color: '#9aa3b1' }
+  const temp = live?.attributes?.temperature
+  const tempUnit = live?.attributes?.temperature_unit ?? '°'
+  const humidity = live?.attributes?.humidity
+  const windSpeed = live?.attributes?.wind_speed
+  const windUnit = live?.attributes?.wind_speed_unit ?? ''
+  const forecast0 = live?.attributes?.forecast?.[0]
+  const hiTemp = forecast0?.temperature ?? forecast0?.high_temperature
+  const loTemp = forecast0?.templow ?? forecast0?.low_temperature
+  return (
+    <div className="card d-ha d-weather ticker-runtime-card" role="listitem">
+      <div className="ha-head">
+        <div className="ha-titles">
+          <span className="ha-title">{card.title}</span>
+          {card.sub && <span className="ha-sub">{card.sub}</span>}
+        </div>
+        <span className="ha-badge"><i className="mdi mdi-home-assistant" />HOME</span>
+      </div>
+      <div className="wx-hero">
+        <i className={`mdi ${wx.icon} wx-icon`} style={{ '--ic': wx.color }} />
+        <div className="wx-temp">{temp != null ? temp : '—'}<span className="wx-deg">{tempUnit}</span></div>
+        <div className="wx-cond">{condition}</div>
+      </div>
+      <div className="wx-stats">
+        {hiTemp != null && loTemp != null && (
+          <div className="wx-stat">
+            <i className="mdi mdi-thermometer" style={{ '--ic': '#f0894e' }} />
+            <span className="wx-stat-val">{hiTemp}° / {loTemp}°</span>
+            <span className="wx-stat-label">Hi / Lo</span>
+          </div>
+        )}
+        {humidity != null && (
+          <div className="wx-stat">
+            <i className="mdi mdi-water-percent" style={{ '--ic': '#5ac8fa' }} />
+            <span className="wx-stat-val">{humidity}%</span>
+            <span className="wx-stat-label">Humidity</span>
+          </div>
+        )}
+        {windSpeed != null && (
+          <div className="wx-stat">
+            <i className="mdi mdi-weather-windy" style={{ '--ic': '#4fd1c5' }} />
+            <span className="wx-stat-val">{windSpeed}{windUnit ? ` ${windUnit}` : ''}</span>
+            <span className="wx-stat-label">Wind</span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function HAPrinterCard({ card, sensors, sensorValues }) {
+  if (sensors.length === 0) return null
+  let progressSensor = null
+  let progressPct = null
+  const otherSensors = []
+  for (const sensor of sensors) {
+    const live = sensorValues[sensor.entityId]
+    const unit = sensor.unit || live?.unit || live?.attributes?.unit_of_measurement || ''
+    const val = parseFloat(live?.state)
+    if (!progressSensor && unit === '%' && !isNaN(val) && val >= 0 && val <= 100) {
+      progressSensor = sensor; progressPct = val
+    } else { otherSensors.push(sensor) }
+  }
+  return (
+    <div className="card d-ha d-printer ticker-runtime-card" role="listitem">
+      <div className="ha-head">
+        <div className="ha-titles">
+          <span className="ha-title">{card.title}</span>
+          {card.sub && <span className="ha-sub">{card.sub}</span>}
+        </div>
+        <span className="ha-badge"><i className="mdi mdi-printer-3d" />PRINT</span>
+      </div>
+      {progressPct != null && (
+        <div className="printer-progress">
+          <div className="printer-progress-bar"><div className="printer-progress-fill" style={{ width: `${progressPct}%` }} /></div>
+          <span className="printer-progress-pct">{Math.round(progressPct)}%</span>
+        </div>
+      )}
+      {otherSensors.length > 0 && (
+        <div className="ha-rows">
+          {otherSensors.map((sensor) => {
+            const live = sensorValues[sensor.entityId]
+            const label = sensor.label || sensor.entityId.split('.').pop().replace(/_/g, ' ')
+            const icon = haIconFor(live, sensor)
+            const color = haColorFor(live, sensor)
+            return (
+              <div key={sensor.entityId} className="ha-row">
+                <i className={`mdi ${icon} ha-row-icon`} style={{ '--ic': color }} />
+                <span className="ha-row-label">{label}</span>
+                <span className="ha-row-val">{renderEntityValue(live, sensor, 'ha-unit')}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function haColorFor(live, sensor) {
   const domain = live?.domain || sensor?.entityId?.split('.')[0]
   const dc = live?.attributes?.device_class || ''

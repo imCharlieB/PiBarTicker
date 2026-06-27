@@ -9,22 +9,26 @@ import {
 } from './ticker/cardHelpers'
 import LayoutShell from './LayoutShell'
 import HAPanel from './HAPanel'
+import { HATickerCards, useHASensors } from './ticker/haHelpers'
 import OverviewPage from './setup/OverviewPage'
 import DisplayPage from './setup/DisplayPage'
 import ThemePage from './setup/ThemePage'
 import TickerPage from './setup/TickerPage'
 
-function HARotationSlot({ homeAssistantBoard, rotateMs, shellStyle, onAdvance }) {
+function HARotationSlot({ homeAssistantBoard, rotateMs, shellStyle, themeTokens, onAdvance }) {
   const advanceRef = useRef(onAdvance)
   advanceRef.current = onAdvance
   useEffect(() => {
     const id = setTimeout(() => advanceRef.current(), rotateMs)
     return () => clearTimeout(id)
   }, [rotateMs])
+  const sensorValues = useHASensors()
   return (
-    <div className="ticker-runtime-shell" style={shellStyle}>
-      <HAPanel homeAssistantBoard={homeAssistantBoard} />
-    </div>
+    <main className={`ticker-runtime-shell ${themeTokens?.modeClass ?? ''}`} style={shellStyle}>
+      <div style={{ display: 'flex', height: '100%', alignItems: 'stretch', gap: '1rem', padding: '0 1rem' }}>
+        <HATickerCards homeAssistantBoard={homeAssistantBoard} sensorValues={sensorValues} />
+      </div>
+    </main>
   )
 }
 
@@ -211,7 +215,7 @@ function App() {
 
     const rotateMs = (sportsBoard?.rotateSeconds || 30) * 1000
     const mainContent = activeSlotIsHA
-      ? <HARotationSlot homeAssistantBoard={homeAssistantBoard} rotateMs={rotateMs} shellStyle={shellStyle} onAdvance={handleRuntimeAdvance} />
+      ? <HARotationSlot homeAssistantBoard={homeAssistantBoard} rotateMs={rotateMs} shellStyle={shellStyle} themeTokens={themeTokens} onAdvance={handleRuntimeAdvance} />
       : tickerEl
 
     return (

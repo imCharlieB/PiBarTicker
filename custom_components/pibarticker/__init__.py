@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import logging
 
+from datetime import timedelta
+
 import aiohttp
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
 
 from .const import CONF_SENSORS, CONF_URL, DOMAIN
 
@@ -68,6 +70,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     sensors: list[str] = entry.options.get(CONF_SENSORS, [])
     if sensors:
         _setup_sensor_bridge(hass, entry, sensors)
+
+    # Periodic re-push — catches missed initial pushes (backend starting up) and
+    # ensures fresh attribute data after HACS integration updates without user action.
+    async def _periodic_push(now=None) -> None:
+        for entity_id in entry.options.get(CONF_SENSORS, []):
+            state = hass.states.get(entity_id)
+            if state:
+                await _push_sensor(hass, entry, state)
+
+    entry.async_on_unload(
+        async_track_time_interval(hass, _periodic_push, timedelta(minutes=5))
+    )
 
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True

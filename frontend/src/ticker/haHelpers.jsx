@@ -45,6 +45,11 @@ export function renderEntityValue(live, sensor, unitClass) {
   if (!live) return '—'
   const domain = live.domain || sensor.entityId.split('.')[0]
 
+  if (domain === 'lock') {
+    const locked = live.state === 'locked'
+    return <span className={`ha-state-badge ${locked ? 'ha-state-on' : 'ha-state-off'}`}>{locked ? 'LOCKED' : 'UNLOCKED'}</span>
+  }
+
   if (domain === 'binary_sensor' || domain === 'switch' || domain === 'input_boolean') {
     const on = live.state === 'on'
     return <span className={`ha-state-badge ${on ? 'ha-state-on' : 'ha-state-off'}`}>{on ? 'ON' : 'OFF'}</span>
@@ -86,6 +91,7 @@ export function haIconFor(live, sensor) {
   switch (domain) {
     case 'climate':       return 'mdi-thermostat'
     case 'light':         return 'mdi-lightbulb'
+    case 'lock':          return live?.state === 'locked' ? 'mdi-lock' : 'mdi-lock-open-variant'
     case 'switch':        return 'mdi-toggle-switch'
     case 'input_boolean': return 'mdi-toggle-switch'
     case 'binary_sensor':
@@ -177,6 +183,8 @@ function HAWeatherCard({ card, sensors, sensorValues }) {
     const v = sensorValues[s.entityId]
     if ((v?.domain || s.entityId.split('.')[0]) === 'weather') { live = v; break }
   }
+  const dailyLive = card.dailySensorId ? (sensorValues[card.dailySensorId] ?? null) : null
+  const forecastSource = dailyLive ?? live
   const condition = live?.state ?? '—'
   const wx = WEATHER_ICON_MAP[condition] ?? { icon: 'mdi-weather-cloudy', color: '#9aa3b1' }
   const temp = live?.attributes?.temperature
@@ -184,7 +192,7 @@ function HAWeatherCard({ card, sensors, sensorValues }) {
   const humidity = live?.attributes?.humidity
   const windSpeed = live?.attributes?.wind_speed
   const windUnit = live?.attributes?.wind_speed_unit ?? ''
-  const forecast0 = live?.attributes?.forecast?.[0]
+  const forecast0 = forecastSource?.attributes?.forecast?.[0]
   const hiTemp = forecast0?.temperature ?? forecast0?.high_temperature
   const loTemp = forecast0?.templow ?? forecast0?.low_temperature
   return (
@@ -284,6 +292,7 @@ export function haColorFor(live, sensor) {
   switch (domain) {
     case 'climate':       return '#f0894e'
     case 'light':         return on ? '#ffc83d' : '#4b5563'
+    case 'lock':          return live?.state === 'locked' ? '#7CF29B' : '#f87171'
     case 'switch':        return on ? '#7CF29B' : '#4b5563'
     case 'input_boolean': return on ? '#7CF29B' : '#4b5563'
     case 'binary_sensor':

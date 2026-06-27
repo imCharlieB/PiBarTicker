@@ -238,9 +238,9 @@ apply_display_mode() {
   modename=$(xrandr | grep -E "^\s+${WIDTH}x${HEIGHT}" | awk '{print $1}' | head -1) || true
   if [ -z "$modename" ]; then
     local modeline
-    modeline=$(cvt "${WIDTH}" "${HEIGHT}" 60 2>/dev/null | grep Modeline | cut -d' ' -f2-)
+    modeline=$(cvt "${WIDTH}" "${HEIGHT}" 60 2>/dev/null | grep Modeline | cut -d' ' -f2-) || true
     if [ -n "${modeline}" ]; then
-      modename=$(echo "${modeline}" | awk '{print $1}' | tr -d '"')
+      modename=$(echo "${modeline}" | awk '{print $1}' | tr -d '"') || true
       xrandr --newmode ${modeline} 2>/dev/null || true
       for out in "${outputs[@]}"; do
         xrandr --addmode "${out}" "${modename}" 2>/dev/null || true
@@ -308,7 +308,7 @@ apply_display_mode() {
   fi
 }
 
-apply_display_mode
+apply_display_mode || true
 # Re-apply blank cursor after xrandr mode changes, which can cause openbox
 # to restore the default theme cursor on the root window.
 hide_root_cursor
@@ -371,7 +371,7 @@ while true; do
     sleep 3
   done
 
-  apply_display_mode
+  apply_display_mode || true
   hide_root_cursor
 
   sleep 5

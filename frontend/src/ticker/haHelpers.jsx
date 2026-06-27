@@ -122,7 +122,7 @@ export function HATickerCards({ homeAssistantBoard, sensorValues }) {
     return <HASensorCard card={{ title: 'HOME', sub: '' }} sensors={tickerSensors} sensorValues={sensorValues} />
   }
 
-  return cards.map((card) => {
+  const cardEls = cards.map((card) => {
     if (card.enabled === false) return null
     const cardSensors = tickerSensors.filter((s) => s.cardId === card.id)
     if (cardSensors.length === 0) return null
@@ -130,6 +130,15 @@ export function HATickerCards({ homeAssistantBoard, sensorValues }) {
     if (card.variant === 'printer') return <HAPrinterCard key={card.id} card={card} sensors={cardSensors} sensorValues={sensorValues} />
     return <HASensorCard key={card.id} card={card} sensors={cardSensors} sensorValues={sensorValues} />
   })
+
+  // If every card returned null (no sensors assigned), fall back to a catch-all HOME card
+  const hasVisible = cardEls.some(Boolean)
+  if (!hasVisible) {
+    if (tickerSensors.length === 0) return null
+    return <HASensorCard card={{ title: 'HOME', sub: '' }} sensors={tickerSensors} sensorValues={sensorValues} />
+  }
+
+  return cardEls
 }
 
 function HASensorCard({ card, sensors, sensorValues }) {

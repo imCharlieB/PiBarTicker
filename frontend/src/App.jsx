@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState, useRef } from 'react'
 import './App.css'
 import { deriveThemeTokens } from './themeTokens'
 import TickerRuntime from './ticker/TickerRuntime'
@@ -15,19 +15,62 @@ import DisplayPage from './setup/DisplayPage'
 import ThemePage from './setup/ThemePage'
 import TickerPage from './setup/TickerPage'
 
-function HARotationSlot({ homeAssistantBoard, rotateMs, shellStyle, themeTokens, onAdvance }) {
+function HARotationSlot({ homeAssistantBoard, rotateMs, shellStyle, themeTokens, scrollSpeed, onAdvance }) {
   const advanceRef = useRef(onAdvance)
   advanceRef.current = onAdvance
-  useEffect(() => {
-    const id = setTimeout(() => advanceRef.current(), rotateMs)
-    return () => clearTimeout(id)
-  }, [rotateMs])
   const sensorValues = useHASensors()
+  const trackRef = useRef(null)
+  const animRef = useRef(null)
+  const backupRef = useRef(null)
+
+  useLayoutEffect(() => {
+    if (animRef.current) { try { animRef.current.cancel() } catch (_) {} animRef.current = null }
+    if (backupRef.current) { clearTimeout(backupRef.current); backupRef.current = null }
+
+    const track = trackRef.current
+    if (!track) return
+
+    const totalWidth = track.scrollWidth
+    const containerWidth = track.parentElement?.clientWidth || window.innerWidth
+
+    const doAdvance = () => {
+      if (backupRef.current) { clearTimeout(backupRef.current); backupRef.current = null }
+      advanceRef.current()
+    }
+
+    if (totalWidth < 10 || containerWidth < 10) {
+      backupRef.current = setTimeout(doAdvance, rotateMs)
+      return
+    }
+
+    const speed = scrollSpeed ?? 110
+    const startX = containerWidth
+    const endX = -totalWidth
+    const dur = Math.max(3000, Math.round((startX - endX) / speed * 1000))
+
+    const anim = track.animate(
+      [{ transform: `translateX(${startX}px)` }, { transform: `translateX(${endX}px)` }],
+      { duration: dur, fill: 'forwards', easing: 'linear' },
+    )
+    animRef.current = anim
+    anim.finished.then(doAdvance).catch(() => {})
+    backupRef.current = setTimeout(doAdvance, dur + 2000)
+
+    return () => {
+      if (animRef.current) { try { animRef.current.cancel() } catch (_) {} animRef.current = null }
+      if (backupRef.current) { clearTimeout(backupRef.current); backupRef.current = null }
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <main className={`ticker-runtime-shell ${themeTokens?.modeClass ?? ''}`} style={shellStyle}>
-      <div style={{ display: 'flex', height: '100%', alignItems: 'stretch', gap: '1rem', padding: '0 1rem' }}>
-        <HATickerCards homeAssistantBoard={homeAssistantBoard} sensorValues={sensorValues} />
-      </div>
+      <section className="ticker-runtime-board">
+        <div className="ticker-runtime-marquee-window">
+          <div className="ticker-runtime-track" ref={trackRef} role="list" aria-label="Home Assistant">
+            <HATickerCards homeAssistantBoard={homeAssistantBoard} sensorValues={sensorValues} />
+          </div>
+        </div>
+      </section>
     </main>
   )
 }
@@ -215,7 +258,7 @@ function App() {
 
     const rotateMs = (sportsBoard?.rotateSeconds || 30) * 1000
     const mainContent = activeSlotIsHA
-      ? <HARotationSlot homeAssistantBoard={homeAssistantBoard} rotateMs={rotateMs} shellStyle={shellStyle} themeTokens={themeTokens} onAdvance={handleRuntimeAdvance} />
+      ? <HARotationSlot homeAssistantBoard={homeAssistantBoard} rotateMs={rotateMs} shellStyle={shellStyle} themeTokens={themeTokens} scrollSpeed={sportsBoard?.scrollSpeed} onAdvance={handleRuntimeAdvance} />
       : tickerEl
 
     return (

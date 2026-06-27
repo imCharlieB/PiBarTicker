@@ -15,7 +15,22 @@ import DisplayPage from './setup/DisplayPage'
 import ThemePage from './setup/ThemePage'
 import TickerPage from './setup/TickerPage'
 
-function HARotationSlot({ homeAssistantBoard, rotateMs, shellStyle, themeTokens, scrollSpeed, onAdvance }) {
+function HALowerThird({ clockFormat }) {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(id)
+  }, [])
+  const time = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: clockFormat !== '24h' })
+  return (
+    <div className="ticker-runtime-lower l3-insert" aria-label="Lower third">
+      <span className="l3-badge">HOME</span>
+      <span className="l3-time">{time}</span>
+    </div>
+  )
+}
+
+function HARotationSlot({ homeAssistantBoard, rotateMs, shellStyle, themeTokens, scrollSpeed, clockFormat, watermarkUrl, onAdvance }) {
   const advanceRef = useRef(onAdvance)
   advanceRef.current = onAdvance
   const sensorValues = useHASensors()
@@ -69,12 +84,20 @@ function HARotationSlot({ homeAssistantBoard, rotateMs, shellStyle, themeTokens,
 
   return (
     <main className={`ticker-runtime-shell ${themeTokens?.modeClass ?? ''}`} style={shellStyle}>
-      <section className="ticker-runtime-board" ref={boardRef}>
+      <section
+        className="ticker-runtime-board"
+        ref={boardRef}
+        style={{
+          '--ticker-watermark-images': watermarkUrl ? `url(${watermarkUrl})` : 'none',
+          '--ticker-watermark-positions': 'center',
+        }}
+      >
         <div className="ticker-runtime-marquee-window">
           <div className="ticker-runtime-track" ref={trackRef} role="list" aria-label="Home Assistant">
             <HATickerCards homeAssistantBoard={homeAssistantBoard} sensorValues={sensorValues} />
           </div>
         </div>
+        <HALowerThird clockFormat={clockFormat ?? '12h'} />
       </section>
     </main>
   )
@@ -263,7 +286,7 @@ function App() {
 
     const rotateMs = (sportsBoard?.rotateSeconds || 30) * 1000
     const mainContent = activeSlotIsHA
-      ? <HARotationSlot homeAssistantBoard={homeAssistantBoard} rotateMs={rotateMs} shellStyle={shellStyle} themeTokens={themeTokens} scrollSpeed={sportsBoard?.scrollSpeed} onAdvance={handleRuntimeAdvance} />
+      ? <HARotationSlot homeAssistantBoard={homeAssistantBoard} rotateMs={rotateMs} shellStyle={shellStyle} themeTokens={themeTokens} scrollSpeed={sportsBoard?.scrollSpeed} clockFormat={config?.theme?.clockFormat ?? '12h'} watermarkUrl={tickerWatermarkUrl} onAdvance={handleRuntimeAdvance} />
       : tickerEl
 
     return (

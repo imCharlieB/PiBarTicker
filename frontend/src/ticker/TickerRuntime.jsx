@@ -347,6 +347,27 @@ function TickerRuntime({
 
     if (haSlotActive) {
       track.style.opacity = '1'
+      const totalWidth = track.scrollWidth
+      if (totalWidth < 10) {
+        backupTimerRef.current = setTimeout(() => onAdvanceRef.current(), haRotateMs)
+        return
+      }
+      const speed = sportsBoard?.scrollSpeed ?? 110
+      const startX = containerWidthRef.current
+      const endX = -totalWidth
+      const scrollDist = startX - endX
+      const dur = Math.max(3000, Math.round(scrollDist / speed * 1000))
+      const doHaAdvance = () => {
+        if (backupTimerRef.current) { clearTimeout(backupTimerRef.current); backupTimerRef.current = null }
+        onAdvanceRef.current()
+      }
+      const anim = track.animate(
+        [{ transform: `translateX(${startX}px)` }, { transform: `translateX(${endX}px)` }],
+        { duration: dur, fill: 'forwards', easing: 'linear' }
+      )
+      animRef.current = anim
+      anim.finished.then(doHaAdvance).catch(() => {})
+      backupTimerRef.current = setTimeout(doHaAdvance, dur + 2000)
       return
     }
 
@@ -455,15 +476,6 @@ function TickerRuntime({
     }
     img.src = watermarkUrl
   }, [watermarkUrl, config?.monitor?.height])
-
-  // ── HA advance timer ─────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!haSlotActive) return
-    if (animRef.current) { try { animRef.current.cancel() } catch (_) {} animRef.current = null }
-    if (backupTimerRef.current) { clearTimeout(backupTimerRef.current); backupTimerRef.current = null }
-    const id = setTimeout(() => onAdvanceRef.current(), haRotateMs)
-    return () => clearTimeout(id)
-  }, [haSlotActive, haRotateMs]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Render ────────────────────────────────────────────────────────────────
 

@@ -18,7 +18,7 @@ export default function DisplayPage() {
         const monitorCount = data.outputs?.length || 1
         const mode = monitorCount >= 2 ? 'dual' : 'single'
         updateConfigSection('monitor', 'mode', mode)
-        updateConfigSection('monitor', 'width', Math.round(data.width / monitorCount))
+        updateConfigSection('monitor', 'width', data.width)
         updateConfigSection('monitor', 'height', data.height)
       } else {
         setDetectError('No display detected — run this on the Pi.')

@@ -273,7 +273,13 @@ apply_display_mode() {
   try_set_output() {
     local out="$1" pos="$2"
     if [ -n "$modename" ]; then
-      if xrandr --output "${out}" --mode "${modename}" --pos "${pos}" 2>/dev/null; then
+      local mw mh
+      mw=$(echo "$modename" | cut -dx -f1)
+      mh=$(echo "$modename" | cut -dx -f2)
+      # Switching to a mode larger than the current virtual screen requires
+      # --fb to resize the X framebuffer in the same call; without it xrandr
+      # rejects the mode change even when the mode is EDID-listed.
+      if xrandr --fb "${mw}x${mh}" --output "${out}" --mode "${modename}" --pos "${pos}" 2>/dev/null; then
         return 0
       fi
       echo "Mode ${modename} rejected for ${out}; falling back to --auto"

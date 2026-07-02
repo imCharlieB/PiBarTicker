@@ -147,6 +147,37 @@ class DisplayPowerRequest(BaseModel):
     on: bool
 
 
+def _parse_active_outputs(stdout: str) -> tuple[list[str], int | None, int | None]:
+    """Return (active_output_names, first_width, first_height).
+
+    An output is "active" only if its xrandr header line includes a geometry
+    like 1920x380+0+0, meaning it is actually driving pixels. Outputs that
+    are electrically connected but have no mode set have no geometry on their
+    header line and are excluded.
+    """
+    active_outputs: list[str] = []
+    width: int | None = None
+    height: int | None = None
+    for line in stdout.splitlines():
+        if " connected" not in line:
+            continue
+        m = re.search(r"\b(\d+)x(\d+)\+\d+\+\d+", line)
+        if m:
+            active_outputs.append(line.split()[0])
+            if width is None:
+                width = int(m.group(1))
+                height = int(m.group(2))
+    return active_outputs, width, height
+
+
+def _connected_output_names(stdout: str) -> list[str]:
+    return [
+        line.split()[0]
+        for line in stdout.splitlines()
+        if " connected" in line
+    ]
+
+
 @router.get("/resolution")
 def get_display_resolution() -> dict:
     env = _x11_env()
@@ -154,27 +185,38 @@ def get_display_resolution() -> dict:
         result = subprocess.run(
             ["xrandr"], capture_output=True, text=True, timeout=5, env=env
         )
-        outputs = [
-            line.split()[0]
-            for line in result.stdout.splitlines()
-            if " connected" in line
-        ]
-        if result.returncode == 0:
-            # Parse per-monitor width directly from the first active connected
-            # output's geometry string (e.g. "1920x380+0+0") rather than
-            # dividing the virtual screen total, which can be wrong when a
-            # previous xrandr session left a bad framebuffer size.
-            for line in result.stdout.splitlines():
-                if " connected" in line:
-                    m = re.search(r"\b(\d+)x(\d+)\+\d+\+\d+", line)
-                    if m:
-                        return {
-                            "detected": True,
-                            "width": int(m.group(1)),
-                            "height": int(m.group(2)),
-                            "outputs": outputs,
-                        }
-        return {"detected": False, "width": None, "height": None, "outputs": outputs}
+        if result.returncode != 0:
+            return {"detected": False, "width": None, "height": None, "outputs": []}
+
+        active_outputs, width, height = _parse_active_outputs(result.stdout)
+
+        if active_outputs and width is not None:
+            return {"detected": True, "width": width, "height": height, "outputs": active_outputs}
+
+        # No output is actively driving a mode — the monitor may not support the
+        # currently configured resolution. Run xrandr --auto on each connected
+        # output so the display can negotiate its preferred resolution, then
+        # re-read to find out what it settled on.
+        connected = _connected_output_names(result.stdout)
+        if not connected:
+            return {"detected": False, "width": None, "height": None, "outputs": []}
+
+        _log.warning("No active xrandr geometry found; running --auto on %s", connected)
+        for name in connected:
+            subprocess.run(
+                ["xrandr", "--output", name, "--auto"],
+                timeout=10, env=env, capture_output=True,
+            )
+
+        result2 = subprocess.run(
+            ["xrandr"], capture_output=True, text=True, timeout=5, env=env
+        )
+        if result2.returncode == 0:
+            active_outputs, width, height = _parse_active_outputs(result2.stdout)
+            if active_outputs and width is not None:
+                return {"detected": True, "width": width, "height": height, "outputs": active_outputs}
+
+        return {"detected": False, "width": None, "height": None, "outputs": []}
     except Exception:
         return {"detected": False, "width": None, "height": None, "outputs": []}
 

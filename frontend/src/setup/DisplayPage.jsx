@@ -3,7 +3,14 @@ import { useAppContext } from '../AppContext'
 import { parseList, listToText, computeDisplayErrors } from './helpers'
 
 export default function DisplayPage() {
-  const { config, updateConfigSection } = useAppContext()
+  const { config, updateConfigSection, commitConfig } = useAppContext()
+
+  function resetMonitor() {
+    commitConfig(current => ({
+      ...current,
+      monitor: { ...current.monitor, mode: 'single', swapOutputs: false },
+    }))
+  }
   const displayErrors = computeDisplayErrors(config)
   const [detecting, setDetecting] = useState(false)
   const [detectError, setDetectError] = useState(null)
@@ -15,13 +22,12 @@ export default function DisplayPage() {
       const res = await fetch('/api/v1/display/resolution')
       const data = await res.json()
       if (data.detected) {
-        const monitorCount = data.outputs?.length || 1
-        const mode = monitorCount >= 2 ? 'dual' : 'single'
+        const mode = (data.outputs?.length ?? 1) >= 2 ? 'dual' : 'single'
         updateConfigSection('monitor', 'mode', mode)
         updateConfigSection('monitor', 'width', data.width)
         updateConfigSection('monitor', 'height', data.height)
       } else {
-        setDetectError('No display detected — run this on the Pi.')
+        setDetectError('Could not detect display — run this on the Pi, or enter width and height manually.')
       }
     } catch {
       setDetectError('Detection failed — check the Pi backend.')
@@ -83,12 +89,15 @@ export default function DisplayPage() {
           <small className="field-help">Used to set the display hardware resolution on Pi. Ticker content scales automatically — no manual height tuning needed.</small>
         </label>
 
-        <div className="field field-full">
+        <div className="field field-full" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <button type="button" className="button-secondary" onClick={detectResolution} disabled={detecting}>
             {detecting ? 'Detecting…' : 'Detect resolution'}
           </button>
-          {detectError ? <small className="field-error">{detectError}</small> : null}
-          <small className="field-help">Reads the active display resolution from xrandr on the Pi and populates the fields above.</small>
+          <button type="button" className="button-secondary" onClick={resetMonitor}>
+            Reset to defaults
+          </button>
+          {detectError ? <small className="field-error" style={{ width: '100%' }}>{detectError}</small> : null}
+          <small className="field-help" style={{ width: '100%' }}>Reads the active display resolution from xrandr on the Pi and populates the fields above. Reset clears mode back to single — width and height are left as-is since they depend on your hardware.</small>
         </div>
 
         <div className="field field-full" style={{ marginTop: '0.5rem' }}>

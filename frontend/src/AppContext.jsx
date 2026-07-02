@@ -189,6 +189,22 @@ export function AppContextProvider({ children }) {
     return () => clearInterval(id)
   }, [isTickerRuntime])
 
+  // ── Build-hash poll: reload all clients after a new deploy ────────────────
+  useEffect(() => {
+    if (!isTickerRuntime) return
+    let knownHash = null
+    const id = setInterval(async () => {
+      try {
+        const r = await fetch('/api/v1/kiosk/build-hash')
+        if (!r.ok) return
+        const { hash } = await r.json()
+        if (knownHash === null) { knownHash = hash; return }
+        if (hash !== knownHash) window.location.reload()
+      } catch (_) { /* backend restarting during install — ignore */ }
+    }, 60_000)
+    return () => clearInterval(id)
+  }, [isTickerRuntime])
+
   // ── Config mutation helpers ─────────────────────────────────────────────
   function commitConfig(updateFn) {
     setConfig((current) => {

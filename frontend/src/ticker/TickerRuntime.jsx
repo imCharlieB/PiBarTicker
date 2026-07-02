@@ -178,29 +178,26 @@ function LowerThird({ clockFormat, haSlotActive }) {
   }, [])
 
   useEffect(() => {
-    let raf
     const tick = () => {
       const win = document.querySelector('.ticker-runtime-marquee-window')
-      if (win) {
-        const wr = win.getBoundingClientRect()
-        const cx = wr.left + wr.width / 2
-        let best = null, bestD = Infinity
-        win.querySelectorAll('.ticker-runtime-card[data-league]').forEach(card => {
-          const r = card.getBoundingClientRect()
-          if (r.right < wr.left || r.left > wr.right) return
-          const d = Math.abs((r.left + r.width / 2) - cx)
-          if (d < bestD) { bestD = d; best = card }
-        })
-        if (best) {
-          const league = best.getAttribute('data-league') || ''
-          const logo = best.getAttribute('data-logo') || ''
-          if (curRef.current.league !== league) setCur({ league, logo })
-        }
+      if (!win) return
+      const wr = win.getBoundingClientRect()
+      const cx = wr.left + wr.width / 2
+      let best = null, bestD = Infinity
+      win.querySelectorAll('.ticker-runtime-card[data-league]').forEach(card => {
+        const r = card.getBoundingClientRect()
+        if (r.right < wr.left || r.left > wr.right) return
+        const d = Math.abs((r.left + r.width / 2) - cx)
+        if (d < bestD) { bestD = d; best = card }
+      })
+      if (best) {
+        const league = best.getAttribute('data-league') || ''
+        const logo = best.getAttribute('data-logo') || ''
+        if (curRef.current.league !== league) setCur({ league, logo })
       }
-      raf = requestAnimationFrame(tick)
     }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
+    const id = setInterval(tick, 300)
+    return () => clearInterval(id)
   }, [])
 
   const time = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: clockFormat !== '24h' })

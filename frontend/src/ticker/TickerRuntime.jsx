@@ -166,37 +166,11 @@ function SensorCornerWidgets({ haSensors, sensorValues }) {
   })
 }
 
-function LowerThird({ clockFormat, haSlotActive }) {
+function LowerThird({ clockFormat, haSlotActive, leagueName, leagueLogo }) {
   const [now, setNow] = useState(() => new Date())
-  const [cur, setCur] = useState({ league: '', logo: '' })
-  const curRef = useRef(cur)
-  curRef.current = cur
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000)
-    return () => clearInterval(id)
-  }, [])
-
-  useEffect(() => {
-    const tick = () => {
-      const win = document.querySelector('.ticker-runtime-marquee-window')
-      if (!win) return
-      const wr = win.getBoundingClientRect()
-      const cx = wr.left + wr.width / 2
-      let best = null, bestD = Infinity
-      win.querySelectorAll('.ticker-runtime-card[data-league]').forEach(card => {
-        const r = card.getBoundingClientRect()
-        if (r.right < wr.left || r.left > wr.right) return
-        const d = Math.abs((r.left + r.width / 2) - cx)
-        if (d < bestD) { bestD = d; best = card }
-      })
-      if (best) {
-        const league = best.getAttribute('data-league') || ''
-        const logo = best.getAttribute('data-logo') || ''
-        if (curRef.current.league !== league) setCur({ league, logo })
-      }
-    }
-    const id = setInterval(tick, 300)
     return () => clearInterval(id)
   }, [])
 
@@ -205,7 +179,7 @@ function LowerThird({ clockFormat, haSlotActive }) {
     <div className="ticker-runtime-lower l3-insert" aria-label="Lower third">
       {haSlotActive
         ? <span className="l3-badge">HOME</span>
-        : <LeagueMark league={cur.league} logo={cur.logo} />}
+        : <LeagueMark league={leagueName} logo={leagueLogo} />}
       <span className="l3-time">{time}</span>
     </div>
   )
@@ -577,7 +551,7 @@ function TickerRuntime({
             </div>
           </div>
 
-          <LowerThird clockFormat={config?.theme?.clockFormat ?? '12h'} haSlotActive={haSlotActive} />
+          <LowerThird clockFormat={config?.theme?.clockFormat ?? '12h'} haSlotActive={haSlotActive} leagueName={renderLeague} leagueLogo={brandLogoUrl} />
           <SensorCornerWidgets haSensors={haSensors} sensorValues={sensorValues} />
         </section>
       )}

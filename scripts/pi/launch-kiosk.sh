@@ -411,6 +411,12 @@ while true; do
   # Re-read config.json so height/width/flags from Setup take effect without a reboot.
   load_config || true
 
+  # Apply xrandr mode BEFORE launching Chromium so the display resolution matches
+  # the configured width. Without this, a width change (e.g. 3840→1920) only takes
+  # effect after the next Chromium exit, leaving the new window on a mismatched display.
+  apply_display_mode || true
+  hide_root_cursor
+
   # Kill any desktop panel that could respawn and sit on top of the kiosk window.
   pkill -f lxpanel 2>/dev/null || true
   pkill -f tint2 2>/dev/null || true

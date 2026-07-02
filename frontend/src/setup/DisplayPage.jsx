@@ -8,7 +8,7 @@ export default function DisplayPage() {
   function resetMonitor() {
     commitConfig(current => ({
       ...current,
-      monitor: { ...current.monitor, mode: 'single', swapOutputs: false },
+      monitor: { ...current.monitor, mode: 'single', swapOutputs: false, width: 0, height: 0 },
     }))
   }
   const displayErrors = computeDisplayErrors(config)
@@ -79,14 +79,14 @@ export default function DisplayPage() {
           <input type="number" value={config.monitor.width} onChange={(event) => updateConfigSection('monitor', 'width', Number(event.target.value))} />
           {displayErrors.width ? <small className="field-error">{displayErrors.width}</small> : null}
           {config.monitor.mode === 'dual' ? <small className="field-help">Total span: {config.monitor.width * 2}px</small> : null}
-          <small className="field-help">Used to configure the display hardware (xrandr) on Pi. The ticker content auto-sizes to fill whatever space the browser window provides.</small>
+          <small className="field-help">Set to 0 to auto-detect from the display at boot. Otherwise sets the xrandr display width on Pi.</small>
         </label>
 
         <label className="field">
           <span>Height</span>
           <input type="number" value={config.monitor.height} onChange={(event) => updateConfigSection('monitor', 'height', Number(event.target.value))} />
           {displayErrors.height ? <small className="field-error">{displayErrors.height}</small> : null}
-          <small className="field-help">Used to set the display hardware resolution on Pi. Ticker content scales automatically — no manual height tuning needed.</small>
+          <small className="field-help">Set to 0 to auto-detect from the display at boot. Otherwise controls the Chromium window height (bar height).</small>
         </label>
 
         <div className="field field-full" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>

@@ -34,12 +34,12 @@ export function computeDisplayErrors(config) {
     mode: ['single', 'dual'].includes(config.monitor.mode)
       ? ''
       : 'Monitor mode must be single or dual.',
-    width: isPositiveInteger(config.monitor.width)
+    width: (Number.isInteger(config.monitor.width) && config.monitor.width >= 0)
       ? ''
-      : 'Width must be a positive number.',
-    height: isPositiveInteger(config.monitor.height)
+      : 'Width must be a number (0 = auto-detect).',
+    height: (Number.isInteger(config.monitor.height) && config.monitor.height >= 0)
       ? ''
-      : 'Height must be a positive number.',
+      : 'Height must be a number (0 = auto-detect).',
   }
 }
 

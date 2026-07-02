@@ -428,6 +428,20 @@ while true; do
   # Clear stale profile so saved window geometry does not override openbox rules.
   rm -rf /tmp/pibarticker-kiosk 2>/dev/null || true
 
+  # On X11, Chromium never auto-detects HiDPI — it always defaults to DPR=1.
+  # Force DPR=2 for 4K windows (≥2560px wide) so the CSS viewport is half the
+  # physical width, matching what a 1080p display looks like. 1080p windows are
+  # left at DPR=1 (already the default).
+  _launch_flags=("${CHROMIUM_FLAGS[@]}")
+  if [ "${WINDOW_WIDTH:-0}" -ge 2560 ]; then
+    _has_dpr=false
+    for _f in "${CHROMIUM_FLAGS[@]}"; do
+      [[ "$_f" == --force-device-scale-factor=* ]] && { _has_dpr=true; break; }
+    done
+    [ "$_has_dpr" = "false" ] && _launch_flags+=("--force-device-scale-factor=2")
+    echo "HiDPI: window=${WINDOW_WIDTH}px, forcing device-scale-factor=2 (CSS viewport=$((WINDOW_WIDTH/2))px)"
+  fi
+
   "${CHROMIUM_BIN}" \
     --window-position=0,0 \
     --window-size=${WINDOW_WIDTH},${HEIGHT} \
@@ -436,7 +450,7 @@ while true; do
     --no-first-run \
     --no-default-browser-check \
     --password-store=basic \
-    "${CHROMIUM_FLAGS[@]}" \
+    "${_launch_flags[@]}" \
     "${CHROMIUM_APP_ARG}" || true
 
   while display_explicitly_off; do

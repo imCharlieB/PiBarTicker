@@ -251,6 +251,28 @@ apply_display_mode() {
     fi
   fi
 
+  # Try to set the configured mode; if xrandr rejects it (monitor doesn't support
+  # the resolution), fall back to --auto so the display comes on regardless.
+  # After any mode change, read back the actual active geometry so WINDOW_WIDTH
+  # and HEIGHT reflect what the monitor is actually driving.
+  try_set_output() {
+    local out="$1" pos="$2"
+    local ok=false
+    if [ -n "$modename" ]; then
+      xrandr --output "${out}" --mode "${modename}" --pos "${pos}" 2>/dev/null && ok=true
+    fi
+    if [ "$ok" = "false" ]; then
+      echo "Mode ${modename:-none} rejected or unset for ${out}; falling back to --auto"
+      xrandr --output "${out}" --auto --pos "${pos}" 2>/dev/null || true
+    fi
+  }
+
+  # Read back the actual active resolution for a given output name.
+  read_active_resolution() {
+    local out="$1"
+    xrandr 2>/dev/null | grep "^${out} connected" | grep -oP '\d+x\d+(?=\+)' | head -1
+  }
+
   if [ "$MONITOR_MODE" = "dual" ]; then
     # xrandr always marks the LAST connected output (HDMI-2 on Pi) as primary and
     # this cannot be overridden via --output --primary.  Place HDMI-2 at x=0 so
@@ -260,25 +282,25 @@ apply_display_mode() {
     # With swapOutputs the user explicitly reverses the physical order; honour it.
     local anchor other
     if [ "${SWAP_OUTPUTS:-false}" = "true" ]; then
-      anchor="${outputs[0]}"   # user-swapped: put HDMI-1 first
+      anchor="${outputs[0]}"
       other="${outputs[1]}"
     else
-      anchor="${outputs[1]}"   # default: put HDMI-2 (always primary) at x=0
+      anchor="${outputs[1]}"
       other="${outputs[0]}"
     fi
 
-    echo "Dual X11: setting ${anchor} to ${modename:-${WIDTH}x${HEIGHT}} at pos 0,0 (primary anchor)"
-    if [ -n "$modename" ]; then
-      xrandr --output "${anchor}" --mode "${modename}" --pos "0,0" 2>/dev/null || true
-    else
-      xrandr --output "${anchor}" --auto --pos "0,0" 2>/dev/null || true
+    echo "Dual X11: setting ${anchor} at pos 0,0 (primary anchor)"
+    try_set_output "${anchor}" "0,0"
+    local actual
+    actual=$(read_active_resolution "${anchor}")
+    if [ -n "$actual" ]; then
+      WIDTH=$(echo "$actual" | cut -d'x' -f1)
+      HEIGHT=$(echo "$actual" | cut -d'x' -f2)
+      echo "Dual X11: anchor ${anchor} active at ${actual}"
     fi
-    echo "Dual X11: setting ${other} to ${modename:-${WIDTH}x${HEIGHT}} at pos ${WIDTH},0"
-    if [ -n "$modename" ]; then
-      xrandr --output "${other}" --mode "${modename}" --pos "${WIDTH},0" 2>/dev/null || true
-    else
-      xrandr --output "${other}" --auto --pos "${WIDTH},0" 2>/dev/null || true
-    fi
+
+    echo "Dual X11: setting ${other} at pos ${WIDTH},0"
+    try_set_output "${other}" "${WIDTH},0"
 
     sleep 1
     local combined_width=$(( WIDTH * ${#outputs[@]} ))
@@ -294,11 +316,14 @@ apply_display_mode() {
     xrandr --listmonitors 2>&1 || true
   else
     local primary="${outputs[0]}"
-    echo "Single X11: setting ${primary} to ${modename:-${WIDTH}x${HEIGHT}}"
-    if [ -n "$modename" ]; then
-      xrandr --output "${primary}" --mode "${modename}" --pos "0,0" 2>/dev/null || true
-    else
-      xrandr --output "${primary}" --auto 2>/dev/null || true
+    echo "Single X11: setting ${primary}"
+    try_set_output "${primary}" "0,0"
+    local actual
+    actual=$(read_active_resolution "${primary}")
+    if [ -n "$actual" ]; then
+      WIDTH=$(echo "$actual" | cut -d'x' -f1)
+      HEIGHT=$(echo "$actual" | cut -d'x' -f2)
+      echo "Single X11: ${primary} active at ${actual}"
     fi
     for i in "${!outputs[@]}"; do
       [ "$i" -eq 0 ] && continue
@@ -334,19 +359,20 @@ display_explicitly_off() {
 # Use --app so the window spans both monitors freely; openbox rc.xml removes decorations.
 CHROMIUM_APP_ARG="--app=${URL}"
 
-# Explicit window size so Chromium fills the full X screen regardless of xrandr state.
-if [ "${MONITOR_MODE}" = "dual" ]; then
-  WINDOW_WIDTH=$(( WIDTH * 2 ))
-else
-  WINDOW_WIDTH=${WIDTH}
-fi
-
 while true; do
   # Kill any desktop panel that could respawn and sit on top of the kiosk window.
   pkill -f lxpanel 2>/dev/null || true
   pkill -f tint2 2>/dev/null || true
   pkill -f pcmanfm 2>/dev/null || true
   sleep 0.5
+
+  # Recompute after apply_display_mode may have updated WIDTH/HEIGHT to the
+  # monitor's actual negotiated resolution.
+  if [ "${MONITOR_MODE}" = "dual" ]; then
+    WINDOW_WIDTH=$(( WIDTH * 2 ))
+  else
+    WINDOW_WIDTH=${WIDTH}
+  fi
 
   echo "=== Chromium launch $(date) | mode=${MONITOR_MODE} window=${WINDOW_WIDTH}x${HEIGHT} ==="
   echo "--- xrandr monitors ---"

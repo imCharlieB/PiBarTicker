@@ -52,8 +52,8 @@ monitor = cfg.get("monitor", {})
 auto_start = str(kiosk.get("autoStart", "autostart")).strip().lower()
 mode = str(monitor.get("mode", "single")).strip().lower()
 swap_outputs = bool(monitor.get("swapOutputs", False))
-width = int(monitor.get("width", 1920) or 1920)
-height = int(monitor.get("height", 380) or 380)
+width = int(monitor.get("width", 0) or 0)
+height = int(monitor.get("height", 0) or 0)
 flags = kiosk.get("chromiumFlags", [])
 if not isinstance(flags, list):
     flags = []
@@ -78,20 +78,35 @@ RECOMMENDED = [
 WAYLAND_FEATURES = {"WaylandWindowDecorations"}
 BAD_SET = {b.strip() for b in BAD_FLAGS}
 cleaned = []
+enable_features = []  # accumulate all --enable-features values into one flag
+seen = set()
 for f in flags:
     s = str(f).strip()
+    if not s or not s.startswith("--"):  # skip bare strings like "VaapiVideoDecoder"
+        continue
     if s in BAD_SET:
         continue
     if s.startswith("--enable-features="):
-        parts = [p for p in s[len("--enable-features="):].split(",") if p not in WAYLAND_FEATURES]
-        s = f"--enable-features={','.join(parts)}" if parts else None
-        if not s:
-            continue
-    cleaned.append(s)
-existing = {f.strip() for f in cleaned}
-to_add = [f for f in RECOMMENDED if f.strip() not in existing]
-if to_add:
-    cleaned.extend(to_add)
+        parts = [p for p in s[len("--enable-features="):].split(",") if p and p not in WAYLAND_FEATURES]
+        enable_features.extend(parts)
+        continue
+    if s not in seen:
+        seen.add(s)
+        cleaned.append(s)
+# Merge RECOMMENDED: non-feature flags fill gaps, feature values are unioned
+for f in RECOMMENDED:
+    s = str(f).strip()
+    if s.startswith("--enable-features="):
+        parts = [p for p in s[len("--enable-features="):].split(",") if p and p not in WAYLAND_FEATURES]
+        for p in parts:
+            if p not in enable_features:
+                enable_features.append(p)
+    elif s not in seen:
+        seen.add(s)
+        cleaned.append(s)
+if enable_features:
+    deduped = list(dict.fromkeys(enable_features))  # deduplicate, preserve order
+    cleaned.append(f"--enable-features={','.join(deduped)}")
 flags = cleaned
 
 print(auto_start)
@@ -108,7 +123,7 @@ PY
 AUTO_START="${CONFIG_LINES[0]:-autostart}"
 MONITOR_MODE="${CONFIG_LINES[1]:-single}"
 SWAP_OUTPUTS="${CONFIG_LINES[2]:-false}"
-DISPLAY_MODE="${CONFIG_LINES[3]:-1920x380}"
+DISPLAY_MODE="${CONFIG_LINES[3]:-0x0}"
 CHROMIUM_FLAGS=("${CONFIG_LINES[@]:4}")
 
 # Redundant bash-level strip for flags that must never reach Chromium.
@@ -366,8 +381,16 @@ while true; do
   pkill -f pcmanfm 2>/dev/null || true
   sleep 0.5
 
-  # Recompute after apply_display_mode may have updated WIDTH/HEIGHT to the
-  # monitor's actual negotiated resolution.
+  # Recompute after apply_display_mode may have updated WIDTH/HEIGHT via
+  # read_active_resolution. If still 0 (auto mode, read failed), read xrandr now.
+  if [ "${WIDTH:-0}" -eq 0 ] || [ "${HEIGHT:-0}" -eq 0 ]; then
+    _res=$(DISPLAY=:0 xrandr 2>/dev/null | grep " connected primary" | grep -oP '\d+x\d+(?=\+)' | head -1)
+    [ -z "$_res" ] && _res=$(DISPLAY=:0 xrandr 2>/dev/null | grep " connected" | grep -oP '\d+x\d+(?=\+)' | head -1)
+    if [ -n "$_res" ]; then
+      WIDTH=$(echo "$_res" | cut -d'x' -f1)
+      HEIGHT=$(echo "$_res" | cut -d'x' -f2)
+    fi
+  fi
   if [ "${MONITOR_MODE}" = "dual" ]; then
     WINDOW_WIDTH=$(( WIDTH * 2 ))
   else

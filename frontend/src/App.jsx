@@ -79,8 +79,8 @@ function App() {
   const runtimeLeagueIdsKey = runtimeLeagues.map((league) => league.id).join('|')
   const runtimeBoardWidth = Math.max(320,
     config?.monitor?.mode === 'dual'
-      ? (Number(config?.monitor?.width) || 1920) * 2
-      : (Number(config?.monitor?.width) || 1920)
+      ? (Number(config?.monitor?.width) || window.innerWidth) * 2
+      : (Number(config?.monitor?.width) || window.innerWidth)
   )
 
   const _haInRotation = homeAssistantBoard != null && homeAssistantBoard.enabled !== false

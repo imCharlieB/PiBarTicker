@@ -478,7 +478,7 @@ function TickerRuntime({
     if (!watermarkUrl) { setWatermarkSize('82%'); return }
     const img = new Image()
     img.onload = () => {
-      const boardH = Number(config?.monitor?.height) || 380
+      const boardH = Number(config?.monitor?.height) || containerHeight
       const targetHeight = boardH * 0.85
       let sizePercent = (targetHeight / img.naturalHeight) * 100
       sizePercent = Math.max(60, Math.min(95, sizePercent))

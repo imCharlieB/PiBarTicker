@@ -35,6 +35,7 @@ html, body, #root {
 html.kiosk-mode,
 html.kiosk-mode body {
   overflow: hidden !important;
+  background: #0c0e12;
 }
 
 html.kiosk-mode ::-webkit-scrollbar {

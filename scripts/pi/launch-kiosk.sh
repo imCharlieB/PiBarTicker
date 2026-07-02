@@ -76,11 +76,10 @@ BAD_FLAGS = [
 ]
 RECOMMENDED = [
     "--noerrdialogs", "--disable-infobars",
-    "--force-device-scale-factor=1", "--enable-gpu-rasterization",
-    "--enable-zero-copy", "--ignore-gpu-blocklist",
+    "--force-device-scale-factor=1",
     "--disable-smooth-scrolling", "--overscroll-history-navigation=0",
     "--disable-translate", "--disable-features=TranslateUI",
-    "--enable-features=OverlayScrollbar,VaapiVideoDecoder",
+    "--enable-features=OverlayScrollbar",
     "--disable-webgpu", "--disable-session-crashed-bubble",
     "--check-for-update-interval=31536000",
 ]

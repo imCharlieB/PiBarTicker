@@ -388,6 +388,10 @@ export function AppContextProvider({ children }) {
         bc.postMessage({ type: 'config-updated' })
         bc.close()
       } catch (_) { /* ignore in envs without BroadcastChannel */ }
+
+      // On Pi: kill Chromium so the while-true loop restarts it with fresh config.
+      // Fire-and-forget — only works on the Pi, silently ignored elsewhere.
+      fetch('/api/v1/kiosk/restart', { method: 'POST' }).catch(() => {})
     } catch (saveError) {
       setError(saveError.message)
     }

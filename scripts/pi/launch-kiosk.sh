@@ -38,8 +38,17 @@ if [[ ! -f "${CONFIG_FILE}" ]]; then
   exit 1
 fi
 
-readarray -t CONFIG_LINES < <(
-  python3 - <<'PY' "${CONFIG_FILE}"
+# load_config reads config.json and sets AUTO_START, MONITOR_MODE, SWAP_OUTPUTS,
+# WIDTH, HEIGHT, and CHROMIUM_FLAGS. Called once at startup and again at the top
+# of each Chromium restart loop so config changes take effect without a reboot.
+load_config() {
+  if [[ ! -f "${CONFIG_FILE}" ]]; then
+    echo "load_config: ${CONFIG_FILE} not found; keeping previous values"
+    return 1
+  fi
+  local _lines=()
+  readarray -t _lines < <(
+    python3 - <<'PY' "${CONFIG_FILE}"
 import json
 import pathlib
 import sys
@@ -118,30 +127,32 @@ for flag in flags:
     if text:
         print(text)
 PY
-)
+  )
 
-AUTO_START="${CONFIG_LINES[0]:-autostart}"
-MONITOR_MODE="${CONFIG_LINES[1]:-single}"
-SWAP_OUTPUTS="${CONFIG_LINES[2]:-false}"
-DISPLAY_MODE="${CONFIG_LINES[3]:-0x0}"
-CHROMIUM_FLAGS=("${CONFIG_LINES[@]:4}")
+  AUTO_START="${_lines[0]:-autostart}"
+  MONITOR_MODE="${_lines[1]:-single}"
+  SWAP_OUTPUTS="${_lines[2]:-false}"
+  local _display_mode="${_lines[3]:-0x0}"
+  CHROMIUM_FLAGS=("${_lines[@]:4}")
 
-# Redundant bash-level strip for flags that must never reach Chromium.
-# Belt-and-suspenders in case the Python filter above misses them (e.g. encoding
-# differences in config.json leave the string comparison failing silently).
-_safe_flags=()
-for _f in "${CHROMIUM_FLAGS[@]}"; do
-  case "${_f}" in
-    --no-decommit-pooled-pages|--kiosk|--ozone-platform=wayland|--ozone-platform=x11|--use-gl=egl)
-      echo "Stripped bad Chromium flag: ${_f}" ;;
-    *)
-      _safe_flags+=("${_f}") ;;
-  esac
-done
-CHROMIUM_FLAGS=("${_safe_flags[@]+"${_safe_flags[@]}"}")
+  # Bash-level strip for flags that must never reach Chromium (belt-and-suspenders).
+  local _safe=()
+  for _f in "${CHROMIUM_FLAGS[@]}"; do
+    case "${_f}" in
+      --no-decommit-pooled-pages|--kiosk|--ozone-platform=wayland|--ozone-platform=x11|--use-gl=egl)
+        echo "Stripped bad Chromium flag: ${_f}" ;;
+      *)
+        _safe+=("${_f}") ;;
+    esac
+  done
+  CHROMIUM_FLAGS=("${_safe[@]+"${_safe[@]}"}")
 
-WIDTH=$(echo "$DISPLAY_MODE" | cut -d'x' -f1)
-HEIGHT=$(echo "$DISPLAY_MODE" | cut -d'x' -f2)
+  WIDTH=$(echo "$_display_mode" | cut -d'x' -f1)
+  HEIGHT=$(echo "$_display_mode" | cut -d'x' -f2)
+  echo "Config loaded: mode=${MONITOR_MODE} dims=${WIDTH}x${HEIGHT} auto_start=${AUTO_START}"
+}
+
+load_config
 
 # Write openbox application rules with the exact pixel dimensions for this monitor
 # mode. This is more reliable than --start-maximized because it does not depend on
@@ -398,6 +409,9 @@ display_explicitly_off() {
 CHROMIUM_APP_ARG="--app=${URL}"
 
 while true; do
+  # Re-read config.json so height/width/flags from Setup take effect without a reboot.
+  load_config || true
+
   # Kill any desktop panel that could respawn and sit on top of the kiosk window.
   pkill -f lxpanel 2>/dev/null || true
   pkill -f tint2 2>/dev/null || true

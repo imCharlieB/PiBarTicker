@@ -248,22 +248,15 @@ apply_display_mode() {
     outputs[1]="$tmp"
   fi
 
-  # Find or create the custom mode on all connected outputs.
+  # Find a display mode matching the configured width. HEIGHT in config is the
+  # Chromium window bar height, not the hardware display height — search by
+  # width only so 3840x380 config correctly finds the 3840x2160 display mode.
   local modename
-  modename=$(xrandr | grep -E "^\s+${WIDTH}x${HEIGHT}" | awk '{print $1}' | head -1) || true
+  if [ "${WIDTH:-0}" -gt 0 ]; then
+    modename=$(xrandr | grep -E "^\s+${WIDTH}x" | awk '{print $1}' | head -1) || true
+  fi
   if [ -z "$modename" ]; then
-    local modeline
-    modeline=$(cvt "${WIDTH}" "${HEIGHT}" 60 2>/dev/null | grep Modeline | cut -d' ' -f2-) || true
-    if [ -n "${modeline}" ]; then
-      modename=$(echo "${modeline}" | awk '{print $1}' | tr -d '"') || true
-      xrandr --newmode ${modeline} 2>/dev/null || true
-      for out in "${outputs[@]}"; do
-        xrandr --addmode "${out}" "${modename}" 2>/dev/null || true
-      done
-      echo "Registered X11 mode ${modename} on all outputs"
-    else
-      echo "cvt failed for ${WIDTH}x${HEIGHT}"
-    fi
+    echo "No xrandr mode found for width ${WIDTH:-auto}; will use --auto"
   fi
 
   # Try to set the configured mode; if xrandr rejects it (monitor doesn't support
@@ -310,8 +303,9 @@ apply_display_mode() {
     actual=$(read_active_resolution "${anchor}")
     if [ -n "$actual" ]; then
       WIDTH=$(echo "$actual" | cut -d'x' -f1)
-      HEIGHT=$(echo "$actual" | cut -d'x' -f2)
-      echo "Dual X11: anchor ${anchor} active at ${actual}"
+      # Only read HEIGHT from display when not explicitly configured (0 = auto)
+      [ "${HEIGHT:-0}" -eq 0 ] && HEIGHT=$(echo "$actual" | cut -d'x' -f2)
+      echo "Dual X11: anchor ${anchor} active at ${actual} (window: ${WIDTH}x${HEIGHT})"
     fi
 
     echo "Dual X11: setting ${other} at pos ${WIDTH},0"
@@ -337,8 +331,9 @@ apply_display_mode() {
     actual=$(read_active_resolution "${primary}")
     if [ -n "$actual" ]; then
       WIDTH=$(echo "$actual" | cut -d'x' -f1)
-      HEIGHT=$(echo "$actual" | cut -d'x' -f2)
-      echo "Single X11: ${primary} active at ${actual}"
+      # Only read HEIGHT from display when not explicitly configured (0 = auto)
+      [ "${HEIGHT:-0}" -eq 0 ] && HEIGHT=$(echo "$actual" | cut -d'x' -f2)
+      echo "Single X11: ${primary} active at ${actual} (window: ${WIDTH}x${HEIGHT})"
     fi
     for i in "${!outputs[@]}"; do
       [ "$i" -eq 0 ] && continue

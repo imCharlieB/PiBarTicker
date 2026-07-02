@@ -67,7 +67,7 @@ BAD_FLAGS = [
 ]
 RECOMMENDED = [
     "--noerrdialogs", "--disable-infobars",
-    "--force-device-scale-factor=1", "--enable-gpu-rasterization",
+    "--enable-gpu-rasterization",
     "--enable-zero-copy", "--ignore-gpu-blocklist",
     "--disable-smooth-scrolling", "--overscroll-history-navigation=0",
     "--disable-translate", "--disable-features=TranslateUI",

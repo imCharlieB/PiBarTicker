@@ -77,10 +77,11 @@ function App() {
     [sportsBoard?.leagues], // eslint-disable-line react-hooks/exhaustive-deps
   )
   const runtimeLeagueIdsKey = runtimeLeagues.map((league) => league.id).join('|')
+  const physicalScreenWidth = Math.round(window.screen.width * (window.devicePixelRatio || 1))
   const runtimeBoardWidth = Math.max(320,
     config?.monitor?.mode === 'dual'
-      ? (Number(config?.monitor?.width) || window.innerWidth) * 2
-      : (Number(config?.monitor?.width) || window.innerWidth)
+      ? (Number(config?.monitor?.width) || physicalScreenWidth) * 2
+      : (Number(config?.monitor?.width) || physicalScreenWidth)
   )
 
   const _haInRotation = homeAssistantBoard != null && homeAssistantBoard.enabled !== false

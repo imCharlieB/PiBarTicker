@@ -67,7 +67,7 @@ BAD_FLAGS = [
 ]
 RECOMMENDED = [
     "--noerrdialogs", "--disable-infobars",
-    "--enable-gpu-rasterization",
+    "--force-device-scale-factor=1", "--enable-gpu-rasterization",
     "--enable-zero-copy", "--ignore-gpu-blocklist",
     "--disable-smooth-scrolling", "--overscroll-history-navigation=0",
     "--disable-translate", "--disable-features=TranslateUI",
@@ -410,8 +410,8 @@ while true; do
     _res=$(DISPLAY=:0 xrandr 2>/dev/null | grep " connected primary" | grep -oP '\d+x\d+(?=\+)' | head -1)
     [ -z "$_res" ] && _res=$(DISPLAY=:0 xrandr 2>/dev/null | grep " connected" | grep -oP '\d+x\d+(?=\+)' | head -1)
     if [ -n "$_res" ]; then
-      WIDTH=$(echo "$_res" | cut -d'x' -f1)
-      HEIGHT=$(echo "$_res" | cut -d'x' -f2)
+      [ "${WIDTH:-0}" -eq 0 ]  && WIDTH=$(echo "$_res" | cut -d'x' -f1)
+      [ "${HEIGHT:-0}" -eq 0 ] && HEIGHT=$(echo "$_res" | cut -d'x' -f2)
     fi
   fi
   if [ "${MONITOR_MODE}" = "dual" ]; then
@@ -428,19 +428,7 @@ while true; do
   # Clear stale profile so saved window geometry does not override openbox rules.
   rm -rf /tmp/pibarticker-kiosk 2>/dev/null || true
 
-  # On X11, Chromium never auto-detects HiDPI — it always defaults to DPR=1.
-  # Force DPR=2 for 4K windows (≥2560px wide) so the CSS viewport is half the
-  # physical width, matching what a 1080p display looks like. 1080p windows are
-  # left at DPR=1 (already the default).
-  _launch_flags=("${CHROMIUM_FLAGS[@]}")
-  if [ "${WINDOW_WIDTH:-0}" -ge 2560 ]; then
-    _has_dpr=false
-    for _f in "${CHROMIUM_FLAGS[@]}"; do
-      [[ "$_f" == --force-device-scale-factor=* ]] && { _has_dpr=true; break; }
-    done
-    [ "$_has_dpr" = "false" ] && _launch_flags+=("--force-device-scale-factor=2")
-    echo "HiDPI: window=${WINDOW_WIDTH}px, forcing device-scale-factor=2 (CSS viewport=$((WINDOW_WIDTH/2))px)"
-  fi
+  echo "Chromium: window=${WINDOW_WIDTH}x${HEIGHT} device-scale-factor=1 (CSS viewport=${WINDOW_WIDTH}px)"
 
   "${CHROMIUM_BIN}" \
     --window-position=0,0 \
@@ -450,7 +438,7 @@ while true; do
     --no-first-run \
     --no-default-browser-check \
     --password-store=basic \
-    "${_launch_flags[@]}" \
+    "${CHROMIUM_FLAGS[@]}" \
     "${CHROMIUM_APP_ARG}" || true
 
   while display_explicitly_off; do

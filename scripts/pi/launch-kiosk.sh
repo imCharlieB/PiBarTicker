@@ -251,27 +251,49 @@ apply_display_mode() {
   # Find a display mode matching the configured width. HEIGHT in config is the
   # Chromium window bar height, not the hardware display height — search by
   # width only so 3840x380 config correctly finds the 3840x2160 display mode.
-  local modename=""
+  local modename="" auto_width=false
   if [ "${WIDTH:-0}" -gt 0 ]; then
     modename=$(xrandr | grep -E "^\s+${WIDTH}x" | awk '{print $1}' | head -1) || true
-  fi
-  if [ -z "$modename" ]; then
-    echo "No xrandr mode found for width ${WIDTH:-auto}; will use --auto"
+    if [ -z "$modename" ]; then
+      echo "No xrandr mode found for width=${WIDTH}. Available modes:"
+      xrandr | grep -E "^\s+[0-9]+x[0-9]+" | awk '{print "  " $1}' || true
+      echo "To use this width, the monitor must advertise it via EDID or hdmi_mode in /boot/firmware/config.txt"
+    fi
+  else
+    auto_width=true
+    echo "Width=0 (auto): will read active X11 resolution without resetting xrandr"
   fi
 
   # Try to set the configured mode; if xrandr rejects it (monitor doesn't support
   # the resolution), fall back to --auto so the display comes on regardless.
-  # After any mode change, read back the actual active geometry so WINDOW_WIDTH
-  # and HEIGHT reflect what the monitor is actually driving.
+  # When WIDTH=0 (auto) and the output is already active at origin, skip the
+  # xrandr call entirely — X11 inherited the correct resolution from the DRM/KMS
+  # driver (config.txt hdmi_mode) at boot, and --auto would reset it to the
+  # EDID-preferred mode (usually 1080p), discarding the boot-configured mode.
   try_set_output() {
     local out="$1" pos="$2"
-    local ok=false
     if [ -n "$modename" ]; then
-      xrandr --output "${out}" --mode "${modename}" --pos "${pos}" 2>/dev/null && ok=true
-    fi
-    if [ "$ok" = "false" ]; then
-      echo "Mode ${modename:-none} rejected or unset for ${out}; falling back to --auto"
+      if xrandr --output "${out}" --mode "${modename}" --pos "${pos}" 2>/dev/null; then
+        return 0
+      fi
+      echo "Mode ${modename} rejected for ${out}; falling back to --auto"
       xrandr --output "${out}" --auto --pos "${pos}" 2>/dev/null || true
+    else
+      # WIDTH=0 (auto mode): preserve the boot-configured DRM/KMS resolution.
+      # Only call --auto when positioning a non-primary output (dual mode secondary)
+      # or when the output has no active mode yet (display was off).
+      local current_res
+      current_res=$(read_active_resolution "${out}")
+      if [ "${pos}" != "0,0" ] || [ -z "$current_res" ]; then
+        echo "Activating ${out} at ${pos} via --auto (width=${WIDTH:-0} mode not in xrandr list)"
+        xrandr --output "${out}" --auto --pos "${pos}" 2>/dev/null || true
+      else
+        if [ "${auto_width:-false}" = "true" ]; then
+          echo "Auto mode: ${out} already active at ${current_res} — preserving boot resolution"
+        else
+          echo "Width=${WIDTH} not in xrandr modes; ${out} active at ${current_res} — check hdmi_mode in /boot/firmware/config.txt"
+        fi
+      fi
     fi
   }
 

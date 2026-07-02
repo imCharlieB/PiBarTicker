@@ -290,7 +290,7 @@ apply_display_mode() {
       # or when the output has no active mode yet (display was off).
       local current_res
       current_res=$(read_active_resolution "${out}")
-      if [ "${pos}" != "0,0" ] || [ -z "$current_res" ]; then
+      if [ "${pos}" != "0x0" ] || [ -z "$current_res" ]; then
         echo "Activating ${out} at ${pos} via --auto (width=${WIDTH:-0} mode not in xrandr list)"
         xrandr --output "${out}" --auto --pos "${pos}" 2>/dev/null || true
       else
@@ -325,8 +325,8 @@ apply_display_mode() {
       other="${outputs[0]}"
     fi
 
-    echo "Dual X11: setting ${anchor} at pos 0,0 (primary anchor)"
-    try_set_output "${anchor}" "0,0"
+    echo "Dual X11: setting ${anchor} at pos 0x0 (primary anchor)"
+    try_set_output "${anchor}" "0x0"
     local actual
     actual=$(read_active_resolution "${anchor}")
     if [ -n "$actual" ]; then
@@ -336,8 +336,8 @@ apply_display_mode() {
       echo "Dual X11: anchor ${anchor} active at ${actual} (window: ${WIDTH}x${HEIGHT})"
     fi
 
-    echo "Dual X11: setting ${other} at pos ${WIDTH},0"
-    try_set_output "${other}" "${WIDTH},0"
+    echo "Dual X11: setting ${other} at pos ${WIDTH}x0"
+    try_set_output "${other}" "${WIDTH}x0"
 
     sleep 1
     local combined_width=$(( WIDTH * ${#outputs[@]} ))
@@ -354,7 +354,7 @@ apply_display_mode() {
   else
     local primary="${outputs[0]}"
     echo "Single X11: setting ${primary}"
-    try_set_output "${primary}" "0,0"
+    try_set_output "${primary}" "0x0"
     local actual
     actual=$(read_active_resolution "${primary}")
     if [ -n "$actual" ]; then

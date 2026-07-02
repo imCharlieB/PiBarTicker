@@ -251,7 +251,7 @@ apply_display_mode() {
   # Find a display mode matching the configured width. HEIGHT in config is the
   # Chromium window bar height, not the hardware display height — search by
   # width only so 3840x380 config correctly finds the 3840x2160 display mode.
-  local modename
+  local modename=""
   if [ "${WIDTH:-0}" -gt 0 ]; then
     modename=$(xrandr | grep -E "^\s+${WIDTH}x" | awk '{print $1}' | head -1) || true
   fi

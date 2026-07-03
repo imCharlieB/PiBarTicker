@@ -242,6 +242,38 @@ const MemoizedCard = memo(function MemoizedCard({
   )
 })
 
+// ── CSS-transition scroll helper ──────────────────────────────────────────────
+// WAA (.animate()) is theoretically compositor-threaded but real-world Android
+// WebView (Fully Kiosk) often falls back to main-thread, causing jank.
+// CSS transitions for `transform` are more reliably compositor-threaded across
+// Android WebView versions. offsetHeight read forces the start position to be
+// applied before the transition begins (standard "stage then animate" pattern).
+function startScrollTransition(track, startX, endX, dur, onFinish) {
+  track.style.transition = 'none'
+  track.style.transform = `translateX(${startX}px)`
+  // eslint-disable-next-line no-unused-expressions
+  track.offsetHeight  // flush: apply start position before transition starts
+  track.style.transition = `transform ${dur}ms linear`
+  track.style.transform = `translateX(${endX}px)`
+  let done = false
+  const handler = (e) => {
+    if (e.propertyName !== 'transform' || done) return
+    done = true
+    track.removeEventListener('transitionend', handler)
+    onFinish()
+  }
+  track.addEventListener('transitionend', handler)
+  return {
+    cancel() {
+      if (done) return
+      done = true
+      track.removeEventListener('transitionend', handler)
+      track.style.transition = 'none'
+      track.style.transform = ''
+    }
+  }
+}
+
 // ── TickerRuntime ────────────────────────────────────────────────────────────
 
 function TickerRuntime({
@@ -317,7 +349,7 @@ function TickerRuntime({
   useLayoutEffect(() => {
     if (!haSlotActive) return
 
-    if (animRef.current) { try { animRef.current.cancel() } catch (_) {} animRef.current = null }
+    if (animRef.current) { animRef.current.cancel(); animRef.current = null }
     if (backupTimerRef.current) { clearTimeout(backupTimerRef.current); backupTimerRef.current = null }
 
     const track = trackRef.current
@@ -338,12 +370,7 @@ function TickerRuntime({
       if (backupTimerRef.current) { clearTimeout(backupTimerRef.current); backupTimerRef.current = null }
       onAdvanceRef.current()
     }
-    const anim = track.animate(
-      [{ transform: `translateX(${startX}px)` }, { transform: `translateX(${endX}px)` }],
-      { duration: dur, fill: 'forwards', easing: 'linear' }
-    )
-    animRef.current = anim
-    anim.finished.then(doHaAdvance).catch(() => {})
+    animRef.current = startScrollTransition(track, startX, endX, dur, doHaAdvance)
     backupTimerRef.current = setTimeout(doHaAdvance, dur + 2000)
   }, [haSlotActive, haRotateMs, sportsBoard?.scrollSpeed]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -351,7 +378,7 @@ function TickerRuntime({
   useLayoutEffect(() => {
     if (haSlotActive) return  // HA effect owns the track when active
 
-    if (animRef.current) { try { animRef.current.cancel() } catch (_) {} animRef.current = null }
+    if (animRef.current) { animRef.current.cancel(); animRef.current = null }
     if (backupTimerRef.current) { clearTimeout(backupTimerRef.current); backupTimerRef.current = null }
 
     const track = trackRef.current
@@ -395,12 +422,7 @@ function TickerRuntime({
       setTimeout(() => onHandoffCheckRef.current(), 900)
     }
 
-    const anim = track.animate(
-      [{ transform: `translateX(${startX}px)` }, { transform: `translateX(${endX}px)` }],
-      { duration: dur, fill: 'forwards', easing: 'linear' }
-    )
-    animRef.current = anim
-    anim.finished.then(doAdvance).catch(() => {})
+    animRef.current = startScrollTransition(track, startX, endX, dur, doAdvance)
     backupTimerRef.current = setTimeout(doAdvance, dur + 2000)
 
     setTimeout(() => onHandoffCheckRef.current(), 600)

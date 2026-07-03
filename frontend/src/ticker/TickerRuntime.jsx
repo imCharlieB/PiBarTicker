@@ -167,20 +167,24 @@ function SensorCornerWidgets({ haSensors, sensorValues }) {
 }
 
 function LowerThird({ clockFormat, haSlotActive, leagueName, leagueLogo }) {
-  const [now, setNow] = useState(() => new Date())
+  const timeRef = useRef(null)
 
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000)
+    const fmt = { hour: 'numeric', minute: '2-digit', hour12: clockFormat !== '24h' }
+    const tick = () => {
+      if (timeRef.current) timeRef.current.textContent = new Date().toLocaleTimeString([], fmt)
+    }
+    tick()
+    const id = setInterval(tick, 1000)
     return () => clearInterval(id)
-  }, [])
+  }, [clockFormat])
 
-  const time = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: clockFormat !== '24h' })
   return (
     <div className="ticker-runtime-lower l3-insert" aria-label="Lower third">
       {haSlotActive
         ? <span className="l3-badge">HOME</span>
         : <LeagueMark league={leagueName} logo={leagueLogo} />}
-      <span className="l3-time">{time}</span>
+      <span className="l3-time" ref={timeRef} />
     </div>
   )
 }

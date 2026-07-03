@@ -171,12 +171,20 @@ function LowerThird({ clockFormat, haSlotActive, leagueName, leagueLogo }) {
 
   useEffect(() => {
     const fmt = { hour: 'numeric', minute: '2-digit', hour12: clockFormat !== '24h' }
-    const tick = () => {
+    const update = () => {
       if (timeRef.current) timeRef.current.textContent = new Date().toLocaleTimeString([], fmt)
     }
-    tick()
-    const id = setInterval(tick, 1000)
-    return () => clearInterval(id)
+    update()
+    // Display is HH:MM — update once per minute, aligned to the clock minute boundary.
+    // This reduces DOM writes from 60/minute to 1/minute, eliminating per-second jank.
+    const now = new Date()
+    const msToNextMinute = (60 - now.getSeconds()) * 1000 - now.getMilliseconds()
+    let intervalId
+    const timeoutId = setTimeout(() => {
+      update()
+      intervalId = setInterval(update, 60_000)
+    }, msToNextMinute)
+    return () => { clearTimeout(timeoutId); clearInterval(intervalId) }
   }, [clockFormat])
 
   return (

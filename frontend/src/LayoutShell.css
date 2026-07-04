@@ -12,11 +12,14 @@
   overflow: hidden;
 }
 
-/* In grid mode: ticker shell must fill only its grid cell, not full viewport.
-   No position:relative here — the clock (position:absolute, bottom:0.9rem) must
-   resolve to the viewport so it stays at the very bottom of the screen.
-   Without a positioned ancestor, overflow:hidden on the shell does not clip it. */
+/* In grid mode: force ticker shell to fill only its grid cell. */
 .layout-panel .ticker-runtime-shell {
   height: 100% !important;
   min-height: 0 !important;
+}
+
+/* Clock must stay pinned to viewport bottom regardless of grid cell height.
+   position:fixed escapes overflow:hidden and any containing-block chain. */
+.layout-panel .ticker-runtime-lower {
+  position: fixed !important;
 }

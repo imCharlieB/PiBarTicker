@@ -85,7 +85,8 @@ function App() {
   )
 
   const haLayoutPanel = config?.layout?.panels?.find(p => p.type === 'ha' && p.enabled !== false)
-  const _haInRotation = homeAssistantBoard != null && homeAssistantBoard.enabled !== false && !haLayoutPanel
+  const haInGridPanel = haLayoutPanel != null && config?.layout?.mode === 'grid'
+  const _haInRotation = homeAssistantBoard != null && homeAssistantBoard.enabled !== false && !haInGridPanel
   const runtimeSlots = useMemo(() => {
     const leagueSlots = runtimeLeagues.map((l) => ({ type: 'league', league: l }))
     if (!_haInRotation) return leagueSlots

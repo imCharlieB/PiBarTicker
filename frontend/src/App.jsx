@@ -84,7 +84,8 @@ function App() {
       : (Number(config?.monitor?.width) || physicalScreenWidth)
   )
 
-  const _haInRotation = homeAssistantBoard != null && homeAssistantBoard.enabled !== false
+  const haLayoutPanel = config?.layout?.panels?.find(p => p.type === 'ha' && p.enabled !== false)
+  const _haInRotation = homeAssistantBoard != null && homeAssistantBoard.enabled !== false && !haLayoutPanel
   const runtimeSlots = useMemo(() => {
     const leagueSlots = runtimeLeagues.map((l) => ({ type: 'league', league: l }))
     if (!_haInRotation) return leagueSlots
@@ -194,7 +195,6 @@ function App() {
       />
     )
     const panelContent = {}
-    const haLayoutPanel = config.layout?.panels?.find(p => p.type === 'ha' && p.enabled !== false)
     if (haLayoutPanel) {
       panelContent.ha = <HAPanel homeAssistantBoard={homeAssistantBoard} scrollSpeed={sportsBoard?.scrollSpeed} />
     }

@@ -1280,7 +1280,7 @@
 
 /* ── Broadcast lower-third insert (Phase 6) ─────────────────────────────── */
 .ticker-runtime-lower {
-  position: absolute;
+  position: fixed;
   bottom: 0.9rem;
   left: 1rem;
   z-index: 10;

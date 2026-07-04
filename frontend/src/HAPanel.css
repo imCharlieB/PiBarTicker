@@ -1,9 +1,7 @@
 .ha-panel {
-  container-type: size;
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: var(--ticker-bg, #0c0e12);
   color: var(--ticker-text, #e9ebef);
   position: relative;
 }
@@ -13,39 +11,37 @@
   flex-direction: row;
   align-items: stretch;
   height: 100%;
-  white-space: nowrap;
 }
-
-.ha-panel-card:last-child { border-right: none; }
 
 .ha-panel-card {
   flex-shrink: 0;
   height: 100%;
-  min-width: 18cqh;
-  max-width: 40cqh;
+  min-width: 240px;
   overflow: hidden;
-  padding: 0.5cqh 0.8cqh;
+  padding: 6px 14px;
   display: inline-flex;
   flex-direction: column;
   justify-content: center;
-  gap: 0.3cqh;
+  gap: 3px;
   white-space: normal;
   border-right: 1px solid rgba(255,255,255,0.06);
   box-sizing: border-box;
 }
 
+.ha-panel-card:last-child { border-right: none; }
+
 .ha-panel-card-head {
   display: flex;
   align-items: center;
-  gap: 0.4cqh;
-  margin-bottom: 0.2cqh;
+  gap: 6px;
+  margin-bottom: 2px;
 }
 
 .ha-panel-card-title {
-  font-size: 1.4cqh;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.07em;
   color: var(--text-muted, #9aa3b1);
   white-space: nowrap;
   overflow: hidden;
@@ -53,7 +49,7 @@
 }
 
 .ha-panel-badge {
-  font-size: 1cqh;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.08em;
   color: var(--accent, #7CF29B);
@@ -64,26 +60,26 @@
 .ha-panel-rows {
   display: flex;
   flex-direction: column;
-  gap: 0.15cqh;
+  gap: 2px;
 }
 
 .ha-panel-row {
   display: flex;
   align-items: center;
-  gap: 0.5cqh;
-  font-size: 1.6cqh;
+  gap: 6px;
+  font-size: 13px;
   min-width: 0;
 }
 
 .ha-panel-row-icon {
-  font-size: 1.8cqh;
+  font-size: 15px;
   flex-shrink: 0;
   color: var(--ic, #9aa3b1);
 }
 
 .ha-panel-row-label {
   color: var(--text-muted, #9aa3b1);
-  font-size: 1.3cqh;
+  font-size: 12px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -92,7 +88,7 @@
 }
 
 .ha-panel-row-val {
-  font-size: 1.6cqh;
+  font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
   flex-shrink: 0;
@@ -100,44 +96,46 @@
 
 /* Weather panel variant */
 .ha-panel-weather {
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  gap: 0.5cqh;
+  gap: 4px;
+  min-width: 200px;
 }
 
 .ha-panel-wx-hero {
   display: flex;
   align-items: center;
-  gap: 0.6cqh;
+  gap: 8px;
 }
 
-.ha-panel-wx-icon { font-size: 4cqh; color: var(--ic, #9aa3b1); }
-.ha-panel-wx-temp { font-size: 3.5cqh; font-weight: 700; }
-.ha-panel-wx-deg  { font-size: 2cqh; font-weight: 400; }
-.ha-panel-wx-cond { font-size: 1.4cqh; color: var(--text-muted, #9aa3b1); text-transform: capitalize; }
+.ha-panel-wx-icon { font-size: 26px; color: var(--ic, #9aa3b1); }
+.ha-panel-wx-temp { font-size: 22px; font-weight: 700; }
+.ha-panel-wx-deg  { font-size: 14px; font-weight: 400; }
+.ha-panel-wx-cond { font-size: 11px; color: var(--text-muted, #9aa3b1); text-transform: capitalize; }
 
 .ha-panel-wx-stats {
   display: flex;
-  gap: 1cqh;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
 .ha-panel-wx-stat {
   display: flex;
   align-items: center;
-  gap: 0.3cqh;
-  font-size: 1.4cqh;
+  gap: 4px;
+  font-size: 12px;
 }
 
-.ha-panel-wx-stat i { font-size: 1.6cqh; color: var(--ic, #9aa3b1); }
+.ha-panel-wx-stat i { font-size: 13px; color: var(--ic, #9aa3b1); }
 
 /* Printer progress variant */
 .ha-panel-progress-bar {
-  height: 0.8cqh;
+  height: 6px;
   background: rgba(255,255,255,0.1);
   border-radius: 99px;
   overflow: hidden;
-  margin-bottom: 0.3cqh;
+  margin-bottom: 3px;
+  width: 100%;
 }
 
 .ha-panel-progress-fill {
@@ -148,7 +146,7 @@
 }
 
 .ha-panel-progress-pct {
-  font-size: 2.5cqh;
+  font-size: 18px;
   font-weight: 700;
   color: #7CF29B;
 }
@@ -157,71 +155,5 @@
   justify-content: center;
   align-items: center;
   color: var(--text-muted, #9aa3b1);
-  font-size: 1.4cqh;
-}
-
-/* Weather card extras */
-.ha-panel-wx-feels {
-  font-size: 1.1cqh;
-  color: var(--text-muted, #9aa3b1);
-  margin-left: 0.3cqh;
-}
-
-.ha-panel-wx-gust,
-.ha-panel-wx-bearing {
-  color: var(--text-muted, #9aa3b1);
-  font-size: 1.1cqh;
-}
-
-/* Forecast strips */
-.ha-panel-wx-forecast {
-  width: 100%;
-  min-width: 0;
-}
-
-.ha-panel-wx-forecast-label {
-  font-size: 1cqh;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted, #9aa3b1);
-  margin-bottom: 0.2cqh;
-}
-
-.ha-panel-wx-forecast-strip {
-  display: flex;
-  gap: 0.6cqh;
-  overflow: hidden;
-}
-
-.ha-panel-wx-forecast-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.15cqh;
-  flex: 1 1 0;
-  min-width: 0;
-}
-
-.ha-panel-wx-fc-time {
-  font-size: 1cqh;
-  color: var(--text-muted, #9aa3b1);
-  white-space: nowrap;
-}
-
-.ha-panel-wx-fc-icon {
-  font-size: 1.8cqh;
-  color: var(--ic, #9aa3b1);
-}
-
-.ha-panel-wx-fc-temp {
-  font-size: 1.2cqh;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.ha-panel-wx-fc-lo {
-  font-size: 1cqh;
-  color: var(--text-muted, #9aa3b1);
-  white-space: nowrap;
+  font-size: 12px;
 }

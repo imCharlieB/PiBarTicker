@@ -17,9 +17,3 @@
   height: 100% !important;
   min-height: 0 !important;
 }
-
-/* Clock must stay pinned to viewport bottom regardless of grid cell height.
-   position:fixed escapes overflow:hidden and any containing-block chain. */
-.layout-panel .ticker-runtime-lower {
-  position: fixed !important;
-}

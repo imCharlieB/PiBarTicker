@@ -585,10 +585,10 @@ function TickerRuntime({
             </div>
           </div>
 
-          <LowerThird clockFormat={config?.theme?.clockFormat ?? '12h'} haSlotActive={haSlotActive} leagueName={renderLeague} leagueLogo={brandLogoUrl} />
           <SensorCornerWidgets haSensors={haSensors} sensorValues={sensorValues} />
         </section>
       )}
+      <LowerThird clockFormat={config?.theme?.clockFormat ?? '12h'} haSlotActive={haSlotActive} leagueName={renderLeague} leagueLogo={brandLogoUrl} />
     </main>
   )
 }

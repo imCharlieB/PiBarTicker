@@ -12,12 +12,23 @@ _frontend_dist = Path(__file__).resolve().parents[3] / "frontend" / "dist"
 
 
 def _build_hash() -> str:
+    parts: list[str] = []
     assets = list(_frontend_dist.glob("assets/index-*.js"))
     if assets:
         stem = assets[0].stem  # e.g. "index-B6vbyD6H"
-        parts = stem.split("-", 1)
-        return parts[1] if len(parts) == 2 else stem
-    return "unknown"
+        p = stem.split("-", 1)
+        parts.append(p[1] if len(p) == 2 else stem)
+    try:
+        r = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True, text=True, timeout=3,
+            cwd=Path(__file__).resolve().parents[3],
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            parts.append(r.stdout.strip())
+    except Exception:
+        pass
+    return "-".join(parts) if parts else "unknown"
 
 
 @router.get("/build-hash")

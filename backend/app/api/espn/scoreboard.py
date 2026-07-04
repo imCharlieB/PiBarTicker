@@ -468,37 +468,58 @@ def get_scoreboard(
                 except Exception:
                     pass
 
-            # Always fetch cf.nascar.com live feed for NASCAR — ESPN is often stale on race status
-            # (returns state=pre even mid-race). series_id in the cf response validates the match.
+            # Fetch cf.nascar.com live feed for NASCAR — ESPN is often stale on race status.
+            # live-ops.json provides per-series live feed URLs (series_1/2/3); use the
+            # series-specific URL so O'Reilly and Truck get their own feed, not Cup's.
+            _NASCAR_SERIES_IDS: dict[str, int] = {
+                "nascar-premier": 1, "nascar-cup": 1,
+                "nascar-secondary": 2, "nascar-xfinity": 2,
+                "nascar-truck": 3, "nascar-trucks": 3,
+            }
+            expected_series_id = _NASCAR_SERIES_IDS.get(entry.league_id, 0)
+
             nascar_live_data: dict | None = None
             if _is_nascar:
+                _cf_live_url = "https://cf.nascar.com/live/feeds/live-feed.json"  # generic fallback
+                try:
+                    _live_ops = _http_client.get_json(
+                        "https://cf.nascar.com/live-ops/live-ops.json",
+                        use_cache=True,
+                        cache_ttl_seconds=30.0,
+                    )
+                    if isinstance(_live_ops, dict) and expected_series_id:
+                        _ops_url = str(_live_ops.get(f"live_feed_url_series{expected_series_id}") or "").strip()
+                        if _ops_url:
+                            _cf_live_url = _ops_url
+                except Exception:
+                    pass
                 try:
                     nascar_live_data = _http_client.get_json(
-                        "https://cf.nascar.com/live/feeds/live-feed.json",
+                        _cf_live_url,
                         use_cache=True,
                         cache_ttl_seconds=5.0,
                     )
                 except Exception:
                     pass
 
-            # Validate cf data belongs to this series (ESPN's nascar-truck events return Cup labels)
-            _NASCAR_SERIES_IDS: dict[str, int] = {
-                "nascar-premier": 1, "nascar-cup": 1,
-                "nascar-secondary": 2, "nascar-xfinity": 2,
-                "nascar-truck": 3, "nascar-trucks": 3,
-            }
             cf_series_id = int(nascar_live_data.get("series_id") or 0) if nascar_live_data else 0
-            expected_series_id = _NASCAR_SERIES_IDS.get(entry.league_id, 0)
             cf_matches_series = cf_series_id > 0 and cf_series_id == expected_series_id
             cf_lap_num = int(nascar_live_data.get("lap_number") or 0) if nascar_live_data else 0
             cf_laps_to_go = int(nascar_live_data.get("laps_to_go") or 0) if nascar_live_data else 0
+            cf_flag_state = int(nascar_live_data.get("flag_state") or 0) if nascar_live_data else 0
             cf_run_name = str(nascar_live_data.get("run_name") or "").strip() if nascar_live_data else ""
             # cf.nascar.com serves qualifying sessions with the same shape as races.
             # Detect qualifying by run_name so we don't treat pole qualifying as a live race.
             _cf_is_qualifying = any(kw in cf_run_name.lower() for kw in ("qualifying", "pole", "qualify"))
-            # Active when: right series, not qualifying, and laps on board OR remaining
-            # (OR instead of AND so pre-green pace laps with lap_number=0 still register).
-            cf_race_active = cf_matches_series and not _cf_is_qualifying and (cf_lap_num > 0 or cf_laps_to_go > 0)
+            # Active when: right series, not qualifying, laps on board OR remaining, and not post-race.
+            # flag_state=9 is NASCAR's post-race official state; exclude it so finished races don't
+            # override ESPN's "post" state back to "in".
+            cf_race_active = (
+                cf_matches_series
+                and not _cf_is_qualifying
+                and (cf_lap_num > 0 or cf_laps_to_go > 0)
+                and cf_flag_state != 9
+            )
 
             # Build cf.nascar.com vehicle map: name.lower() → (delta_or_None, running_pos)
             # Include all vehicles with a valid running_position even if delta is null
@@ -697,7 +718,7 @@ def get_scoreboard(
 
                 # Inject lap number, laps to go, and flag state from cf.nascar.com live feed
                 if _is_nascar and nascar_live_data and str(game.get("state") or "").lower() == "in":
-                    _FLAG_INT_MAP = {1: "green", 2: "yellow", 3: "red", 4: "checkered", 5: "white", 8: "yellow"}
+                    _FLAG_INT_MAP = {1: "green", 2: "yellow", 3: "red", 4: "checkered", 5: "white", 8: "yellow", 9: "checkered"}
                     lap_num = nascar_live_data.get("lap_number")
                     laps_go = nascar_live_data.get("laps_to_go")
                     flag_raw = nascar_live_data.get("flag_state")

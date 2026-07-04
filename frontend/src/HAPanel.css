@@ -5,41 +5,33 @@
   overflow: hidden;
   background: var(--ticker-bg, #0c0e12);
   color: var(--ticker-text, #e9ebef);
+  position: relative;
+}
+
+.ha-panel-track {
   display: flex;
+  flex-direction: row;
   align-items: stretch;
-  gap: 1px;
-}
-
-/* Override ticker-runtime-shell styles that conflict with panel sizing */
-.ha-panel.ticker-runtime-shell {
   height: 100%;
-  padding: 0;
-  justify-content: flex-start;
+  white-space: nowrap;
 }
 
-/* Wide panel (bottom/top bar): cards side by side */
-@container (min-aspect-ratio: 2/1) {
-  .ha-panel { flex-direction: row; }
-  .ha-panel-card { flex: 1 1 0; border-right: 1px solid rgba(255,255,255,0.06); }
-  .ha-panel-card:last-child { border-right: none; }
-}
-
-/* Tall panel (left/right column): cards stacked */
-@container (max-aspect-ratio: 2/1) {
-  .ha-panel { flex-direction: column; }
-  .ha-panel-card { flex: 1 1 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
-  .ha-panel-card:last-child { border-bottom: none; }
-}
+.ha-panel-card:last-child { border-right: none; }
 
 .ha-panel-card {
-  min-width: 0;
-  min-height: 0;
+  flex-shrink: 0;
+  height: 100%;
+  min-width: 18cqh;
+  max-width: 40cqh;
   overflow: hidden;
   padding: 0.5cqh 0.8cqh;
-  display: flex;
+  display: inline-flex;
   flex-direction: column;
   justify-content: center;
   gap: 0.3cqh;
+  white-space: normal;
+  border-right: 1px solid rgba(255,255,255,0.06);
+  box-sizing: border-box;
 }
 
 .ha-panel-card-head {

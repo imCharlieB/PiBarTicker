@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { useHASensors, renderEntityValue, haIconFor, haColorFor, WEATHER_ICON_MAP } from './ticker/haHelpers'
 import './HAPanel.css'
 
@@ -112,12 +113,10 @@ function PanelPrinterCard({ card, sensors, sensorValues }) {
   )
 }
 
-export default function HAPanel({ homeAssistantBoard }) {
-  const sensorValues = useHASensors()
+function PanelCards({ homeAssistantBoard, sensorValues }) {
   const sensors = homeAssistantBoard?.haSensors ?? []
   const cards = homeAssistantBoard?.haCards ?? []
 
-  let cardEls = null
   if (cards.length > 0) {
     const rendered = cards
       .filter(c => c.enabled !== false)
@@ -129,16 +128,52 @@ export default function HAPanel({ homeAssistantBoard }) {
         return <PanelSensorCard key={card.id} card={card} sensors={cardSensors} sensorValues={sensorValues} />
       })
       .filter(Boolean)
-    cardEls = rendered.length > 0 ? rendered : null
+    if (rendered.length > 0) return rendered
   }
 
-  if (!cardEls) {
-    cardEls = <PanelSensorCard card={{ title: 'HOME', sub: '' }} sensors={sensors} sensorValues={sensorValues} />
-  }
+  return <PanelSensorCard card={{ title: 'HOME', sub: '' }} sensors={sensors} sensorValues={sensorValues} />
+}
+
+export default function HAPanel({ homeAssistantBoard, scrollSpeed }) {
+  const sensorValues = useHASensors()
+  const trackRef = useRef(null)
+  const windowRef = useRef(null)
+  const animRef = useRef(null)
+
+  useEffect(() => {
+    const track = trackRef.current
+    const win = windowRef.current
+    if (!track || !win) return
+
+    const totalWidth = track.scrollWidth
+    const containerWidth = win.clientWidth || window.innerWidth
+    if (totalWidth < 10 || containerWidth < 10) return
+
+    const speed = scrollSpeed ?? 80
+    const startX = containerWidth
+    const endX = -totalWidth
+    const dur = Math.round((startX - endX) / speed * 1000)
+
+    const loop = () => {
+      const anim = track.animate(
+        [{ transform: `translateX(${startX}px)` }, { transform: `translateX(${endX}px)` }],
+        { duration: dur, fill: 'forwards', easing: 'linear' }
+      )
+      animRef.current = anim
+      anim.finished.then(loop).catch(() => {})
+    }
+    loop()
+
+    return () => {
+      if (animRef.current) { try { animRef.current.cancel() } catch (_) {} }
+    }
+  }, [scrollSpeed])
 
   return (
-    <div className="ha-panel">
-      {cardEls}
+    <div className="ha-panel" ref={windowRef}>
+      <div className="ha-panel-track" ref={trackRef}>
+        <PanelCards homeAssistantBoard={homeAssistantBoard} sensorValues={sensorValues} />
+      </div>
     </div>
   )
 }

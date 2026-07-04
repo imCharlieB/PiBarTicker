@@ -309,8 +309,11 @@ def normalize_scoreboard_events(
 
         # Expand events where every competition is a 1v1 athlete matchup (MMA fight card,
         # boxing card, tennis draw, etc.) — produce one game per bout instead of collapsing.
+        # Racing is excluded: F1/IndyCar events have multiple sessions (practice, qualifying,
+        # race) with individual-athlete competitors, which would wrongly trigger expansion.
         is_multi_athlete = (
             len(competitions) > 1
+            and entry.sport not in ("racing", "golf")
             and all(_is_athlete_competition(c) for c in competitions if isinstance(c, dict))
         )
         comps_to_process = (

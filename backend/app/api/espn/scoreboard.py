@@ -598,6 +598,23 @@ def get_scoreboard(
                                                  if suffix else correct_series)
                                 break
 
+                # Time-based fallback: if a NASCAR/racing event is still "pre" but
+                # its scheduled start + 5 min has passed (within 4 hours), flip to live.
+                # Covers ESPN's chronic state lag when cf.nascar.com data isn't available.
+                if _is_nascar and str(game.get("state") or "").lower() == "pre":
+                    start_str = str(game.get("startTimeUtc") or "").strip()
+                    if start_str:
+                        try:
+                            start_utc = datetime.fromisoformat(start_str)
+                            if start_utc.tzinfo is None:
+                                start_utc = start_utc.replace(tzinfo=timezone.utc)
+                            minutes_past = (datetime.now(timezone.utc) - start_utc).total_seconds() / 60
+                            if 5 < minutes_past < 240:
+                                game["state"] = "in"
+                                game["isLive"] = True
+                        except Exception:
+                            pass
+
                 for race_entry in game.get("racingEntries") or []:
                     if not race_entry.get("teamColor"):
                         team_id = str(race_entry.get("teamId") or "").strip()

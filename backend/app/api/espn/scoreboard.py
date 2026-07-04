@@ -535,6 +535,51 @@ def get_scoreboard(
                     if cf_run_name:
                         game["title"] = cf_run_name
 
+                    # ESPN frequently returns no competitors for live NASCAR races.
+                    # When cf.nascar.com confirms the race is active and ESPN has no
+                    # entries, build them from the cf vehicle list so the card isn't blank.
+                    if not game.get("racingEntries") and nascar_live_data:
+                        cf_vehicles = sorted(
+                            [v for v in (nascar_live_data.get("vehicles") or [])  # type: ignore[union-attr]
+                             if isinstance(v, dict) and v.get("running_position") is not None],
+                            key=lambda v: int(v.get("running_position") or 9999),
+                        )
+                        cf_built: list[dict] = []
+                        for v in cf_vehicles:
+                            drv = v.get("driver") or {}
+                            raw_full = re.sub(r'\s*#.*$', '', str(drv.get("full_name") or "")).strip()
+                            if not raw_full:
+                                continue
+                            v_pos = int(v.get("running_position") or 0)
+                            v_delta = v.get("delta")
+                            if v_pos == 1 or v_delta is None or v_delta == 0:
+                                score = "LEAD"
+                            else:
+                                try:
+                                    df = float(v_delta)
+                                    score = f"+{df:.3f}s" if df < 60 else f"+{df:.1f}s"
+                                except (TypeError, ValueError):
+                                    score = ""
+                            cf_built.append({
+                                "id": "",
+                                "position": v_pos,
+                                "_cfPos": v_pos,
+                                "name": raw_full,
+                                "shortName": re.sub(r'\s*#.*$', '', str(drv.get("last_name") or raw_full)).strip(),
+                                "score": score,
+                                "stats": [],
+                                "headshot": "",
+                                "flag": {"href": "", "alt": ""},
+                                "team": "",
+                                "teamId": "",
+                                "teamColor": "",
+                                "athleteId": str(drv.get("driver_id") or "").strip(),
+                                "carBadge": "",
+                                "carNumber": str(v.get("vehicle_number") or "").strip(),
+                            })
+                        if cf_built:
+                            game["racingEntries"] = cf_built
+
                 # Fix ESPN mislabeling non-Cup series (e.g., nascar-truck → "NASCAR Cup Series at …")
                 if _is_nascar:
                     correct_series = _NASCAR_SERIES_LABELS.get(entry.league_id, "")

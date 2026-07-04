@@ -3,6 +3,7 @@
   width: 100vw;
   height: 100vh;
   overflow: hidden;
+  background: var(--ticker-bg, #0c0e12);
 }
 
 .layout-panel {
@@ -12,10 +13,10 @@
 }
 
 /* In grid mode: ticker shell must fill only its grid cell, not full viewport.
-   position:relative makes the clock's bottom:0.9rem resolve to the ticker cell
-   bottom so it stays visible and isn't clipped by overflow:hidden. */
+   No position:relative here — the clock (position:absolute, bottom:0.9rem) must
+   resolve to the viewport so it stays at the very bottom of the screen.
+   Without a positioned ancestor, overflow:hidden on the shell does not clip it. */
 .layout-panel .ticker-runtime-shell {
   height: 100% !important;
   min-height: 0 !important;
-  position: relative;
 }

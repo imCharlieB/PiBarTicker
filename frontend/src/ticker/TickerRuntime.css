@@ -9,7 +9,6 @@
   overflow: hidden;
   color: var(--ticker-text);
   background: var(--ticker-bg, #0c0e12);
-  position: relative;
 }
 
 .ticker-runtime-board {

@@ -17,7 +17,6 @@ export default function LayoutShell({ layout, shellStyle, panelContent, children
   const enabledPanels = (layout.panels ?? []).filter(p => p.enabled !== false)
   const panel = enabledPanels[0]
 
-  // No panels configured or panel type not yet implemented — just show ticker
   if (!panel || !panelContent?.[panel.type]) return children
 
   const { rows, cols, tickerArea, panelArea } = deriveGrid(panel)

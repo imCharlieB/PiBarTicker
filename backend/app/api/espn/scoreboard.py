@@ -554,7 +554,22 @@ def get_scoreboard(
                 "NASCAR Craftsman Truck Series", "NASCAR O'Reilly Auto Parts Series",
             ]
 
+            # If cf confirms this series' race is finished (laps run, none remaining),
+            # we can veto ESPN's stale "in" state so yesterday's race doesn't stay live.
+            cf_race_finished = (
+                cf_matches_series
+                and not _cf_is_qualifying
+                and cf_lap_num > 0
+                and cf_laps_to_go == 0
+            )
+
             for game in normalized_games:
+                # Hard veto: cf says race is done — force out of live regardless of ESPN state
+                if cf_race_finished and str(game.get("state") or "").lower() == "in":
+                    game["state"] = "post"
+                    game["isLive"] = False
+                    game["isCompleted"] = True
+
                 # Override ESPN's stale state/title with cf.nascar.com authoritative data
                 if cf_race_active:
                     game["state"] = "in"

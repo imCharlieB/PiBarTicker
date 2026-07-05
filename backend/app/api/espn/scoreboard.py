@@ -511,14 +511,15 @@ def get_scoreboard(
             # cf.nascar.com serves qualifying sessions with the same shape as races.
             # Detect qualifying by run_name so we don't treat pole qualifying as a live race.
             _cf_is_qualifying = any(kw in cf_run_name.lower() for kw in ("qualifying", "pole", "qualify"))
-            # Active when: right series, not qualifying, laps on board OR remaining, and not post-race.
-            # flag_state=9 is NASCAR's post-race official state; exclude it so finished races don't
-            # override ESPN's "post" state back to "in".
+            # Active when: right series, not qualifying, laps remaining > 0, and not post-race.
+            # Require laps_to_go > 0 (not lap_num) so finished races (laps_to_go=0) never flip to
+            # live even when stale cf data still shows a non-zero lap_number from the previous race.
+            # Pace laps before the green flag still satisfy this since laps_to_go = total laps then.
             cf_race_active = (
                 cf_matches_series
                 and not _cf_is_qualifying
-                and (cf_lap_num > 0 or cf_laps_to_go > 0)
-                and cf_flag_state != 9
+                and cf_laps_to_go > 0
+                and cf_flag_state not in (4, 9)
             )
 
             # Build cf.nascar.com vehicle map: name.lower() → (delta_or_None, running_pos)

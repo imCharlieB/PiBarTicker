@@ -875,7 +875,7 @@ def get_scoreboard(
             _ind_meta = None
 
         # Collect all uncached MMA fighters across every game before spawning any
-        # thread — one thread writes sequentially so there is no race on the meta file.
+        # thread — one sequential thread avoids races on the meta JSON file.
         _is_mma = entry.sport == "mma"
         _mma_uncached: list[tuple[str, str, str, str]] = []
 
@@ -905,34 +905,31 @@ def get_scoreboard(
                     continue
                 athlete_id = comp["id"]
 
-                # MMA: always prefer locally cached headshot over whatever ESPN sent;
-                # queue a background download when the fighter is missing or has a placeholder name.
-                if _is_mma:
-                    needs_cache = True
-                    if _ind_meta:
-                        cached_info = _ind_meta.teams.get(athlete_id)
-                        if cached_info:
-                            cached_hs = cached_info.logos.get("headshot") or cached_info.logos.get("default")
-                            if cached_hs:
-                                comp["headshot"] = f"/logos/{cached_hs}"
-                            needs_cache = not cached_hs or cached_info.display_name == athlete_id
-                    if needs_cache and not any(f[0] == athlete_id for f in _mma_uncached):
-                        _mma_uncached.append((
-                            athlete_id,
-                            str(comp.get("name") or ""),
-                            str(comp.get("record") or ""),
-                            str(comp.get("logo") or ""),
-                        ))
-
-                # All individual sports: fall back to ESPN CDN if no local headshot yet
                 if not comp.get("headshot"):
-                    if not _is_mma and _ind_meta and athlete_id in _ind_meta.teams:
+                    if _ind_meta and athlete_id in _ind_meta.teams:
                         player = _ind_meta.teams[athlete_id]
                         cached_hs = player.logos.get("headshot") or player.logos.get("default")
                         if cached_hs:
                             comp["headshot"] = f"/logos/{cached_hs}"
                     if not comp.get("headshot"):
                         comp["headshot"] = f"https://a.espncdn.com/i/headshots/{entry.sport}/players/full/{athlete_id}.png"
+                        if _is_mma and not any(f[0] == athlete_id for f in _mma_uncached):
+                            _mma_uncached.append((
+                                athlete_id,
+                                str(comp.get("name") or ""),
+                                str(comp.get("record") or ""),
+                                str(comp.get("logo") or ""),
+                            ))
+                elif _is_mma and _ind_meta:
+                    cached_info = _ind_meta.teams.get(athlete_id)
+                    if cached_info and cached_info.display_name == athlete_id:
+                        if not any(f[0] == athlete_id for f in _mma_uncached):
+                            _mma_uncached.append((
+                                athlete_id,
+                                str(comp.get("name") or ""),
+                                str(comp.get("record") or ""),
+                                str(comp.get("logo") or ""),
+                            ))
 
         if _mma_uncached:
             import threading

@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException
 
 from ...core.logos.cache_service import LogoCacheService
 from ...core.logos.f1_cache_service import F1CacheService
+from ...core.logos.mma_cache_service import MmaCacheService
 from ...core.logos.nascar_cache_service import NascarCacheService
 from ...core.logos.logo_store import LogoStore
 
@@ -128,6 +129,16 @@ def sync_nascar_data() -> dict:
         return service.sync_all()
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"NASCAR sync failed: {exc}") from exc
+
+
+@router.post("/cache/mma/sync")
+def sync_mma_data(league: str = "ufc") -> dict:
+    """Sync MMA fighter headshots from ESPN CDN for the given league (default: ufc)."""
+    service = MmaCacheService()
+    try:
+        return service.sync_all(league=league)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"MMA sync failed: {exc}") from exc
 
 
 @router.post("/cache/f1/sync")

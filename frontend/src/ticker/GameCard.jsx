@@ -3,8 +3,8 @@ import { runtimeTeamName, teamRecordText, teamRowStyle } from './cardHelpers.js'
 export default function GameCard({ game }) {
   const away = game?.teams?.away
   const home = game?.teams?.home
-  const awayLogo = away?.logo || ''
-  const homeLogo = home?.logo || ''
+  const awayLogo = away?.headshot || away?.logo || ''
+  const homeLogo = home?.headshot || home?.logo || ''
   const awayBadge = String(away?.abbreviation || away?.name || '?').slice(0, 3).toUpperCase()
   const homeBadge = String(home?.abbreviation || home?.name || '?').slice(0, 3).toUpperCase()
   const gameState = String(game?.state || '').toLowerCase()

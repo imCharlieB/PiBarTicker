@@ -63,6 +63,7 @@ export default function LeagueDetail({
   const _ALL_NASCAR_CACHE_IDS = ['nascar-cup', 'nascar-xfinity', 'nascar-trucks']
 
   const isF1League = selectedTickerLeague.id === 'f1'
+  const isMmaLeague = leagueApiParams.sport === 'mma'
 
   useEffect(() => {
     if (isNascarLeague) {
@@ -473,12 +474,39 @@ export default function LeagueDetail({
           </p>
         </div>
         <div className="ld-explorer-actions">
-          {!isNascarLeague && !isF1League && (
+          {!isNascarLeague && !isF1League && !isMmaLeague && (
             <button type="button" className="ld-explorer-btn"
               onClick={syncTeamsAndLogos}
               disabled={selectedLeagueLoadState.loading}
             >
               {selectedLeagueLoadState.loading ? 'Syncing...' : isNonRacingIndividualLeague ? 'Sync Players & Headshots' : 'Sync Teams & Logos'}
+            </button>
+          )}
+          {isMmaLeague && (
+            <button type="button" className="ld-explorer-btn"
+              disabled={!!logoSyncingLeagues[selectedTickerLeague.id]}
+              onClick={async () => {
+                const lid = selectedTickerLeague.id
+                const leagueParam = leagueApiParams.league || 'ufc'
+                setLogoSyncingLeagues((prev) => ({ ...prev, [lid]: 'Syncing MMA fighters…' }))
+                setNotice(`Downloading ${leagueParam.toUpperCase()} fighter headshots from ESPN — this may take a minute…`)
+                try {
+                  const res = await fetch(`/api/v1/logos/cache/mma/sync?league=${encodeURIComponent(leagueParam)}`, { method: 'POST' })
+                  const data = await res.json()
+                  if (!res.ok) throw new Error(data?.detail || `HTTP ${res.status}`)
+                  const synced = data?.fighters_synced ?? 0
+                  const downloaded = data?.headshots_downloaded ?? 0
+                  const cached = data?.headshots_already_cached ?? 0
+                  setNotice(`MMA sync complete — ${synced} fighters. ${downloaded} headshots downloaded, ${cached} already cached.`)
+                  loadLeagueLogoMeta(lid)
+                } catch (e) {
+                  setNotice(`MMA sync failed: ${e.message}`)
+                } finally {
+                  setLogoSyncingLeagues((prev) => { const copy = { ...prev }; delete copy[lid]; return copy })
+                }
+              }}
+            >
+              {logoSyncingLeagues[selectedTickerLeague.id] ? 'Syncing fighters…' : 'Sync MMA Fighters'}
             </button>
           )}
           {selectedTickerLeague.id === 'f1' && (

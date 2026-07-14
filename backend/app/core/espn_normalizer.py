@@ -57,9 +57,11 @@ def _team_model(competitor: dict[str, Any] | None) -> dict[str, Any] | None:
         and bool(athlete.get("id") or athlete.get("displayName") or athlete.get("fullName"))
     )
 
+    athlete_headshot = ""
     if is_athlete_competitor:
         entity = athlete
         entity_id = str(athlete.get("id") or competitor.get("id") or "").strip()
+        athlete_headshot = str(athlete.get("headshot") or competitor.get("headshot") or "").strip()
         logos = athlete.get("logos") or []
         logo_href = str((logos[0] or {}).get("href") or "") if isinstance(logos, list) and logos else ""
         if not logo_href:
@@ -107,6 +109,7 @@ def _team_model(competitor: dict[str, Any] | None) -> dict[str, Any] | None:
         "record": record_summary,
         "winner": bool(competitor.get("winner")),
         "logo": logo_href,
+        "headshot": athlete_headshot,
     }
 
 

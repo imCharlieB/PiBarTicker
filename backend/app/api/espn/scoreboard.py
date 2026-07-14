@@ -892,20 +892,22 @@ def get_scoreboard(
                 if not race_entry.get("headshot"):
                     race_entry["headshot"] = f"https://a.espncdn.com/i/headshots/{entry.sport}/players/full/{athlete_id}.png"
 
-            # 1v1 competitor entries (MMA, boxing, tennis, individual sport matchups)
+            # 1v1 competitor entries (MMA, boxing, tennis, individual sport matchups).
+            # Always inject a headshot URL (ESPN CDN or local cache); keep logo as flag fallback.
             teams_dict = game.get("teams") or {}
             for side in ("home", "away"):
                 comp = teams_dict.get(side)
-                if not isinstance(comp, dict) or comp.get("logo") or not comp.get("id"):
+                if not isinstance(comp, dict) or not comp.get("id"):
                     continue
                 athlete_id = comp["id"]
-                if _ind_meta and athlete_id in _ind_meta.teams:
-                    player = _ind_meta.teams[athlete_id]
-                    cached_logo = player.logos.get("headshot") or player.logos.get("default")
-                    if cached_logo:
-                        comp["logo"] = f"/logos/{cached_logo}"
-                if not comp.get("logo"):
-                    comp["logo"] = f"https://a.espncdn.com/i/headshots/{entry.sport}/players/full/{athlete_id}.png"
+                if not comp.get("headshot"):
+                    if _ind_meta and athlete_id in _ind_meta.teams:
+                        player = _ind_meta.teams[athlete_id]
+                        cached_hs = player.logos.get("headshot") or player.logos.get("default")
+                        if cached_hs:
+                            comp["headshot"] = f"/logos/{cached_hs}"
+                    if not comp.get("headshot"):
+                        comp["headshot"] = f"https://a.espncdn.com/i/headshots/{entry.sport}/players/full/{athlete_id}.png"
 
     event_count = len(filtered_events)
     return {

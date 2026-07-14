@@ -635,6 +635,25 @@ def get_scoreboard(
                                                  if suffix else correct_series)
                                 break
 
+                # Stale-live veto: ESPN sometimes keeps a completed race as "in" long after
+                # it ends (especially overnight). If cf.nascar.com doesn't confirm the race
+                # is active and >6 hours have passed since scheduled start (no race runs
+                # that long even with rain delays), force it to post.
+                if _is_nascar and not cf_race_active and str(game.get("state") or "").lower() == "in":
+                    _stale_start = str(game.get("startTimeUtc") or "").strip()
+                    if _stale_start:
+                        try:
+                            _stale_utc = datetime.fromisoformat(_stale_start)
+                            if _stale_utc.tzinfo is None:
+                                _stale_utc = _stale_utc.replace(tzinfo=timezone.utc)
+                            _stale_mins = (datetime.now(timezone.utc) - _stale_utc).total_seconds() / 60
+                            if _stale_mins > 360:  # 6 hours: no race runs this long
+                                game["state"] = "post"
+                                game["isLive"] = False
+                                game["isCompleted"] = True
+                        except Exception:
+                            pass
+
                 # Time-based fallback: if a NASCAR/racing event is still "pre" but
                 # its scheduled start + 5 min has passed (within 4 hours), flip to live.
                 # Covers ESPN's chronic state lag when cf.nascar.com data isn't available.

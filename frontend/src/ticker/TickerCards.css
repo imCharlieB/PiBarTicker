@@ -816,7 +816,7 @@
 }
 
 .ticker-runtime-shell .wx-icon {
-  font-size: 24.2cqh;
+  font-size: 20cqh;
   color: var(--ic, #cfd6e2);
   line-height: 1;
   filter: drop-shadow(0 4px 14px color-mix(in srgb, var(--ic, #000) 40%, transparent));
@@ -825,7 +825,7 @@
 .ticker-runtime-shell .wx-temp {
   font-family: 'Spline Sans Mono', monospace;
   font-weight: 700;
-  font-size: 24.2cqh;
+  font-size: 20cqh;
   color: #fff;
   line-height: 0.9;
   font-variant-numeric: tabular-nums;

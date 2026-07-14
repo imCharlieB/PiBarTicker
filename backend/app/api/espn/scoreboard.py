@@ -905,31 +905,35 @@ def get_scoreboard(
                 if not isinstance(comp, dict) or not comp.get("id"):
                     continue
                 athlete_id = comp["id"]
-                if not comp.get("headshot"):
-                    if _ind_meta and athlete_id in _ind_meta.teams:
-                        player = _ind_meta.teams[athlete_id]
-                        cached_hs = player.logos.get("headshot") or player.logos.get("default")
-                        if cached_hs:
-                            comp["headshot"] = f"/logos/{cached_hs}"
-                    if not comp.get("headshot"):
-                        comp["headshot"] = f"https://a.espncdn.com/i/headshots/{entry.sport}/players/full/{athlete_id}.png"
-                        if _is_mma:
-                            _mma_uncached.append((
-                                athlete_id,
-                                str(comp.get("name") or ""),
-                                str(comp.get("record") or ""),
-                                str(comp.get("logo") or ""),
-                            ))
-                elif _is_mma and _ind_meta:
-                    # Already has headshot — but re-enrich if still missing the name
-                    cached_info = _ind_meta.teams.get(athlete_id)
-                    if cached_info and cached_info.display_name == athlete_id:
+
+                # MMA: always prefer locally cached headshot over whatever ESPN sent;
+                # queue a background download when the fighter is missing or has a placeholder name.
+                if _is_mma:
+                    needs_cache = True
+                    if _ind_meta:
+                        cached_info = _ind_meta.teams.get(athlete_id)
+                        if cached_info:
+                            cached_hs = cached_info.logos.get("headshot") or cached_info.logos.get("default")
+                            if cached_hs:
+                                comp["headshot"] = f"/logos/{cached_hs}"
+                            needs_cache = not cached_hs or cached_info.display_name == athlete_id
+                    if needs_cache:
                         _mma_uncached.append((
                             athlete_id,
                             str(comp.get("name") or ""),
                             str(comp.get("record") or ""),
                             str(comp.get("logo") or ""),
                         ))
+
+                # Non-MMA individual sport: use local cache or ESPN CDN as fallback
+                if not comp.get("headshot"):
+                    if not _is_mma and _ind_meta and athlete_id in _ind_meta.teams:
+                        player = _ind_meta.teams[athlete_id]
+                        cached_hs = player.logos.get("headshot") or player.logos.get("default")
+                        if cached_hs:
+                            comp["headshot"] = f"/logos/{cached_hs}"
+                    if not comp.get("headshot"):
+                        comp["headshot"] = f"https://a.espncdn.com/i/headshots/{entry.sport}/players/full/{athlete_id}.png"
 
             if _mma_uncached:
                 import threading

@@ -61,7 +61,8 @@ def _team_model(competitor: dict[str, Any] | None) -> dict[str, Any] | None:
     if is_athlete_competitor:
         entity = athlete
         entity_id = str(athlete.get("id") or competitor.get("id") or "").strip()
-        athlete_headshot = str(athlete.get("headshot") or competitor.get("headshot") or "").strip()
+        _hs_raw = athlete.get("headshot") or competitor.get("headshot") or {}
+        athlete_headshot = str(_hs_raw.get("href") or "" if isinstance(_hs_raw, dict) else _hs_raw or "").strip()
         logos = athlete.get("logos") or []
         logo_href = str((logos[0] or {}).get("href") or "") if isinstance(logos, list) and logos else ""
         if not logo_href:

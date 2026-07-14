@@ -100,6 +100,7 @@ export default function LeagueDetail({
             color: p.color || '',
             alternateColor: p.alternate_color || '',
             logos: headshotKey ? { headshot: headshotKey } : {},
+            remote_urls: p.remote_urls || {},
           }
         })
         .sort((a, b) => a.name.localeCompare(b.name))

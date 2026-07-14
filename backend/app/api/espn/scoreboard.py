@@ -893,7 +893,11 @@ def get_scoreboard(
                     race_entry["headshot"] = f"https://a.espncdn.com/i/headshots/{entry.sport}/players/full/{athlete_id}.png"
 
             # 1v1 competitor entries (MMA, boxing, tennis, individual sport matchups).
-            # Always inject a headshot URL (ESPN CDN or local cache); keep logo as flag fallback.
+            # Always inject a headshot URL (local cache preferred, ESPN CDN as fallback).
+            # For MMA, trigger a background download when a fighter isn't cached yet so
+            # it's available on the next poll without any user action.
+            _is_mma = entry.sport == "mma"
+            _mma_uncached: list[str] = []
             teams_dict = game.get("teams") or {}
             for side in ("home", "away"):
                 comp = teams_dict.get(side)
@@ -908,6 +912,21 @@ def get_scoreboard(
                             comp["headshot"] = f"/logos/{cached_hs}"
                     if not comp.get("headshot"):
                         comp["headshot"] = f"https://a.espncdn.com/i/headshots/{entry.sport}/players/full/{athlete_id}.png"
+                        if _is_mma:
+                            _mma_uncached.append(athlete_id)
+
+            if _mma_uncached:
+                import threading
+                _league_id = entry.league_id
+                def _bg_mma_cache(ids: list[str] = _mma_uncached, lid: str = _league_id) -> None:
+                    try:
+                        from ...core.logos.mma_cache_service import MmaCacheService
+                        svc = MmaCacheService()
+                        for aid in ids:
+                            svc.cache_fighter(aid, lid)
+                    except Exception:
+                        pass
+                threading.Thread(target=_bg_mma_cache, daemon=True).start()
 
     event_count = len(filtered_events)
     return {

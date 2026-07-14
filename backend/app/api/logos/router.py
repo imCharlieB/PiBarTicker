@@ -131,14 +131,15 @@ def sync_nascar_data() -> dict:
         raise HTTPException(status_code=500, detail=f"NASCAR sync failed: {exc}") from exc
 
 
-@router.post("/cache/mma/sync")
-def sync_mma_data(league: str = "ufc") -> dict:
-    """Sync MMA fighter headshots from ESPN CDN for the given league (default: ufc)."""
+@router.post("/cache/mma/fighter/{athlete_id}")
+def cache_mma_fighter(athlete_id: str, league: str = "ufc") -> dict:
+    """Download and cache the headshot for a single MMA fighter by ESPN athlete ID."""
     service = MmaCacheService()
     try:
-        return service.sync_all(league=league)
+        ok = service.cache_fighter(athlete_id=athlete_id, league=league)
+        return {"ok": ok, "athlete_id": athlete_id, "league": league}
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"MMA sync failed: {exc}") from exc
+        raise HTTPException(status_code=500, detail=f"MMA cache failed: {exc}") from exc
 
 
 @router.post("/cache/f1/sync")

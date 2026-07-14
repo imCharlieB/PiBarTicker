@@ -874,6 +874,11 @@ def get_scoreboard(
         except Exception:
             _ind_meta = None
 
+        # Collect all uncached MMA fighters across every game before spawning any
+        # thread — one thread writes sequentially so there is no race on the meta file.
+        _is_mma = entry.sport == "mma"
+        _mma_uncached: list[tuple[str, str, str, str]] = []
+
         for game in normalized_games:
             # Leaderboard entries (golf tournament field, any future leaderboard sport)
             for race_entry in game.get("racingEntries") or []:
@@ -893,12 +898,6 @@ def get_scoreboard(
                     race_entry["headshot"] = f"https://a.espncdn.com/i/headshots/{entry.sport}/players/full/{athlete_id}.png"
 
             # 1v1 competitor entries (MMA, boxing, tennis, individual sport matchups).
-            # Always inject a headshot URL (local cache preferred, ESPN CDN as fallback).
-            # For MMA, trigger a background download when a fighter isn't cached yet so
-            # it's available on the next poll without any user action.
-            _is_mma = entry.sport == "mma"
-            # list of (athlete_id, name, record, flag_url) for uncached MMA fighters
-            _mma_uncached: list[tuple[str, str, str, str]] = []
             teams_dict = game.get("teams") or {}
             for side in ("home", "away"):
                 comp = teams_dict.get(side)
@@ -917,7 +916,7 @@ def get_scoreboard(
                             if cached_hs:
                                 comp["headshot"] = f"/logos/{cached_hs}"
                             needs_cache = not cached_hs or cached_info.display_name == athlete_id
-                    if needs_cache:
+                    if needs_cache and not any(f[0] == athlete_id for f in _mma_uncached):
                         _mma_uncached.append((
                             athlete_id,
                             str(comp.get("name") or ""),
@@ -925,7 +924,7 @@ def get_scoreboard(
                             str(comp.get("logo") or ""),
                         ))
 
-                # Non-MMA individual sport: use local cache or ESPN CDN as fallback
+                # All individual sports: fall back to ESPN CDN if no local headshot yet
                 if not comp.get("headshot"):
                     if not _is_mma and _ind_meta and athlete_id in _ind_meta.teams:
                         player = _ind_meta.teams[athlete_id]
@@ -935,21 +934,21 @@ def get_scoreboard(
                     if not comp.get("headshot"):
                         comp["headshot"] = f"https://a.espncdn.com/i/headshots/{entry.sport}/players/full/{athlete_id}.png"
 
-            if _mma_uncached:
-                import threading
-                _league_id = entry.league_id
-                def _bg_mma_cache(
-                    fighters: list[tuple[str, str, str, str]] = _mma_uncached,
-                    lid: str = _league_id,
-                ) -> None:
-                    try:
-                        from ...core.logos.mma_cache_service import MmaCacheService
-                        svc = MmaCacheService()
-                        for aid, name, record, flag in fighters:
-                            svc.cache_fighter(aid, lid, name_hint=name, record_hint=record, flag_hint=flag)
-                    except Exception:
-                        pass
-                threading.Thread(target=_bg_mma_cache, daemon=True).start()
+        if _mma_uncached:
+            import threading
+            _league_id = entry.league_id
+            def _bg_mma_cache(
+                fighters: list[tuple[str, str, str, str]] = _mma_uncached,
+                lid: str = _league_id,
+            ) -> None:
+                try:
+                    from ...core.logos.mma_cache_service import MmaCacheService
+                    svc = MmaCacheService()
+                    for aid, name, record, flag in fighters:
+                        svc.cache_fighter(aid, lid, name_hint=name, record_hint=record, flag_hint=flag)
+                except Exception:
+                    pass
+            threading.Thread(target=_bg_mma_cache, daemon=True).start()
 
     event_count = len(filtered_events)
     return {

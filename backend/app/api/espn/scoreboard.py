@@ -897,7 +897,8 @@ def get_scoreboard(
             # For MMA, trigger a background download when a fighter isn't cached yet so
             # it's available on the next poll without any user action.
             _is_mma = entry.sport == "mma"
-            _mma_uncached: list[str] = []
+            # list of (athlete_id, name, record, flag_url) for uncached MMA fighters
+            _mma_uncached: list[tuple[str, str, str, str]] = []
             teams_dict = game.get("teams") or {}
             for side in ("home", "away"):
                 comp = teams_dict.get(side)
@@ -913,17 +914,35 @@ def get_scoreboard(
                     if not comp.get("headshot"):
                         comp["headshot"] = f"https://a.espncdn.com/i/headshots/{entry.sport}/players/full/{athlete_id}.png"
                         if _is_mma:
-                            _mma_uncached.append(athlete_id)
+                            _mma_uncached.append((
+                                athlete_id,
+                                str(comp.get("name") or ""),
+                                str(comp.get("record") or ""),
+                                str(comp.get("logo") or ""),
+                            ))
+                elif _is_mma and _ind_meta:
+                    # Already has headshot — but re-enrich if still missing the name
+                    cached_info = _ind_meta.teams.get(athlete_id)
+                    if cached_info and cached_info.display_name == athlete_id:
+                        _mma_uncached.append((
+                            athlete_id,
+                            str(comp.get("name") or ""),
+                            str(comp.get("record") or ""),
+                            str(comp.get("logo") or ""),
+                        ))
 
             if _mma_uncached:
                 import threading
                 _league_id = entry.league_id
-                def _bg_mma_cache(ids: list[str] = _mma_uncached, lid: str = _league_id) -> None:
+                def _bg_mma_cache(
+                    fighters: list[tuple[str, str, str, str]] = _mma_uncached,
+                    lid: str = _league_id,
+                ) -> None:
                     try:
                         from ...core.logos.mma_cache_service import MmaCacheService
                         svc = MmaCacheService()
-                        for aid in ids:
-                            svc.cache_fighter(aid, lid)
+                        for aid, name, record, flag in fighters:
+                            svc.cache_fighter(aid, lid, name_hint=name, record_hint=record, flag_hint=flag)
                     except Exception:
                         pass
                 threading.Thread(target=_bg_mma_cache, daemon=True).start()

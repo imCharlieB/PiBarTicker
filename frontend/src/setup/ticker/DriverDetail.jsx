@@ -28,6 +28,20 @@ export default function DriverDetail({ selectedTickerLeague, driver, onBack }) {
   const manufacturerRaw = driver.remote_urls?.manufacturer || ''
   const manufacturer = manufacturerRaw.startsWith('http') ? '' : manufacturerRaw
 
+  // MMA-specific fields
+  const isMma = leagueParams.sport === 'mma'
+  const mmaRecord = driver.remote_urls?.record || ''
+  const mmaWeightClass = driver.remote_urls?.weight_class || ''
+  const mmaHeight = driver.remote_urls?.height || ''
+  const mmaWeight = driver.remote_urls?.weight || ''
+  const mmaReach = driver.remote_urls?.reach || ''
+  const mmaStance = driver.remote_urls?.stance || ''
+  const mmaNationality = driver.remote_urls?.citizenship || ''
+  const mmaNickname = driver.remote_urls?.nickname || ''
+  const mmaAge = driver.remote_urls?.age || ''
+  const mmaGym = driver.remote_urls?.association || ''
+  const mmaFlag = driver.remote_urls?.flag || ''
+
   const badgeStyle = {
     color: hexColor,
     borderColor: color ? hexToRgba(color, 0.4) : 'rgba(255,255,255,0.14)',
@@ -56,7 +70,7 @@ export default function DriverDetail({ selectedTickerLeague, driver, onBack }) {
             </div>
           )}
           <div>
-            <p className="section-kicker">{isIndividualAthlete ? 'Player' : 'Driver'}</p>
+            <p className="section-kicker">{isMma ? 'Fighter' : isIndividualAthlete ? 'Player' : 'Driver'}</p>
             <h2>{displayName}</h2>
             <p className="section-note">{selectedTickerLeague.name}{!isIndividualAthlete && teamName ? ` · ${teamName}` : ''}</p>
           </div>
@@ -68,15 +82,32 @@ export default function DriverDetail({ selectedTickerLeague, driver, onBack }) {
 
       <div className="team-details-grid">
         <div className="team-meta-card">
-          <h3>{isIndividualAthlete ? 'Player info' : 'Driver info'}</h3>
+          <h3>{isMma ? 'Fighter info' : isIndividualAthlete ? 'Player info' : 'Driver info'}</h3>
           <div className="team-meta-grid">
             <p><strong>Name</strong><span>{displayName}</span></p>
-            {driver.abbreviation ? <p><strong>{isIndividualAthlete ? 'ID' : 'Code (TLA)'}</strong><span>{driver.abbreviation}</span></p> : null}
-            {!isIndividualAthlete && carNum ? <p><strong>Car #</strong><span>{carNum}</span></p> : null}
-            {!isIndividualAthlete && <p><strong>Team</strong><span>{teamName || 'N/A'}</span></p>}
-            {!isIndividualAthlete && series ? <p><strong>Series</strong><span>{series}</span></p> : null}
-            {!isIndividualAthlete && manufacturer ? <p><strong>Manufacturer</strong><span>{manufacturer}</span></p> : null}
-            {color ? (
+            {isMma && mmaNickname ? <p><strong>Nickname</strong><span>"{mmaNickname}"</span></p> : null}
+            {isMma && mmaRecord ? <p><strong>Record</strong><span>{mmaRecord}</span></p> : null}
+            {isMma && mmaWeightClass ? <p><strong>Division</strong><span>{mmaWeightClass}</span></p> : null}
+            {isMma && mmaNationality ? (
+              <p>
+                <strong>Nationality</strong>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {mmaFlag ? <img src={mmaFlag} alt={mmaNationality} style={{ height: 14, width: 'auto' }} /> : null}
+                  {mmaNationality}
+                </span>
+              </p>
+            ) : null}
+            {isMma && mmaHeight ? <p><strong>Height</strong><span>{mmaHeight}</span></p> : null}
+            {isMma && mmaWeight ? <p><strong>Weight</strong><span>{mmaWeight}</span></p> : null}
+            {isMma && mmaReach ? <p><strong>Reach</strong><span>{mmaReach}</span></p> : null}
+            {isMma && mmaStance ? <p><strong>Stance</strong><span>{mmaStance}</span></p> : null}
+            {isMma && mmaAge ? <p><strong>Age</strong><span>{mmaAge}</span></p> : null}
+            {isMma && mmaGym ? <p><strong>Gym</strong><span>{mmaGym}</span></p> : null}
+            {!isMma && !isIndividualAthlete && carNum ? <p><strong>Car #</strong><span>{carNum}</span></p> : null}
+            {!isMma && !isIndividualAthlete && <p><strong>Team</strong><span>{teamName || 'N/A'}</span></p>}
+            {!isMma && !isIndividualAthlete && series ? <p><strong>Series</strong><span>{series}</span></p> : null}
+            {!isMma && !isIndividualAthlete && manufacturer ? <p><strong>Manufacturer</strong><span>{manufacturer}</span></p> : null}
+            {!isMma && color ? (
               <p>
                 <strong>Colour</strong>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

@@ -56,7 +56,6 @@
   font-size: 15cqh;
   font-weight: 600;
   line-height: 1.2;
-  white-space: nowrap;
   color: var(--ticker-text, #e9ebef);
   font-family: 'Archivo', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;

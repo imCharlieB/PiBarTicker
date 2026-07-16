@@ -5,7 +5,7 @@
 .ticker-runtime-card.ticker-runtime-card-style-news {
   padding: 0;
   width: max-content;
-  max-width: 150cqh;
+  max-width: 300cqh;
   min-width: unset;
   max-height: none;
 }
@@ -58,6 +58,6 @@
   font-weight: 600;
   line-height: 1.2;
   color: var(--ticker-text, #e9ebef);
-  font-family: 'Archivo', system-ui, sans-serif;
+  font-family: 'Oswald', 'Archivo', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }

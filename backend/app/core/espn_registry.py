@@ -9,6 +9,7 @@ class EspnLeagueRegistryEntry:
     sport: str
     league: str
     supports_week_filter: bool = False
+    has_news: bool = True
 
     @property
     def scoreboard_url(self) -> str:
@@ -36,12 +37,12 @@ _REGISTRY: dict[str, EspnLeagueRegistryEntry] = {
     "nwsl": EspnLeagueRegistryEntry("nwsl", "soccer", "usa.nwsl"),
     "epl": EspnLeagueRegistryEntry("epl", "soccer", "eng.1"),
     "nascar-premier": EspnLeagueRegistryEntry("nascar-premier", "racing", "nascar-premier"),
-    "nascar-cup": EspnLeagueRegistryEntry("nascar-cup", "racing", "nascar-cup"),
-    "nascar-xfinity": EspnLeagueRegistryEntry("nascar-xfinity", "racing", "nascar-xfinity"),
-    "nascar-trucks": EspnLeagueRegistryEntry("nascar-trucks", "racing", "nascar-trucks"),
+    "nascar-cup": EspnLeagueRegistryEntry("nascar-cup", "racing", "nascar-cup", has_news=False),
+    "nascar-xfinity": EspnLeagueRegistryEntry("nascar-xfinity", "racing", "nascar-xfinity", has_news=False),
+    "nascar-trucks": EspnLeagueRegistryEntry("nascar-trucks", "racing", "nascar-trucks", has_news=False),
     "nascar-truck": EspnLeagueRegistryEntry("nascar-truck", "racing", "nascar-truck"),
     "f1": EspnLeagueRegistryEntry("f1", "racing", "f1"),
-    "indycar": EspnLeagueRegistryEntry("indycar", "racing", "indycar"),
+    "indycar": EspnLeagueRegistryEntry("indycar", "racing", "indycar", has_news=False),
     "ufc": EspnLeagueRegistryEntry("ufc", "mma", "ufc"),
     "pfl": EspnLeagueRegistryEntry("pfl", "mma", "pfl"),
     "pga": EspnLeagueRegistryEntry("pga", "golf", "pga"),

@@ -22,6 +22,7 @@ export default function LeagueDetail({
     leagueTickerPreviewById, leagueTickerPreviewLoadStateById,
     loadLeagueTeams, loadLeagueGroups, loadLeagueTickerPreview,
     updateLeague, toggleLeagueIncludedGroup, toggleLeagueIncludedTeam,
+    newsLeagueSupport,
   } = useAppContext()
 
   const selectedLeagueGroups = leagueGroupsById[selectedTickerLeague.id] || []
@@ -58,6 +59,8 @@ export default function LeagueDetail({
   // isBoardLeague: sports that display as a ranked leaderboard (racing standings, golf leaderboard)
   const isBoardLeague = isRacingLeague || isGolfLeague
   const isNascarLeague = isRacingLeague && String(leagueApiParams.league || '').toLowerCase().includes('nascar')
+  // newsLeagueSupport comes from backend; default true (show toggle) when not yet loaded or unknown league
+  const leagueHasNews = newsLeagueSupport[selectedTickerLeague?.id] !== false
 
   const _nascarCacheIdMap = { 'nascar-premier': 'nascar-cup', 'nascar-truck': 'nascar-trucks' }
   const _ALL_NASCAR_CACHE_IDS = ['nascar-cup', 'nascar-xfinity', 'nascar-trucks']
@@ -296,17 +299,19 @@ export default function LeagueDetail({
                 <span className="toggle-slider" />
               </label>
             </div>
-            <div className="ld-toggle-row">
-              <div className="ld-toggle-left">
-                <span className="ld-toggle-label">Show news headlines</span>
-                <span className="ld-toggle-desc">Append ESPN news headlines for this league at the end of the game cards in the ticker.</span>
+            {leagueHasNews && (
+              <div className="ld-toggle-row">
+                <div className="ld-toggle-left">
+                  <span className="ld-toggle-label">Show news headlines</span>
+                  <span className="ld-toggle-desc">Append ESPN news headlines for this league at the end of the game cards in the ticker.</span>
+                </div>
+                <label className="toggle-switch">
+                  <input type="checkbox" checked={Boolean(selectedTickerLeague.showNews)}
+                    onChange={(e) => updateLeague(selectedTickerLeagueIndex, 'showNews', e.target.checked)} />
+                  <span className="toggle-slider" />
+                </label>
               </div>
-              <label className="toggle-switch">
-                <input type="checkbox" checked={Boolean(selectedTickerLeague.showNews)}
-                  onChange={(e) => updateLeague(selectedTickerLeagueIndex, 'showNews', e.target.checked)} />
-                <span className="toggle-slider" />
-              </label>
-            </div>
+            )}
             <div className="ld-toggle-row" style={{ alignItems: 'flex-start' }}>
               <div className="ld-toggle-left">
                 <span className="ld-toggle-label">Detail density</span>

@@ -3,7 +3,7 @@ import {
   parseLeagueApiParams, isIndividualSport, resolveLeagueLogo, getRelaxedGameFilter,
   fetchLogoMeta, fetchLeagueScoreboard, fetchLeagueTeams, fetchLeagueGroups,
   fetchTeamLogos, fetchLeagueCatalog, enrichTeamsWithRichLogos,
-  fetchExtrasForTeam, postLogoCache, postTeamLogoCache, fetchLeagueNews,
+  fetchExtrasForTeam, postLogoCache, postTeamLogoCache, fetchLeagueNews, fetchNewsLeagueSupport,
 } from './api/espnApi'
 
 // Re-export pure helpers consumed by setup components
@@ -104,6 +104,7 @@ export function AppContextProvider({ children }) {
   const [runtimeLastStableMarqueeGames, setRuntimeLastStableMarqueeGames] = useState([])
   const [stableGoodGamesByLeagueId, setStableGoodGamesByLeagueId] = useState({})
   const [newsByLeagueId, setNewsByLeagueId] = useState({})
+  const [newsLeagueSupport, setNewsLeagueSupport] = useState({})
 
   // ── Refs ────────────────────────────────────────────────────────────────
   const configRef = useRef(null)
@@ -147,9 +148,12 @@ export function AppContextProvider({ children }) {
     async function loadConfig() {
       try {
         setError('')
-        const response = await fetch('/api/v1/config')
-        if (!response.ok) throw new Error(`Config request failed with ${response.status}`)
-        await applyLoadedConfig(await response.json())
+        const [configResponse] = await Promise.all([
+          fetch('/api/v1/config'),
+          fetchNewsLeagueSupport().then(setNewsLeagueSupport).catch(() => {}),
+        ])
+        if (!configResponse.ok) throw new Error(`Config request failed with ${configResponse.status}`)
+        await applyLoadedConfig(await configResponse.json())
       } catch (loadError) {
         setError(loadError.message)
       } finally {
@@ -940,7 +944,7 @@ export function AppContextProvider({ children }) {
     initialPreFetchesComplete, handoffCheckKey, setHandoffCheckKey,
     stableGoodGamesByLeagueId, runtimeLastStableLeagueId, runtimeLastStableMarqueeGames,
     refreshRuntimeLeaguePayload, handleRuntimeAdvance,
-    newsByLeagueId,
+    newsByLeagueId, newsLeagueSupport,
     handoffGraceRef, scrolledThisSlotRef, leagueSlotStartTimeRef, currentSlotLeagueIdRef,
     currentLeaguesLengthRef,
     // Setup data loaders

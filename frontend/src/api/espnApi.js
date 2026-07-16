@@ -627,3 +627,9 @@ export async function fetchLeagueNews(leagueId) {
   if (!res.ok) throw new Error(`News fetch failed: ${res.status}`)
   return res.json()
 }
+
+export async function fetchNewsLeagueSupport() {
+  const res = await fetch('/api/v1/news/league-support')
+  if (!res.ok) throw new Error(`News support fetch failed: ${res.status}`)
+  return res.json()
+}

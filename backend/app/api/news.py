@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from fastapi import APIRouter
 
-from ..core.espn_registry import get_registry_entry
+from ..core.espn_registry import get_registry_entry, _REGISTRY
 from .espn._utils import _http_client
 
 # Strips ESPN's "MLB 2026: " / "NFL 2025-26: " league+year prefixes from headlines
@@ -13,8 +13,9 @@ router = APIRouter(prefix="/api/v1/news", tags=["news"])
 
 _NEWS_TTL = 300.0  # 5 minutes — backend handles rate limiting for all clients
 
-# Article types ESPN returns that are not displayable as ticker headlines
-_SKIP_TYPES = {"video", "media", "fantasy"}
+# Article types ESPN returns that are not displayable as ticker headlines.
+# "media" (TV/video segments) is kept — headlines are valid sports items even if content is a clip.
+_SKIP_TYPES = {"video", "fantasy"}
 
 
 def _is_unwanted(article: dict) -> bool:
@@ -84,3 +85,9 @@ def get_news(leagues: str = "", limit: int = 10) -> list[dict]:
             pass
 
     return articles
+
+
+@router.get("/league-support")
+def get_league_support() -> dict[str, bool]:
+    """Return a mapping of league_id → True/False indicating ESPN news support."""
+    return {league_id: entry.has_news for league_id, entry in _REGISTRY.items()}

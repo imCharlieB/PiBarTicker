@@ -59,8 +59,12 @@ export default function LeagueDetail({
   // isBoardLeague: sports that display as a ranked leaderboard (racing standings, golf leaderboard)
   const isBoardLeague = isRacingLeague || isGolfLeague
   const isNascarLeague = isRacingLeague && String(leagueApiParams.league || '').toLowerCase().includes('nascar')
-  // newsLeagueSupport comes from backend; default true (show toggle) when not yet loaded or unknown league
-  const leagueHasNews = newsLeagueSupport[selectedTickerLeague?.id] !== false
+  // When backend support data is loaded, use it; otherwise fall back to sport heuristic:
+  // only F1 among racing leagues has a working ESPN news endpoint.
+  const _newsEntry = newsLeagueSupport[selectedTickerLeague?.id]
+  const leagueHasNews = _newsEntry !== undefined
+    ? _newsEntry !== false
+    : (!isRacingLeague || selectedTickerLeague?.id === 'f1')
 
   const _nascarCacheIdMap = { 'nascar-premier': 'nascar-cup', 'nascar-truck': 'nascar-trucks' }
   const _ALL_NASCAR_CACHE_IDS = ['nascar-cup', 'nascar-xfinity', 'nascar-trucks']

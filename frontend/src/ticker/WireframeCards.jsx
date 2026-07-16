@@ -316,7 +316,12 @@ function SlabCard({ game, flags }) {
             : null}
           {spread ? <span className="slab-spread">{spread}</span> : null}
         </div>
-        {isCombat && fighterName ? <span className="combat-name">{fighterName}</span> : null}
+        {isCombat && fighterName ? (
+          <div className="combat-info">
+            <span className="combat-name">{fighterName}</span>
+            {team?.nickname ? <span className="combat-nickname">"{team.nickname}"</span> : null}
+          </div>
+        ) : null}
         {isCombat
           ? (record ? <span className="rec-big">{record}</span> : null)
           : (!isPre ? <ScoreOrDash team={team} game={game} /> : null)}
@@ -369,6 +374,7 @@ function SpineCard({ game, flags }) {
 
   const Flank = ({ team, side }) => {
     const spread = side === 'a' ? aSpread : hSpread
+    const fighterName = isCombat ? String(team?.name || team?.abbreviation || '').trim() : ''
     return (
       <div className={`spine-flank spine-${side}`}>
         <div className="spine-logo-group">
@@ -378,6 +384,12 @@ function SpineCard({ game, flags }) {
             : null}
           {spread ? <span className="spine-spread">{spread}</span> : null}
         </div>
+        {isCombat && fighterName ? (
+          <div className="combat-info">
+            <span className="combat-name">{fighterName}</span>
+            {team?.nickname ? <span className="combat-nickname">"{team.nickname}"</span> : null}
+          </div>
+        ) : null}
       </div>
     )
   }

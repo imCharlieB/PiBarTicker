@@ -550,6 +550,7 @@ export function prepareDisplayGames(games, rawEventsById, displayLeague, leagueL
         away: {
           ...(game?.teams?.away || {}),
           logo: resolveCachedTeamLogo(awayCached, themeMode) || String(game?.teams?.away?.logo || awayLogoRaw || '').trim(),
+          nickname: String(awayCached?.remote_urls?.nickname || '').trim(),
           palette: {
             primary: sanitizeHexColor(awayCached?.color) || awayPaletteRaw.primary || sanitizeHexColor(game?.teams?.away?.color),
             alternate: sanitizeHexColor(awayCached?.alternate_color) || awayPaletteRaw.alternate || sanitizeHexColor(game?.teams?.away?.alternateColor),
@@ -558,6 +559,7 @@ export function prepareDisplayGames(games, rawEventsById, displayLeague, leagueL
         home: {
           ...(game?.teams?.home || {}),
           logo: resolveCachedTeamLogo(homeCached, themeMode) || String(game?.teams?.home?.logo || homeLogoRaw || '').trim(),
+          nickname: String(homeCached?.remote_urls?.nickname || '').trim(),
           palette: {
             primary: sanitizeHexColor(homeCached?.color) || homePaletteRaw.primary || sanitizeHexColor(game?.teams?.home?.color),
             alternate: sanitizeHexColor(homeCached?.alternate_color) || homePaletteRaw.alternate || sanitizeHexColor(game?.teams?.home?.alternateColor),

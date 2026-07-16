@@ -129,7 +129,9 @@
 .ticker-runtime-shell .d-slab-combat { width: 200cqh; }
 .ticker-runtime-shell .d-slab-combat .rec-big { white-space: nowrap; font-size: 11.1cqh; }
 .ticker-runtime-shell .d-slab-combat .slab-seam { flex-basis: 55.3cqh; }
+.ticker-runtime-shell .combat-info { display: flex; flex-direction: column; gap: 0.5cqh; }
 .ticker-runtime-shell .combat-name { font-size: 5.8cqh; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 57.9cqh; }
+.ticker-runtime-shell .combat-nickname { font-size: 4.8cqh; font-weight: 500; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 57.9cqh; color: rgba(255,255,255,0.6); }
 .ticker-runtime-shell .slab-half {
   position: relative; flex: 1; display: flex; flex-direction: column;
   justify-content: space-between; align-items: flex-start;

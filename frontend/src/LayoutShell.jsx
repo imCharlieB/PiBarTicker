@@ -15,9 +15,9 @@ export default function LayoutShell({ layout, shellStyle, panelContent, children
   if (!layout || layout.mode !== 'grid') return children
 
   const enabledPanels = (layout.panels ?? []).filter(p => p.enabled !== false)
-  const panel = enabledPanels[0]
+  const panel = enabledPanels.find(p => panelContent?.[p.type])
 
-  if (!panel || !panelContent?.[panel.type]) return children
+  if (!panel) return children
 
   const { rows, cols, tickerArea, panelArea } = deriveGrid(panel)
 

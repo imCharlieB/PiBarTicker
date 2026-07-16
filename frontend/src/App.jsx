@@ -10,6 +10,8 @@ import {
 } from './ticker/cardHelpers'
 import LayoutShell from './LayoutShell'
 import HAPanel from './HAPanel'
+import NewsPanel from './ticker/NewsPanel'
+import CombinedPanel from './CombinedPanel'
 import OverviewPage from './setup/OverviewPage'
 import DisplayPage from './setup/DisplayPage'
 import ThemePage from './setup/ThemePage'
@@ -61,7 +63,7 @@ function App() {
     runtimePayloadByLeagueId,
     initialPreFetchesComplete, setHandoffCheckKey,
     stableGoodGamesByLeagueId,
-    newsByLeagueId,
+    newsByLeagueId, refreshLeagueNews,
     handleRuntimeAdvance,
     handoffGraceRef, scrolledThisSlotRef, leagueSlotStartTimeRef, currentSlotLeagueIdRef,
   } = useAppContext()
@@ -89,6 +91,8 @@ function App() {
   const haLayoutPanel = config?.layout?.panels?.find(p => p.type === 'ha' && p.enabled !== false)
   const haInGridPanel = haLayoutPanel != null && config?.layout?.mode === 'grid'
   const _haInRotation = homeAssistantBoard != null && homeAssistantBoard.enabled !== false && !haInGridPanel
+  const newsLayoutPanel = config?.layout?.panels?.find(p => p.type === 'news' && p.enabled !== false)
+  const newsInGridPanel = newsLayoutPanel != null && config?.layout?.mode === 'grid'
   const runtimeSlots = useMemo(() => {
     const leagueSlots = runtimeLeagues.map((l) => ({ type: 'league', league: l }))
     if (!_haInRotation) return leagueSlots
@@ -128,13 +132,31 @@ function App() {
       activeRuntimePayload,
       config?.theme?.mode,
     )
-    const newsArticles = runtimeDisplayLeague?.showNews
+    const newsArticles = (!newsInGridPanel && runtimeDisplayLeague?.showNews)
       ? (newsByLeagueId?.[runtimeDisplayLeague.id] || [])
       : []
     const newsCards = buildNewsCards(newsArticles, runtimeDisplayLeague)
     const allCards = [...displayGames, ...newsCards]
     return allCards.length ? allCards : stableGames
-  }, [activeRuntimePayload, runtimeDisplayLeague, stableGoodGamesByLeagueId, leagueLogoMetaById, config?.theme?.mode, newsByLeagueId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeRuntimePayload, runtimeDisplayLeague, stableGoodGamesByLeagueId, leagueLogoMetaById, config?.theme?.mode, newsByLeagueId, newsInGridPanel]) // eslint-disable-line react-hooks/exhaustive-deps
+  const panelNewsArticles = useMemo(() => {
+    if (!newsInGridPanel) return []
+    const all = []
+    for (const league of runtimeLeagues) {
+      if (league.showNews && newsByLeagueId[league.id]) {
+        all.push(...newsByLeagueId[league.id])
+      }
+    }
+    return all
+  }, [newsInGridPanel, runtimeLeagues, newsByLeagueId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!newsInGridPanel) return
+    for (const league of runtimeLeagues) {
+      if (league.showNews) refreshLeagueNews(league)
+    }
+  }, [newsInGridPanel, runtimeLeagues.map(l => l.id).join('|')]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const runtimeRenderLeague = runtimeVisibleLeague || (runtimeMarqueeGames.length ? runtimeDisplayLeague : null)
   const brandLeague = runtimeRenderLeague || runtimeDisplayLeague || runtimeLeagues[0] || null
 
@@ -203,8 +225,22 @@ function App() {
       />
     )
     const panelContent = {}
-    if (haLayoutPanel) {
-      panelContent.ha = <HAPanel homeAssistantBoard={homeAssistantBoard} scrollSpeed={sportsBoard?.scrollSpeed} />
+    const haAndNewsShareSlot = haLayoutPanel && newsLayoutPanel && haLayoutPanel.position === newsLayoutPanel.position
+    if (haAndNewsShareSlot) {
+      panelContent[haLayoutPanel.type] = (
+        <CombinedPanel
+          homeAssistantBoard={homeAssistantBoard}
+          articles={panelNewsArticles}
+          scrollSpeed={sportsBoard?.scrollSpeed}
+        />
+      )
+    } else {
+      if (haLayoutPanel) {
+        panelContent.ha = <HAPanel homeAssistantBoard={homeAssistantBoard} scrollSpeed={sportsBoard?.scrollSpeed} />
+      }
+      if (newsLayoutPanel) {
+        panelContent.news = <NewsPanel articles={panelNewsArticles} scrollSpeed={sportsBoard?.scrollSpeed} />
+      }
     }
 
     return (

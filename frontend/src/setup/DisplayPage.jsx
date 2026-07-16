@@ -115,6 +115,7 @@ export default function DisplayPage() {
 
         {config.layout.mode === 'grid' && (() => {
           const haPanel = config.layout.panels.find(p => p.type === 'ha')
+          const newsPanel = config.layout.panels.find(p => p.type === 'news')
 
           function setPanelPosition(type, position) {
             let panels = config.layout.panels.filter(p => p.type !== type)
@@ -140,7 +141,7 @@ export default function DisplayPage() {
                   <option value="left">Own panel — left</option>
                   <option value="right">Own panel — right</option>
                 </select>
-                <small className="field-help">Show HA cards in a dedicated section instead of the ticker scroll. More panel types (weather, news) added in future phases.</small>
+                <small className="field-help">Show HA cards in a dedicated section instead of the ticker scroll.</small>
               </label>
 
               {haPanel && (
@@ -148,6 +149,27 @@ export default function DisplayPage() {
                   <span>HA panel size (%)</span>
                   <input type="number" min="5" max="95" value={haPanel.size}
                     onChange={(e) => setPanelSize('ha', Number(e.target.value))} />
+                  <small className="field-help">How much of the screen height (top/bottom) or width (left/right) this panel occupies.</small>
+                </label>
+              )}
+
+              <label className="field">
+                <span>News</span>
+                <select value={newsPanel?.position || ''} onChange={(e) => setPanelPosition('news', e.target.value)}>
+                  <option value="">In ticker (default)</option>
+                  <option value="bottom">Own panel — bottom</option>
+                  <option value="top">Own panel — top</option>
+                  <option value="left">Own panel — left</option>
+                  <option value="right">Own panel — right</option>
+                </select>
+                <small className="field-help">Show news headlines in a dedicated section. When active, news is suppressed from the main ticker. Requires "Show news" to be enabled on at least one league.</small>
+              </label>
+
+              {newsPanel && (
+                <label className="field">
+                  <span>News panel size (%)</span>
+                  <input type="number" min="5" max="95" value={newsPanel.size}
+                    onChange={(e) => setPanelSize('news', Number(e.target.value))} />
                   <small className="field-help">How much of the screen height (top/bottom) or width (left/right) this panel occupies.</small>
                 </label>
               )}

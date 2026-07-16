@@ -944,7 +944,7 @@ export function AppContextProvider({ children }) {
     initialPreFetchesComplete, handoffCheckKey, setHandoffCheckKey,
     stableGoodGamesByLeagueId, runtimeLastStableLeagueId, runtimeLastStableMarqueeGames,
     refreshRuntimeLeaguePayload, handleRuntimeAdvance,
-    newsByLeagueId, newsLeagueSupport,
+    newsByLeagueId, newsLeagueSupport, refreshLeagueNews,
     handoffGraceRef, scrolledThisSlotRef, leagueSlotStartTimeRef, currentSlotLeagueIdRef,
     currentLeaguesLengthRef,
     // Setup data loaders

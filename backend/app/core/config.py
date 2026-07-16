@@ -135,7 +135,7 @@ BoardConfig = Annotated[
 
 class PanelConfig(AppBaseModel):
     id: str
-    type: Literal["ha"] = "ha"  # "weather" and "news" added in Phase 3/4
+    type: Literal["ha", "news"] = "ha"  # "weather" added in Phase 3
     position: Literal["bottom", "top", "left", "right"] = "bottom"
     size: int = 20  # percent of screen height (top/bottom) or width (left/right)
     enabled: bool = True

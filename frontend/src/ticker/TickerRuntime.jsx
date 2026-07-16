@@ -4,6 +4,7 @@ import './TickerCards.css'
 import WireframeCard, { BoardCard } from './WireframeCards.jsx'
 import BaseballCard from './BaseballCard.jsx'
 import GameCard from './GameCard.jsx'
+import NewsCard from './NewsCard.jsx'
 import { sanitizeHexColor, rgbaFromHex, hexToRgb } from './cardHelpers.js'
 import { useHASensors, renderEntityValue, haIconFor, haColorFor, WEATHER_ICON_MAP, HATickerCards } from './haHelpers.js'
 
@@ -93,6 +94,7 @@ function resolveLeagueLogo(league, payload) {
 // Only used for standard / large-logo cardStyles — wireframe styles dispatch in MemoizedCard.
 function pickCardComponent(game) {
   const sport = String(game?.sport || '').toLowerCase()
+  if (sport === 'news') return NewsCard
   if (sport === 'baseball') return BaseballCard
   return GameCard
 }

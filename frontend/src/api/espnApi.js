@@ -620,3 +620,10 @@ export async function postTeamLogoCache(leagueId, teamId, payload) {
     throw new Error(`server error ${res.status}${txt ? ': ' + txt.slice(0, 200) : ''}`)
   }
 }
+
+export async function fetchLeagueNews(leagueId) {
+  const params = new URLSearchParams({ leagues: leagueId })
+  const res = await fetch(`/api/v1/news?${params.toString()}`)
+  if (!res.ok) throw new Error(`News fetch failed: ${res.status}`)
+  return res.json()
+}

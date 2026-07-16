@@ -3,7 +3,7 @@ import {
   parseLeagueApiParams, isIndividualSport, resolveLeagueLogo, getRelaxedGameFilter,
   fetchLogoMeta, fetchLeagueScoreboard, fetchLeagueTeams, fetchLeagueGroups,
   fetchTeamLogos, fetchLeagueCatalog, enrichTeamsWithRichLogos,
-  fetchExtrasForTeam, postLogoCache, postTeamLogoCache,
+  fetchExtrasForTeam, postLogoCache, postTeamLogoCache, fetchLeagueNews,
 } from './api/espnApi'
 
 // Re-export pure helpers consumed by setup components
@@ -103,6 +103,7 @@ export function AppContextProvider({ children }) {
   const [runtimeLastStableLeagueId, setRuntimeLastStableLeagueId] = useState('')
   const [runtimeLastStableMarqueeGames, setRuntimeLastStableMarqueeGames] = useState([])
   const [stableGoodGamesByLeagueId, setStableGoodGamesByLeagueId] = useState({})
+  const [newsByLeagueId, setNewsByLeagueId] = useState({})
 
   // ── Refs ────────────────────────────────────────────────────────────────
   const configRef = useRef(null)
@@ -728,6 +729,14 @@ export function AppContextProvider({ children }) {
     }
   }
 
+  async function refreshLeagueNews(league) {
+    if (!league?.id || !league?.showNews) return
+    try {
+      const articles = await fetchLeagueNews(league.id)
+      setNewsByLeagueId((cur) => ({ ...cur, [league.id]: articles }))
+    } catch { /* silent — news is non-critical */ }
+  }
+
   function handleRuntimeAdvance() {
     setRuntimeVisibleLeagueId('')
     setRuntimeLeagueIndex((current) => (current + 1) % (currentLeaguesLengthRef.current || 1))
@@ -877,6 +886,7 @@ export function AppContextProvider({ children }) {
   useEffect(() => {
     if (!isTickerRuntime || !runtimeDisplayLeague) return
     refreshRuntimeLeaguePayload(runtimeDisplayLeague, { gameFilterOverride: 'all' })
+    refreshLeagueNews(runtimeDisplayLeague)
     if (!leagueLogoMetaById[runtimeDisplayLeague.id]) {
       loadLeagueLogoMeta(runtimeDisplayLeague.id)
     }
@@ -930,6 +940,7 @@ export function AppContextProvider({ children }) {
     initialPreFetchesComplete, handoffCheckKey, setHandoffCheckKey,
     stableGoodGamesByLeagueId, runtimeLastStableLeagueId, runtimeLastStableMarqueeGames,
     refreshRuntimeLeaguePayload, handleRuntimeAdvance,
+    newsByLeagueId,
     handoffGraceRef, scrolledThisSlotRef, leagueSlotStartTimeRef, currentSlotLeagueIdRef,
     currentLeaguesLengthRef,
     // Setup data loaders

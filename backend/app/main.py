@@ -12,6 +12,7 @@ from .api.espn import router as espn_router
 from .api.ha_sensors import router as ha_sensors_router
 from .api.kiosk import router as kiosk_router
 from .api.logos.router import router as logos_router
+from .api.news import router as news_router
 from .core.config import config_store
 from .core.paths import bootstrap_runtime_dirs, get_runtime_paths
 
@@ -29,6 +30,7 @@ app.include_router(ha_sensors_router)
 app.include_router(espn_router)
 app.include_router(kiosk_router)
 app.include_router(logos_router)
+app.include_router(news_router)
 
 # Ensure module scripts are served with a JS MIME type on Windows hosts.
 mimetypes.add_type("application/javascript", ".js")

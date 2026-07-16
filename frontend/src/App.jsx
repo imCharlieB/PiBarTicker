@@ -6,6 +6,7 @@ import { useAppContext } from './AppContext'
 import { computeSectionChecks, getSectionSnapshots } from './setup/helpers'
 import {
   prepareDisplayGames,
+  buildNewsCards,
 } from './ticker/cardHelpers'
 import LayoutShell from './LayoutShell'
 import HAPanel from './HAPanel'
@@ -60,6 +61,7 @@ function App() {
     runtimePayloadByLeagueId,
     initialPreFetchesComplete, setHandoffCheckKey,
     stableGoodGamesByLeagueId,
+    newsByLeagueId,
     handleRuntimeAdvance,
     handoffGraceRef, scrolledThisSlotRef, leagueSlotStartTimeRef, currentSlotLeagueIdRef,
   } = useAppContext()
@@ -126,8 +128,13 @@ function App() {
       activeRuntimePayload,
       config?.theme?.mode,
     )
-    return displayGames.length ? displayGames : stableGames
-  }, [activeRuntimePayload, runtimeDisplayLeague, stableGoodGamesByLeagueId, leagueLogoMetaById, config?.theme?.mode]) // eslint-disable-line react-hooks/exhaustive-deps
+    const newsArticles = runtimeDisplayLeague?.showNews
+      ? (newsByLeagueId?.[runtimeDisplayLeague.id] || [])
+      : []
+    const newsCards = buildNewsCards(newsArticles, runtimeDisplayLeague)
+    const allCards = [...displayGames, ...newsCards]
+    return allCards.length ? allCards : stableGames
+  }, [activeRuntimePayload, runtimeDisplayLeague, stableGoodGamesByLeagueId, leagueLogoMetaById, config?.theme?.mode, newsByLeagueId]) // eslint-disable-line react-hooks/exhaustive-deps
   const runtimeRenderLeague = runtimeVisibleLeague || (runtimeMarqueeGames.length ? runtimeDisplayLeague : null)
   const brandLeague = runtimeRenderLeague || runtimeDisplayLeague || runtimeLeagues[0] || null
 

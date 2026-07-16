@@ -515,13 +515,13 @@ export function prepareDisplayGames(games, rawEventsById, displayLeague, leagueL
     if (isLargeLogoLiveBaseball) {
       if (displayLeague?.showTV && flags.tv && broadcastText && !isRacing) finalInfoParts.push(`TV ${broadcastText}`)
       if (flags.odds && oddsText) finalInfoParts.push(`Odds ${oddsText}`)
-      if (displayLeague?.showNews && venueText) finalInfoParts.push(venueText)
+      if (flags.venue && venueText) finalInfoParts.push(venueText)
     } else {
       finalInfoParts = [formatRuntimeStatus(game)].filter(Boolean).filter((s) => s !== 'Scheduled')
       if (hasLiveMode && baseballSituationText && !baseballLiveData) finalInfoParts.push(baseballSituationText)
       if (displayLeague?.showTV && flags.tv && broadcastText && !isRacing) finalInfoParts.push(`TV ${broadcastText}`)
       if (flags.odds && oddsText) finalInfoParts.push(`Odds ${oddsText}`)
-      if (displayLeague?.showNews && venueText) finalInfoParts.push(venueText)
+      if (flags.venue && venueText) finalInfoParts.push(venueText)
       if (isPreRaceNoEntries && runtimeDateText) finalInfoParts.push(runtimeDateText)
     }
 
@@ -598,4 +598,32 @@ export function prepareDisplayGames(games, rawEventsById, displayLeague, leagueL
     if (leftStart !== rightStart) return leftStart - rightStart
     return (left?.slateOrder || 0) - (right?.slateOrder || 0)
   })
+}
+
+export function buildNewsCards(articles, leagueConfig) {
+  if (!Array.isArray(articles) || articles.length === 0) return []
+  return articles.map((article, i) => ({
+    id: `news-${article.id || i}`,
+    sport: 'news',
+    state: 'news',
+    cardStyle: 'news',
+    isRacing: false,
+    isLiveFeatured: false,
+    useTeamCardColors: false,
+    leagueName: String(leagueConfig?.name || leagueConfig?.id || '').toUpperCase(),
+    leagueId: String(article.leagueId || leagueConfig?.id || '').trim(),
+    headline: String(article.headline || '').trim(),
+    description: String(article.description || '').trim(),
+    published: article.published || '',
+    slateOrder: 9000 + i,
+    density: leagueConfig?.density || 'bal',
+    colorMode: 'neutral',
+    teams: { away: {}, home: {} },
+    cardInfo: '',
+    broadcastText: '',
+    venueText: '',
+    oddsText: '',
+    situationText: '',
+    combat: false,
+  }))
 }

@@ -1,0 +1,63 @@
+/* ── News card shell overrides ───────────────────────────────────────────────
+   The outer .ticker-runtime-card wrapper sets default width/padding.
+   Override here so the headline text drives the card width. */
+
+.ticker-runtime-card.ticker-runtime-card-style-news {
+  padding: 0;
+  width: max-content;
+  min-width: unset;
+  max-height: none;
+}
+
+.ticker-runtime-card.ticker-runtime-card-style-news .ticker-runtime-meta:empty {
+  display: none;
+}
+
+/* ── News card layout ─────────────────────────────────────────────────────── */
+
+.d-news {
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+}
+
+/* Left amber bar with vertical "NEWS" label */
+.d-news-type-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16cqh;
+  flex-shrink: 0;
+  background: #f59e0b;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+}
+
+.d-news-type-label {
+  font-size: 6cqh;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #0a0706;
+}
+
+/* Content area */
+.d-news-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 10cqh;
+  gap: 4cqh;
+}
+
+/* Headline text — no wrapping so card width follows text length */
+.d-news-headline {
+  font-size: 15cqh;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  color: var(--ticker-text, #e9ebef);
+  font-family: 'Archivo', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}

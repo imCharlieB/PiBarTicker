@@ -296,6 +296,17 @@ export default function LeagueDetail({
                 <span className="toggle-slider" />
               </label>
             </div>
+            <div className="ld-toggle-row">
+              <div className="ld-toggle-left">
+                <span className="ld-toggle-label">Show news headlines</span>
+                <span className="ld-toggle-desc">Append ESPN news headlines for this league at the end of the game cards in the ticker.</span>
+              </div>
+              <label className="toggle-switch">
+                <input type="checkbox" checked={Boolean(selectedTickerLeague.showNews)}
+                  onChange={(e) => updateLeague(selectedTickerLeagueIndex, 'showNews', e.target.checked)} />
+                <span className="toggle-slider" />
+              </label>
+            </div>
             <div className="ld-toggle-row" style={{ alignItems: 'flex-start' }}>
               <div className="ld-toggle-left">
                 <span className="ld-toggle-label">Detail density</span>

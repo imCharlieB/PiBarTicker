@@ -4,7 +4,8 @@
 
 .ticker-runtime-card.ticker-runtime-card-style-news {
   padding: 0;
-  width: 150cqh;
+  width: max-content;
+  max-width: 150cqh;
   min-width: unset;
   max-height: none;
 }

@@ -1,15 +1,21 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import './NewsPanel.css'
 
 function NewsPanelCard({ article }) {
+  const [logoFailed, setLogoFailed] = useState(false)
   const headline = String(article?.headline || '').trim()
   if (!headline) return null
-  const leagueLabel = String(article?.leagueId || '').toUpperCase()
+  const leagueId = String(article?.leagueId || '').trim().toLowerCase()
+  const logoUrl = leagueId ? `https://a.espncdn.com/i/teamlogos/leagues/500/${leagueId}.png` : ''
   return (
     <div className="news-panel-card">
-      <div className="news-panel-bar">NEWS</div>
+      <div className="news-panel-bar">
+        {logoUrl && !logoFailed
+          ? <img className="news-panel-logo" src={logoUrl} alt="" onError={() => setLogoFailed(true)} />
+          : <span className="news-panel-bar-text">{leagueId.toUpperCase()}</span>
+        }
+      </div>
       <div className="news-panel-body">
-        {leagueLabel && <span className="news-panel-league">{leagueLabel}</span>}
         <span className="news-panel-headline">{headline}</span>
       </div>
     </div>

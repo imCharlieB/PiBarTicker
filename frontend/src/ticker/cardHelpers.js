@@ -595,6 +595,11 @@ export function prepareDisplayGames(games, rawEventsById, displayLeague, leagueL
       const rightLive = right?.isLiveFeatured ? 0 : 1
       if (leftLive !== rightLive) return leftLive - rightLive
     }
+    // User opted into rank order (requires an AP ranking filter for the backend
+    // to have actually sorted by rank; otherwise this is a no-op passthrough).
+    if (displayLeague?.sortOrder === 'rank') {
+      return (left?.slateOrder || 0) - (right?.slateOrder || 0)
+    }
     const leftStart = Number.isFinite(Number(left?.startsInMinutes)) ? Number(left.startsInMinutes) : Number.MAX_SAFE_INTEGER
     const rightStart = Number.isFinite(Number(right?.startsInMinutes)) ? Number(right.startsInMinutes) : Number.MAX_SAFE_INTEGER
     if (leftStart !== rightStart) return leftStart - rightStart

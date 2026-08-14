@@ -276,6 +276,21 @@ export default function LeagueDetail({
               </div>
             )}
 
+            {!isBoardLeague && (
+              <div className="ld-seg-control">
+                <span className="ld-seg-label">Game order</span>
+                <div className="seg-pill">
+                  {[['time','Start Time'],['rank','Ranking']].map(([val, label]) => (
+                    <button key={val} type="button"
+                      className={`seg-pill-btn${(selectedTickerLeague.sortOrder || 'time') === val ? ' is-active' : ''}`}
+                      onClick={() => updateLeague(selectedTickerLeagueIndex, 'sortOrder', val)}
+                    >{label}</button>
+                  ))}
+                </div>
+                <small className="ld-seg-help">Ranking order requires an AP ranking filter to be set (falls back to start time otherwise).</small>
+              </div>
+            )}
+
           </div>
 
           {/* Card & Feed toggles */}

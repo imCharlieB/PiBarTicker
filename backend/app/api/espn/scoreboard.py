@@ -136,8 +136,26 @@ def _event_matches_group_filter(
     return False
 
 
+def _ranked_team_ids_from_ranking(ranking: dict, top_n: int) -> set[str]:
+    ranked: set[str] = set()
+    for entry in ranking.get("ranks") or []:
+        current = entry.get("current")
+        if current is None or int(current) > top_n:
+            continue
+        team_id = str((entry.get("team") or {}).get("id") or "").strip()
+        if team_id:
+            ranked.add(team_id)
+    return ranked
+
+
 def _fetch_ap_ranked_team_ids(sport: str, league: str, top_n: int, cache_ttl: float) -> set[str]:
-    """Fetch the ESPN AP Top 25 rankings and return the set of team IDs within the top_n."""
+    """Fetch the ESPN AP Top 25 rankings and return the set of team IDs within the top_n.
+
+    Early in the season (e.g. college football preseason) the AP poll may not be
+    published yet even though other polls (like the AFCA Coaches Poll) are. In that
+    case, fall back to the first poll ESPN returns with ranked teams so the filter
+    doesn't silently no-op and show every game.
+    """
     try:
         payload = _http_client.get_json(
             _rankings_url(sport=sport, league=league),
@@ -145,20 +163,18 @@ def _fetch_ap_ranked_team_ids(sport: str, league: str, top_n: int, cache_ttl: fl
             cache_ttl_seconds=min(cache_ttl, 3600.0),
         )
         rankings_list = payload.get("rankings") or []
+        fallback_ranked: set[str] = set()
         for ranking in rankings_list:
             name = _normalized(ranking.get("name") or ranking.get("shortName") or "")
-            if "ap" not in name and "associated press" not in name:
+            ranked = _ranked_team_ids_from_ranking(ranking, top_n)
+            if not ranked:
                 continue
-            ranked: set[str] = set()
-            for entry in ranking.get("ranks") or []:
-                current = entry.get("current")
-                if current is None or int(current) > top_n:
-                    continue
-                team_id = str((entry.get("team") or {}).get("id") or "").strip()
-                if team_id:
-                    ranked.add(team_id)
-            if ranked:
+            if "ap" in name or "associated press" in name:
                 return ranked
+            if not fallback_ranked:
+                fallback_ranked = ranked
+        if fallback_ranked:
+            return fallback_ranked
     except Exception:
         pass
     return set()

@@ -136,20 +136,20 @@ def _event_matches_group_filter(
     return False
 
 
-def _ranked_team_ids_from_ranking(ranking: dict, top_n: int) -> set[str]:
-    ranked: set[str] = set()
+def _ranked_team_ids_from_ranking(ranking: dict, top_n: int) -> dict[str, int]:
+    ranked: dict[str, int] = {}
     for entry in ranking.get("ranks") or []:
         current = entry.get("current")
         if current is None or int(current) > top_n:
             continue
         team_id = str((entry.get("team") or {}).get("id") or "").strip()
         if team_id:
-            ranked.add(team_id)
+            ranked[team_id] = int(current)
     return ranked
 
 
-def _fetch_ap_ranked_team_ids(sport: str, league: str, top_n: int, cache_ttl: float) -> set[str]:
-    """Fetch the ESPN AP Top 25 rankings and return the set of team IDs within the top_n.
+def _fetch_ap_ranked_team_ids(sport: str, league: str, top_n: int, cache_ttl: float) -> dict[str, int]:
+    """Fetch the ESPN AP Top 25 rankings and return a map of team ID to rank within the top_n.
 
     Early in the season (e.g. college football preseason) the AP poll may not be
     published yet even though other polls (like the AFCA Coaches Poll) are. In that
@@ -163,7 +163,7 @@ def _fetch_ap_ranked_team_ids(sport: str, league: str, top_n: int, cache_ttl: fl
             cache_ttl_seconds=min(cache_ttl, 3600.0),
         )
         rankings_list = payload.get("rankings") or []
-        fallback_ranked: set[str] = set()
+        fallback_ranked: dict[str, int] = {}
         for ranking in rankings_list:
             name = _normalized(ranking.get("name") or ranking.get("shortName") or "")
             ranked = _ranked_team_ids_from_ranking(ranking, top_n)
@@ -177,10 +177,10 @@ def _fetch_ap_ranked_team_ids(sport: str, league: str, top_n: int, cache_ttl: fl
             return fallback_ranked
     except Exception:
         pass
-    return set()
+    return {}
 
 
-def _event_matches_rankings_filter(event: dict, ranked_team_ids: set[str]) -> bool:
+def _event_matches_rankings_filter(event: dict, ranked_team_ids: dict[str, int]) -> bool:
     """Return True if at least one competitor is in the ranked set."""
     if not ranked_team_ids:
         return True
@@ -189,6 +189,17 @@ def _event_matches_rankings_filter(event: dict, ranked_team_ids: set[str]) -> bo
         if team_id and team_id in ranked_team_ids:
             return True
     return False
+
+
+def _event_best_rank(event: dict, ranked_team_ids: dict[str, int]) -> int:
+    """Return the best (lowest) AP/poll rank among the event's competitors."""
+    best = None
+    for competitor in _iter_event_competitors(event):
+        team_id = str((competitor.get("team") or {}).get("id") or "").strip()
+        rank = ranked_team_ids.get(team_id)
+        if rank is not None and (best is None or rank < best):
+            best = rank
+    return best if best is not None else (max(ranked_team_ids.values(), default=0) + 1)
 
 
 @router.get("/scoreboard")
@@ -268,7 +279,7 @@ def get_scoreboard(
                 team_group_memberships = {}
 
     # Fetch AP ranked team IDs once if rankings_limit is set (live, so rankings stay current)
-    ap_ranked_team_ids: set[str] = set()
+    ap_ranked_team_ids: dict[str, int] = {}
     if rankings_limit and _normalized(entry.sport) != "racing":
         ap_ranked_team_ids = _fetch_ap_ranked_team_ids(
             sport=entry.sport,
@@ -294,6 +305,9 @@ def get_scoreboard(
         if ap_ranked_team_ids and not _event_matches_rankings_filter(event, ap_ranked_team_ids):
             continue
         filtered_events.append(event)
+
+    if ap_ranked_team_ids:
+        filtered_events.sort(key=lambda ev: _event_best_rank(ev, ap_ranked_team_ids))
 
     # For racing leagues (NASCAR Cup/Xfinity/Trucks via nascar-*, F1, Indy, etc.),
     # ESPN's scoreboard "events" array is frequently empty (or only contains a just-finished "post" event)

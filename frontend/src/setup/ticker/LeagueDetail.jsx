@@ -276,7 +276,7 @@ export default function LeagueDetail({
               </div>
             )}
 
-            {!isBoardLeague && (
+            {/college/i.test(leagueApiParams.league || '') && !isBoardLeague && (
               <div className="ld-seg-control">
                 <span className="ld-seg-label">Game order</span>
                 <div className="seg-pill">

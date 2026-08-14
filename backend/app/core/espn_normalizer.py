@@ -222,12 +222,18 @@ def _map_live_state(
     situation = competition.get("situation") or {}
 
     if sport == "football":
+        raw_possession = situation.get("possession") if isinstance(situation, dict) else None
+        possession_id = (
+            raw_possession.get("id") if isinstance(raw_possession, dict)
+            else raw_possession if isinstance(raw_possession, str)
+            else None
+        )
         return {
             "sport": "football",
             "quarter": period,
             "clock": display_clock,
             "detail": detail or short_detail,
-            "possession": ((situation.get("possession") or {}).get("id") if isinstance(situation, dict) else None),
+            "possession": possession_id,
             "downDistanceText": situation.get("downDistanceText") if isinstance(situation, dict) else None,
         }
 

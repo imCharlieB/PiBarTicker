@@ -235,6 +235,7 @@ def _map_live_state(
             "detail": detail or short_detail,
             "possession": possession_id,
             "downDistanceText": situation.get("downDistanceText") if isinstance(situation, dict) else None,
+            "shortDownDistanceText": situation.get("shortDownDistanceText") if isinstance(situation, dict) else None,
             "down": _safe_int(situation.get("down")) if isinstance(situation, dict) else None,
             "distance": _safe_int(situation.get("distance")) if isinstance(situation, dict) else None,
             "yardLine": _safe_int(situation.get("yardLine")) if isinstance(situation, dict) else None,

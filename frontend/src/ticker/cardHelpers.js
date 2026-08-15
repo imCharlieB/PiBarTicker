@@ -379,6 +379,7 @@ export function extractFootballLiveSituation(rawEvent, game) {
   const homeTimeouts = Number.isInteger(Number(situation.homeTimeouts)) ? Number(situation.homeTimeouts) : (Number.isInteger(liveState.homeTimeouts) ? liveState.homeTimeouts : null)
   const awayTimeouts = Number.isInteger(Number(situation.awayTimeouts)) ? Number(situation.awayTimeouts) : (Number.isInteger(liveState.awayTimeouts) ? liveState.awayTimeouts : null)
   const downDistanceText = String(situation.downDistanceText || liveState.downDistanceText || '').trim()
+  const shortDownDistanceText = String(situation.shortDownDistanceText || liveState.shortDownDistanceText || '').trim()
 
   const rawPossession = situation.possession
   const possessionRaw = (rawPossession && typeof rawPossession === 'object') ? rawPossession.id : rawPossession
@@ -412,6 +413,7 @@ export function extractFootballLiveSituation(rawEvent, game) {
     homeTimeouts,
     awayTimeouts,
     downDistanceText,
+    shortDownDistanceText,
     possessionSide,
     losPct,
     firstDownPct,

@@ -367,7 +367,11 @@ export function extractFootballLiveSituation(rawEvent, game) {
   const liveState = game?.liveState || {}
   const situation = (rawSituation && typeof rawSituation === 'object') ? rawSituation : liveState
 
-  const down = Number.isInteger(Number(situation.down)) ? Number(situation.down) : (Number.isInteger(liveState.down) ? liveState.down : null)
+  // ESPN uses down: -1 (or omits it) as a sentinel for plays with no real down —
+  // PATs, 2-point tries, kickoffs. Only 1-4 are real downs; anything else means
+  // "don't show a down & distance line" rather than literal garbage like "-1TH & 0".
+  const rawDown = Number.isInteger(Number(situation.down)) ? Number(situation.down) : (Number.isInteger(liveState.down) ? liveState.down : null)
+  const down = (rawDown != null && rawDown >= 1 && rawDown <= 4) ? rawDown : null
   const distance = Number.isInteger(Number(situation.distance)) ? Number(situation.distance) : (Number.isInteger(liveState.distance) ? liveState.distance : null)
   const yardLine = Number.isFinite(Number(situation.yardLine)) ? Number(situation.yardLine) : (Number.isFinite(Number(liveState.yardLine)) ? Number(liveState.yardLine) : null)
   const possessionText = String(situation.possessionText || liveState.possessionText || '').trim()

@@ -205,11 +205,49 @@ function SoccerLive({ game }) {
   )
 }
 
+const FOOTBALL_DOWN_ORDINALS = { 1: '1ST', 2: '2ND', 3: '3RD', 4: '4TH' }
+
+function FootballLive({ game, compact }) {
+  const f = game?.footballLiveData
+  if (!f) return null
+  const downDistanceText = f.downDistanceText
+    || (f.down != null && f.distance != null
+      ? `${FOOTBALL_DOWN_ORDINALS[f.down] || `${f.down}TH`} & ${f.distance}`
+      : '')
+  const possTeam = f.possessionSide === 'home' ? game?.teams?.home : f.possessionSide === 'away' ? game?.teams?.away : null
+  const attackRight = f.possessionSide === 'away'
+  return (
+    <div className={`ff ${compact ? 'live-compact' : ''}`}>
+      {downDistanceText ? <div className="ff-dd">{downDistanceText}</div> : null}
+      <div className="ff-field" aria-label="Field position">
+        <span className="ff-ez ff-ez-l" style={{ background: 'var(--ca)' }} />
+        <span className="ff-ez ff-ez-r" style={{ background: 'var(--ch)' }} />
+        {f.firstDownPct != null ? <span className="ff-fd" style={{ left: `${f.firstDownPct}%` }} /> : null}
+        {f.losPct != null ? <span className="ff-los" style={{ left: `${f.losPct}%` }} /> : null}
+        {f.losPct != null ? <span className="ff-ball" style={{ left: `${f.losPct}%` }} /> : null}
+      </div>
+      <div className="ff-sub">
+        {possTeam
+          ? (
+            <span className="ff-poss">
+              <span className="sc-arrow">{attackRight ? '▶' : '◀'}</span>
+              {' '}{teamAbbr(possTeam)}
+            </span>
+          )
+          : null}
+        {f.possessionText ? <span>BALL ON {f.possessionText}</span> : null}
+        {f.isRedZone ? <span className="ff-rz">RED ZONE</span> : null}
+      </div>
+    </div>
+  )
+}
+
 function hasLiveFeature(game) {
   if (String(game?.state || '').toLowerCase() !== 'in') return false
   const sport = String(game?.sport || '').toLowerCase()
   if (sport === 'baseball' && game?.baseballLiveData && game?.isLiveFeatured) return true
   if (sport === 'soccer' && game?.soccerLiveData && game?.isLiveFeatured) return true
+  if (sport === 'football' && game?.footballLiveData && game?.isLiveFeatured) return true
   return Boolean(game?.situationText)
 }
 
@@ -221,6 +259,9 @@ function LiveFeature({ game, compact }) {
   }
   if (sport === 'soccer' && game?.soccerLiveData && game?.isLiveFeatured) {
     return <SoccerLive game={game} />
+  }
+  if (sport === 'football' && game?.footballLiveData && game?.isLiveFeatured) {
+    return <FootballLive game={game} compact={compact} />
   }
   if (game?.situationText) {
     return <span className="sit-txt"><b>{game.situationText}</b></span>

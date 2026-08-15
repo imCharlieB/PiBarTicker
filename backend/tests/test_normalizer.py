@@ -312,6 +312,36 @@ def test_map_live_state_football():
     assert result["downDistanceText"] == "2nd & 10"
 
 
+def test_map_live_state_football_situation_fields():
+    result = _map_live_state(
+        sport="football",
+        status_type={"state": "in", "detail": "Q3 9:12"},
+        status={"displayClock": "9:12", "period": 3},
+        competition={
+            "situation": {
+                "down": 2,
+                "distance": 8,
+                "yardLine": 34,
+                "downDistanceText": "2nd & 8 at ATL 34",
+                "possessionText": "ATL 34",
+                "isRedZone": False,
+                "homeTimeouts": 3,
+                "awayTimeouts": 2,
+                "possession": "7",
+            }
+        },
+    )
+    assert result is not None
+    assert result["down"] == 2
+    assert result["distance"] == 8
+    assert result["yardLine"] == 34
+    assert result["possessionText"] == "ATL 34"
+    assert result["isRedZone"] is False
+    assert result["homeTimeouts"] == 3
+    assert result["awayTimeouts"] == 2
+    assert result["possession"] == "7"
+
+
 def test_map_live_state_baseball():
     result = _map_live_state(
         sport="baseball",

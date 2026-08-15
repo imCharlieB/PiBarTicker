@@ -357,6 +357,50 @@ export function extractBaseballLiveSituation(rawEvent, game) {
   }
 }
 
+export function extractFootballLiveSituation(game) {
+  if (String(game?.sport || '').toLowerCase() !== 'football' || String(game?.state || '').toLowerCase() !== 'in') return null
+
+  const liveState = game?.liveState || {}
+  const down = Number.isInteger(Number(liveState.down)) ? Number(liveState.down) : null
+  const distance = Number.isInteger(Number(liveState.distance)) ? Number(liveState.distance) : null
+  const yardLine = Number.isFinite(Number(liveState.yardLine)) ? Number(liveState.yardLine) : null
+  const possessionText = String(liveState.possessionText || '').trim()
+  const isRedZone = Boolean(liveState.isRedZone)
+  const homeTimeouts = Number.isInteger(Number(liveState.homeTimeouts)) ? Number(liveState.homeTimeouts) : null
+  const awayTimeouts = Number.isInteger(Number(liveState.awayTimeouts)) ? Number(liveState.awayTimeouts) : null
+  const downDistanceText = String(liveState.downDistanceText || '').trim()
+
+  const homeId = String(game?.teams?.home?.id ?? '')
+  const awayId = String(game?.teams?.away?.id ?? '')
+  const possessionId = String(liveState.possession ?? '')
+  let possessionSide = null
+  if (possessionId && homeId && possessionId === homeId) possessionSide = 'home'
+  else if (possessionId && awayId && possessionId === awayId) possessionSide = 'away'
+
+  let losPct = null
+  let firstDownPct = null
+  if (possessionSide && Number.isFinite(yardLine)) {
+    losPct = Math.max(0, Math.min(100, 100 - yardLine))
+    firstDownPct = possessionSide === 'home'
+      ? Math.max(0, Math.min(100, losPct - (distance ?? 0)))
+      : Math.max(0, Math.min(100, losPct + (distance ?? 0)))
+  }
+
+  return {
+    down,
+    distance,
+    yardLine,
+    possessionText,
+    isRedZone,
+    homeTimeouts,
+    awayTimeouts,
+    downDistanceText,
+    possessionSide,
+    losPct,
+    firstDownPct,
+  }
+}
+
 export function resolveBaseballBattingSide(rawEvent, game) {
   if (String(game?.state || '').toLowerCase() !== 'in') return null
 
@@ -485,6 +529,9 @@ export function prepareDisplayGames(games, rawEventsById, displayLeague, leagueL
     const soccerLiveData = hasLiveMode && liveTheme === 'soccer' && game?.soccerLive
       ? game.soccerLive
       : null
+    const footballLiveData = hasLiveMode && liveTheme === 'football'
+      ? extractFootballLiveSituation(game)
+      : null
     const runtimeDateText = formatRuntimeDate(game)
     const detailStats = buildRuntimeDetailStats({
       rawEvent,
@@ -538,6 +585,7 @@ export function prepareDisplayGames(games, rawEventsById, displayLeague, leagueL
       baseballLiveData,
       baseballBattingSide,
       soccerLiveData,
+      footballLiveData,
       runtimeDateText,
       detailStats,
       racingTopInfo: {

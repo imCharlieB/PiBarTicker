@@ -235,6 +235,13 @@ def _map_live_state(
             "detail": detail or short_detail,
             "possession": possession_id,
             "downDistanceText": situation.get("downDistanceText") if isinstance(situation, dict) else None,
+            "down": _safe_int(situation.get("down")) if isinstance(situation, dict) else None,
+            "distance": _safe_int(situation.get("distance")) if isinstance(situation, dict) else None,
+            "yardLine": _safe_int(situation.get("yardLine")) if isinstance(situation, dict) else None,
+            "possessionText": (str(situation.get("possessionText") or "").strip() or None) if isinstance(situation, dict) else None,
+            "isRedZone": bool(situation.get("isRedZone")) if isinstance(situation, dict) else False,
+            "homeTimeouts": _safe_int(situation.get("homeTimeouts")) if isinstance(situation, dict) else None,
+            "awayTimeouts": _safe_int(situation.get("awayTimeouts")) if isinstance(situation, dict) else None,
         }
 
     if sport == "baseball":

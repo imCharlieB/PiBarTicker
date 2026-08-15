@@ -211,7 +211,9 @@ const FOOTBALL_DOWN_ORDINALS = { 1: '1ST', 2: '2ND', 3: '3RD', 4: '4TH' }
 function FootballLive({ game, compact }) {
   const f = game?.footballLiveData
   if (!f) return null
-  const downDistanceText = f.downDistanceText
+  // Strip the trailing "at NO 35" location from ESPN's text -- the field graphic below
+  // and the "BALL ON" line already show location, so keeping it here is just duplication.
+  const downDistanceText = (f.downDistanceText || '').replace(/\s+at\s+.+$/i, '')
     || (f.down != null && f.distance != null
       ? `${FOOTBALL_DOWN_ORDINALS[f.down] || `${f.down}TH`} & ${f.distance}`
       : '')

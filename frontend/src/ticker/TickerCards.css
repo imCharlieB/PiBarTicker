@@ -468,7 +468,7 @@
 .ticker-runtime-shell .ff-poss { color: #7CF29B; }
 .ticker-runtime-shell .ff-rz   { font-size: 2.9cqh; font-weight: 900; letter-spacing: .1em; color: #0b0e0c; background: #F2766B; padding: 0.5cqh 1.6cqh; border-radius: 0.8cqh; }
 .ticker-runtime-shell .ff-field {
-  position: relative; width: 100%; flex: 0 0 auto; height: 11.1cqh; border-radius: 1.6cqh; overflow: hidden;
+  position: relative; width: 100%; height: 11.1cqh; border-radius: 1.6cqh; overflow: hidden;
   border: 1px solid #1f3a28;
   background: repeating-linear-gradient(90deg, #103019 0 2px, #0d2615 2px, #0d2615 10%);
 }

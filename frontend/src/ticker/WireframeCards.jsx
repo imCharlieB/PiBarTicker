@@ -223,8 +223,8 @@ function FootballLive({ game, compact }) {
       <div className="ff-field" aria-label="Field position">
         <span className="ff-ez ff-ez-l" style={{ background: 'var(--ca)' }} />
         <span className="ff-ez ff-ez-r" style={{ background: 'var(--ch)' }} />
-        {f.firstDownPct != null ? <span className="ff-fd" style={{ left: `${f.firstDownPct}%` }} /> : null}
-        {f.losPct != null ? <span className="ff-los" style={{ left: `${f.losPct}%` }} /> : null}
+        {!f.isRedZone && f.firstDownPct != null ? <span className="ff-fd" style={{ left: `${f.firstDownPct}%` }} /> : null}
+        {!f.isRedZone && f.losPct != null ? <span className="ff-los" style={{ left: `${f.losPct}%` }} /> : null}
         {f.losPct != null ? <span className="ff-ball" style={{ left: `${f.losPct}%` }} /> : null}
       </div>
       <div className="ff-sub">

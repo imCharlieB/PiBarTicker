@@ -27,6 +27,7 @@ const NETWORK_LOGOS = {
   'NBC SPORTS':          '/logos/networks/nbcsports.png',
   'PEACOCK':             '/logos/networks/peacock.png',
   'NFL NETWORK':         '/logos/networks/nflnetwork.png',
+  'NFL NET':             '/logos/networks/nflnetwork.png',
   'MLB NETWORK':         '/logos/networks/mlbnetwork.png',
   'NBA TV':              '/logos/networks/nbatv.png',
   'NHL NETWORK':         '/logos/networks/nhlnetwork.png',

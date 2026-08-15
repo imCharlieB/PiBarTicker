@@ -357,22 +357,31 @@ export function extractBaseballLiveSituation(rawEvent, game) {
   }
 }
 
-export function extractFootballLiveSituation(game) {
+export function extractFootballLiveSituation(rawEvent, game) {
   if (String(game?.sport || '').toLowerCase() !== 'football' || String(game?.state || '').toLowerCase() !== 'in') return null
 
+  // rawEvent situation has the most current ESPN data straight off the network response;
+  // game.liveState is the backend-mapped version of the same block — used as a fallback so
+  // this still works even if the backend's mapping is momentarily behind (mirrors baseball).
+  const rawSituation = rawEvent?.competitions?.[0]?.situation
   const liveState = game?.liveState || {}
-  const down = Number.isInteger(Number(liveState.down)) ? Number(liveState.down) : null
-  const distance = Number.isInteger(Number(liveState.distance)) ? Number(liveState.distance) : null
-  const yardLine = Number.isFinite(Number(liveState.yardLine)) ? Number(liveState.yardLine) : null
-  const possessionText = String(liveState.possessionText || '').trim()
-  const isRedZone = Boolean(liveState.isRedZone)
-  const homeTimeouts = Number.isInteger(Number(liveState.homeTimeouts)) ? Number(liveState.homeTimeouts) : null
-  const awayTimeouts = Number.isInteger(Number(liveState.awayTimeouts)) ? Number(liveState.awayTimeouts) : null
-  const downDistanceText = String(liveState.downDistanceText || '').trim()
+  const situation = (rawSituation && typeof rawSituation === 'object') ? rawSituation : liveState
+
+  const down = Number.isInteger(Number(situation.down)) ? Number(situation.down) : (Number.isInteger(liveState.down) ? liveState.down : null)
+  const distance = Number.isInteger(Number(situation.distance)) ? Number(situation.distance) : (Number.isInteger(liveState.distance) ? liveState.distance : null)
+  const yardLine = Number.isFinite(Number(situation.yardLine)) ? Number(situation.yardLine) : (Number.isFinite(Number(liveState.yardLine)) ? Number(liveState.yardLine) : null)
+  const possessionText = String(situation.possessionText || liveState.possessionText || '').trim()
+  const isRedZone = Boolean(situation.isRedZone ?? liveState.isRedZone)
+  const homeTimeouts = Number.isInteger(Number(situation.homeTimeouts)) ? Number(situation.homeTimeouts) : (Number.isInteger(liveState.homeTimeouts) ? liveState.homeTimeouts : null)
+  const awayTimeouts = Number.isInteger(Number(situation.awayTimeouts)) ? Number(situation.awayTimeouts) : (Number.isInteger(liveState.awayTimeouts) ? liveState.awayTimeouts : null)
+  const downDistanceText = String(situation.downDistanceText || liveState.downDistanceText || '').trim()
+
+  const rawPossession = situation.possession
+  const possessionRaw = (rawPossession && typeof rawPossession === 'object') ? rawPossession.id : rawPossession
 
   const homeId = String(game?.teams?.home?.id ?? '')
   const awayId = String(game?.teams?.away?.id ?? '')
-  const possessionId = String(liveState.possession ?? '')
+  const possessionId = String(possessionRaw ?? liveState.possession ?? '')
   let possessionSide = null
   if (possessionId && homeId && possessionId === homeId) possessionSide = 'home'
   else if (possessionId && awayId && possessionId === awayId) possessionSide = 'away'
@@ -530,7 +539,7 @@ export function prepareDisplayGames(games, rawEventsById, displayLeague, leagueL
       ? game.soccerLive
       : null
     const footballLiveData = hasLiveMode && liveTheme === 'football'
-      ? extractFootballLiveSituation(game)
+      ? extractFootballLiveSituation(rawEvent, game)
       : null
     const runtimeDateText = formatRuntimeDate(game)
     const detailStats = buildRuntimeDetailStats({

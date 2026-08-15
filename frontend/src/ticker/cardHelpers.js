@@ -390,13 +390,17 @@ export function extractFootballLiveSituation(rawEvent, game) {
   if (possessionId && homeId && possessionId === homeId) possessionSide = 'home'
   else if (possessionId && awayId && possessionId === awayId) possessionSide = 'away'
 
+  // Markers are centered via translate(-50%, -50%) inside an overflow:hidden field, so a
+  // position clamped to exactly 0/100 (common near either goal line, i.e. red zone) gets
+  // shifted fully outside the visible bar and disappears entirely. Inset the clamp range
+  // the same way SoccerLive already does for its ball marker, for the same reason.
   let losPct = null
   let firstDownPct = null
   if (possessionSide && Number.isFinite(yardLine)) {
-    losPct = Math.max(0, Math.min(100, 100 - yardLine))
+    losPct = Math.max(5, Math.min(95, 100 - yardLine))
     firstDownPct = possessionSide === 'home'
-      ? Math.max(0, Math.min(100, losPct - (distance ?? 0)))
-      : Math.max(0, Math.min(100, losPct + (distance ?? 0)))
+      ? Math.max(5, Math.min(95, losPct - (distance ?? 0)))
+      : Math.max(5, Math.min(95, losPct + (distance ?? 0)))
   }
 
   return {

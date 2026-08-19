@@ -230,14 +230,17 @@ def get_scoreboard(
             cache_ttl_seconds=cache_ttl_seconds,
         )
 
-        # Auto week detection: the toggle is on but no explicit week override was given.
-        # ESPN's un-parameterized scoreboard response doesn't reliably advance to the
-        # current week on its own -- during the gap between weeks (all of this week's games
-        # already final, next week's not started) it keeps returning the same finished slate.
-        # Resolve every week ESPN's calendar knows about, start from whichever week we're
-        # currently inside (or the first future week if the season hasn't started yet), and
-        # roll forward past any week that's entirely final until one has something to show.
-        if use_week_filter and entry.supports_week_filter and week is None:
+        # Auto week detection: no explicit week override was given. ESPN's un-parameterized
+        # scoreboard response doesn't reliably advance to the current week on its own --
+        # during the gap between weeks (all of this week's games already final, next week's
+        # not started) it keeps returning the same finished slate. Resolve every week ESPN's
+        # calendar knows about, start from whichever week we're currently inside (or the first
+        # future week if the season hasn't started yet), and roll forward past any week that's
+        # entirely final until one has something to show. Applies whenever the caller wants
+        # anything narrower than "all" (live/today/upcoming/this-week all implicitly want
+        # current-ish data, not ESPN's possibly-stale default) -- not gated behind
+        # `use_week_filter`, since nothing in the frontend UI ever sets that to true.
+        if entry.supports_week_filter and week is None and _normalized(game_filter) not in ("", "all"):
             calendar_weeks = resolve_calendar_weeks(fetch_result.payload)
             start_idx = None
             for idx, cw in enumerate(calendar_weeks):

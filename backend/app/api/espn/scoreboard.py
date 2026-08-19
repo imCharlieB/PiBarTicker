@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from ...core.espn_normalizer import normalize_scoreboard_events
 from ...core.espn_registry import resolve_registry_entry
-from ...core.espn_scoreboard import EspnScoreboardClient
+from ...core.espn_scoreboard import EspnScoreboardClient, resolve_calendar_weeks
 import json
 import re
 
@@ -229,6 +229,46 @@ def get_scoreboard(
             use_cache=cache_ttl_seconds > 0,
             cache_ttl_seconds=cache_ttl_seconds,
         )
+
+        # Auto week detection: the toggle is on but no explicit week override was given.
+        # ESPN's un-parameterized scoreboard response doesn't reliably advance to the
+        # current week on its own -- during the gap between weeks (all of this week's games
+        # already final, next week's not started) it keeps returning the same finished slate.
+        # Resolve every week ESPN's calendar knows about, start from whichever week we're
+        # currently inside (or the first future week if the season hasn't started yet), and
+        # roll forward past any week that's entirely final until one has something to show.
+        if use_week_filter and entry.supports_week_filter and week is None:
+            calendar_weeks = resolve_calendar_weeks(fetch_result.payload)
+            start_idx = None
+            for idx, cw in enumerate(calendar_weeks):
+                if cw.start <= now:
+                    start_idx = idx
+                else:
+                    break
+            if start_idx is None and calendar_weeks:
+                start_idx = 0  # season hasn't started yet -- use the first upcoming week
+
+            if start_idx is not None:
+                # Bounded look-ahead so an extended offseason/gap can't trigger a long chain
+                # of upstream requests -- settles on the closest week even if none have
+                # non-final games yet.
+                for cw in calendar_weeks[start_idx:start_idx + 4]:
+                    effective_week = cw.week
+                    fetch_result = _scoreboard_client.fetch(
+                        entry=entry,
+                        week=cw.week,
+                        seasontype=cw.seasontype,
+                        use_cache=cache_ttl_seconds > 0,
+                        cache_ttl_seconds=cache_ttl_seconds,
+                    )
+                    candidate_events = fetch_result.payload.get("events") if isinstance(fetch_result.payload, dict) else []
+                    has_non_final = any(
+                        _normalized(((ev or {}).get("status") or {}).get("type", {}).get("state")) != "post"
+                        for ev in (candidate_events or [])
+                        if isinstance(ev, dict)
+                    )
+                    if has_non_final or not candidate_events:
+                        break
     except Exception as error:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"Failed to fetch ESPN scoreboard: {error}") from error
 

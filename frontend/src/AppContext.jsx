@@ -816,7 +816,7 @@ export function AppContextProvider({ children }) {
 
     setStableGoodGamesByLeagueId({})
     const preFetchPromises = runtimeLeagues.map((league) =>
-      refreshRuntimeLeaguePayload(league, { gameFilterOverride: 'all' }).catch(() => null),
+      refreshRuntimeLeaguePayload(league).catch(() => null),
     )
     Promise.all(preFetchPromises).then(() => {
       setInitialPreFetchesComplete(true)
@@ -889,7 +889,7 @@ export function AppContextProvider({ children }) {
 
   useEffect(() => {
     if (!isTickerRuntime || !runtimeDisplayLeague) return
-    refreshRuntimeLeaguePayload(runtimeDisplayLeague, { gameFilterOverride: 'all' })
+    refreshRuntimeLeaguePayload(runtimeDisplayLeague)
     refreshLeagueNews(runtimeDisplayLeague)
     if (!leagueLogoMetaById[runtimeDisplayLeague.id]) {
       loadLeagueLogoMeta(runtimeDisplayLeague.id)

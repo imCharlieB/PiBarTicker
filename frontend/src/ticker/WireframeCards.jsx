@@ -6,7 +6,18 @@ import {
   racingEntrySummary,
   racingLiveHeader,
   formatRuntimeDate,
+  FIELD_INSET_PCT,
+  FIELD_SPAN_PCT,
 } from './cardHelpers.js'
+
+// Yard markers along the playing field, labeled the way a broadcast field is: counting up
+// from each goal line to midfield. Position mirrors the FIELD_INSET_PCT/FIELD_SPAN_PCT
+// mapping cardHelpers.js uses for the ball/LOS/first-down markers so everything lines up.
+const FIELD_YARD_MARKS = [10, 20, 30, 40, 50, 60, 70, 80, 90].map((yard) => ({
+  yard,
+  label: String(yard <= 50 ? yard : 100 - yard),
+  left: FIELD_INSET_PCT + (yard / 100) * FIELD_SPAN_PCT,
+}))
 
 // ── TV network logo map — files live in logos/networks/ (served at /logos/) ─
 // Populated by running:  python scripts/download_tv_logos.py
@@ -225,8 +236,11 @@ function FootballLive({ game, compact }) {
     <div className={`ff ${compact ? 'live-compact' : ''}`}>
       {downDistanceText ? <div className="ff-dd">{downDistanceText}</div> : null}
       <div className="ff-field" aria-label="Field position">
-        <span className="ff-ez ff-ez-l" style={{ background: 'var(--ca)' }} />
-        <span className="ff-ez ff-ez-r" style={{ background: 'var(--ch)' }} />
+        <span className="ff-ez ff-ez-l" style={{ backgroundColor: 'var(--ca)' }} />
+        <span className="ff-ez ff-ez-r" style={{ backgroundColor: 'var(--ch)' }} />
+        {FIELD_YARD_MARKS.map((mark) => (
+          <span key={mark.yard} className="ff-yd" style={{ left: `${mark.left}%` }}>{mark.label}</span>
+        ))}
         {!f.isRedZone && f.firstDownPct != null ? <span className="ff-fd" style={{ left: `${f.firstDownPct}%` }} /> : null}
         {!f.isRedZone && f.losPct != null ? <span className="ff-los" style={{ left: `${f.losPct}%` }} /> : null}
         {f.losPct != null ? <span className="ff-ball" style={{ left: `${f.losPct}%` }} /> : null}

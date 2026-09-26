@@ -357,6 +357,13 @@ export function extractBaseballLiveSituation(rawEvent, game) {
   }
 }
 
+// Must match the .ff-ez width in TickerCards.css -- the field graphic reserves this much
+// space at each edge for the end zone, so the 100-yard playing field only occupies the
+// inner FIELD_SPAN_PCT of the bar. Shared with WireframeCards.jsx so yard-line tick marks
+// line up with where ball/LOS/first-down markers actually render.
+export const FIELD_INSET_PCT = 9
+export const FIELD_SPAN_PCT = 100 - FIELD_INSET_PCT * 2
+
 export function extractFootballLiveSituation(rawEvent, game) {
   if (String(game?.sport || '').toLowerCase() !== 'football' || String(game?.state || '').toLowerCase() !== 'in') return null
 
@@ -391,23 +398,27 @@ export function extractFootballLiveSituation(rawEvent, game) {
   if (possessionId && homeId && possessionId === homeId) possessionSide = 'home'
   else if (possessionId && awayId && possessionId === awayId) possessionSide = 'away'
 
-  // Markers are centered via translate(-50%, -50%) inside an overflow:hidden field, so a
-  // position clamped to exactly 0/100 (common near either goal line, i.e. red zone) gets
-  // shifted fully outside the visible bar and disappears entirely. Inset the clamp range
-  // the same way SoccerLive already does for its ball marker, for the same reason.
+  // The ff-field bar reserves a FIELD_INSET_PCT-wide end zone at each edge (.ff-ez in
+  // TickerCards.css), so the actual 100-yard playing field spans only the middle
+  // FIELD_SPAN_PCT of the bar -- not the full 0-100%. Map yard lines into that inner
+  // range so a marker sits on the true goal line instead of stopping short of (or
+  // bleeding into) the end zone stripe.
   //
   // ESPN's yardLine is always relative to the possessing team's own goal line (0 = their
   // goal, 100 = the opponent's) rather than a fixed home/away axis. The field renders the
   // away team's goal on the left and home's on the right, so an away possession maps
   // straight across while a home possession has to be flipped.
+  const toFieldPct = (yardsFromLeftGoal) =>
+    FIELD_INSET_PCT + Math.max(0, Math.min(100, yardsFromLeftGoal)) / 100 * FIELD_SPAN_PCT
+
   let losPct = null
   let firstDownPct = null
   if (possessionSide && Number.isFinite(yardLine)) {
-    const rawLosPct = possessionSide === 'away' ? yardLine : 100 - yardLine
-    losPct = Math.max(5, Math.min(95, rawLosPct))
+    const yardsFromLeftGoal = possessionSide === 'away' ? yardLine : 100 - yardLine
+    losPct = toFieldPct(yardsFromLeftGoal)
     firstDownPct = possessionSide === 'home'
-      ? Math.max(5, Math.min(95, rawLosPct - (distance ?? 0)))
-      : Math.max(5, Math.min(95, rawLosPct + (distance ?? 0)))
+      ? toFieldPct(yardsFromLeftGoal - (distance ?? 0))
+      : toFieldPct(yardsFromLeftGoal + (distance ?? 0))
   }
 
   return {

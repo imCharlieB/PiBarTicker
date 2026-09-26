@@ -468,18 +468,54 @@
 .ticker-runtime-shell .ff-poss { color: #7CF29B; }
 .ticker-runtime-shell .ff-rz   { font-size: 2.9cqh; font-weight: 900; letter-spacing: .1em; color: #0b0e0c; background: #F2766B; padding: 0.5cqh 1.6cqh; border-radius: 0.8cqh; }
 .ticker-runtime-shell .ff-field {
-  position: relative; width: 100%; height: 11.1cqh; border-radius: 1.6cqh; overflow: hidden;
-  border: 1px solid #1f3a28;
-  background: repeating-linear-gradient(90deg, #103019 0 2px, #0d2615 2px, #0d2615 10%);
+  position: relative; width: 100%; height: 13.2cqh; border-radius: 1.6cqh; overflow: hidden;
+  border: 1px solid #0a2013;
+  background-color: #0f3319;
+  /* Layers, back to front: 10-yard mow stripes, 10-yard tick lines, hash-mark rows.
+     All three share a 9%-offset, 8.2%-period (=10 yards) phase so they line up with the
+     FIELD_INSET_PCT/FIELD_SPAN_PCT mapping cardHelpers.js uses for the markers below. */
+  background-image:
+    repeating-linear-gradient(90deg, rgba(255,255,255,.16) 0 1.5px, transparent 1.5px 8.2%),
+    repeating-linear-gradient(90deg, #12401f 0 4.1%, #0e341a 4.1% 8.2%),
+    repeating-linear-gradient(180deg, transparent 0 30.5%, rgba(255,255,255,.4) 30.5% calc(30.5% + 1px), transparent calc(30.5% + 1px) 69.5%, rgba(255,255,255,.4) 69.5% calc(69.5% + 1px), transparent calc(69.5% + 1px) 100%);
+  background-position-x: 9%, 9%, 0;
+  box-shadow: inset 0 0 1.8cqh rgba(0,0,0,.5);
 }
-.ticker-runtime-shell .ff-ez   { position: absolute; top: 0; bottom: 0; width: 9%; opacity: .85; }
-.ticker-runtime-shell .ff-ez-l { left: 0; }
-.ticker-runtime-shell .ff-ez-r { right: 0; }
-.ticker-runtime-shell .ff-los  { position: absolute; top: 0; bottom: 0; width: 3px; background: #fff; box-shadow: 0 0 6px rgba(255,255,255,.5); }
-.ticker-runtime-shell .ff-fd   { position: absolute; top: 0; bottom: 0; width: 3px; background: #F2C94C; box-shadow: 0 0 6px rgba(242,201,76,.6); }
+.ticker-runtime-shell .ff-ez   {
+  position: absolute; top: 0; bottom: 0; width: 9%; opacity: .92;
+  background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.12) 0 5px, transparent 5px 12px);
+  box-shadow: inset 0 0 1.4cqh rgba(0,0,0,.4);
+}
+.ticker-runtime-shell .ff-ez-l { left: 0; box-shadow: inset 0 0 1.4cqh rgba(0,0,0,.4), 2px 0 0 rgba(255,255,255,.9); }
+.ticker-runtime-shell .ff-ez-r { right: 0; box-shadow: inset 0 0 1.4cqh rgba(0,0,0,.4), -2px 0 0 rgba(255,255,255,.9); }
+.ticker-runtime-shell .ff-yd {
+  position: absolute; top: 50%; transform: translate(-50%, -50%);
+  font-size: 3.6cqh; font-weight: 800; color: rgba(255,255,255,.4);
+  font-variant-numeric: tabular-nums; pointer-events: none; user-select: none;
+}
+.ticker-runtime-shell .ff-los, .ticker-runtime-shell .ff-fd {
+  position: absolute; top: 0; bottom: 0; width: 2.5px;
+}
+.ticker-runtime-shell .ff-los { background: #fff; box-shadow: 0 0 6px rgba(255,255,255,.6); }
+.ticker-runtime-shell .ff-fd  { background: #F2C94C; box-shadow: 0 0 6px rgba(242,201,76,.7); }
+.ticker-runtime-shell .ff-los::before, .ticker-runtime-shell .ff-fd::before {
+  content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 0; height: 0;
+  border-left: 3.5px solid transparent; border-right: 3.5px solid transparent;
+  border-top: 4px solid currentColor;
+}
+.ticker-runtime-shell .ff-los::before { color: #fff; }
+.ticker-runtime-shell .ff-fd::before  { color: #F2C94C; }
 .ticker-runtime-shell .ff-ball {
-  position: absolute; top: 50%; width: 4.5cqh; height: 2.9cqh; border-radius: 50%;
-  background: #7b4a25; border: 1.5px solid #d9b48c; transform: translate(-50%, -50%);
+  position: absolute; top: 50%; width: 4.8cqh; height: 3.1cqh; border-radius: 50%;
+  background: linear-gradient(135deg, #8a5a34, #6b3f1f);
+  border: 1.5px solid #d9b48c; transform: translate(-50%, -50%);
+  box-shadow: 0 1px 3px rgba(0,0,0,.55);
+}
+.ticker-runtime-shell .ff-ball::before {
+  content: '+'; position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 2.6cqh; font-weight: 900; line-height: 1; color: #f2e4d0;
 }
 
 /* ── Soccer live (mini pitch + possession & shots) ──────────────────────── */

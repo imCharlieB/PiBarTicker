@@ -395,13 +395,19 @@ export function extractFootballLiveSituation(rawEvent, game) {
   // position clamped to exactly 0/100 (common near either goal line, i.e. red zone) gets
   // shifted fully outside the visible bar and disappears entirely. Inset the clamp range
   // the same way SoccerLive already does for its ball marker, for the same reason.
+  //
+  // ESPN's yardLine is always relative to the possessing team's own goal line (0 = their
+  // goal, 100 = the opponent's) rather than a fixed home/away axis. The field renders the
+  // away team's goal on the left and home's on the right, so an away possession maps
+  // straight across while a home possession has to be flipped.
   let losPct = null
   let firstDownPct = null
   if (possessionSide && Number.isFinite(yardLine)) {
-    losPct = Math.max(5, Math.min(95, 100 - yardLine))
+    const rawLosPct = possessionSide === 'away' ? yardLine : 100 - yardLine
+    losPct = Math.max(5, Math.min(95, rawLosPct))
     firstDownPct = possessionSide === 'home'
-      ? Math.max(5, Math.min(95, losPct - (distance ?? 0)))
-      : Math.max(5, Math.min(95, losPct + (distance ?? 0)))
+      ? Math.max(5, Math.min(95, rawLosPct - (distance ?? 0)))
+      : Math.max(5, Math.min(95, rawLosPct + (distance ?? 0)))
   }
 
   return {

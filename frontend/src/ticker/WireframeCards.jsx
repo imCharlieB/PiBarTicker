@@ -652,6 +652,9 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
     color: entryColor(entry),
     headshot: entry.headshot ? (entry.headshot.startsWith('http') ? entry.headshot : `/logos/${entry.headshot}`) : null,
     carBadge: entry.carBadge ? (entry.carBadge.startsWith('http') ? entry.carBadge : `/logos/${entry.carBadge}`) : null,
+    // Playoff/chase driver — only ever set by the NASCAR backend enrichment, so this is a
+    // no-op (never true) outside of a NASCAR playoff race.
+    inChase: Boolean(entry.inChase),
   }))
 
   const MAX_PER_COL = 5
@@ -688,6 +691,7 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
                 ? <img className="board-badge" src={r.carBadge} alt={r.name} />
                 : <span className="board-dot" style={{ background: r.color }} />}
             <span className="board-name">{r.name}</span>
+            {r.inChase ? <i className="mdi mdi-trophy board-chase" title="Playoff driver" /> : null}
             <span className="board-detail">{r.detail}</span>
           </div>
         ))}

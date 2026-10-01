@@ -542,8 +542,13 @@ def get_scoreboard(
                     pass
 
             # Fetch cf.nascar.com live feed for NASCAR — ESPN is often stale on race status.
-            # live-ops.json provides per-series live feed URLs (series_1/2/3); use the
-            # series-specific URL so O'Reilly and Truck get their own feed, not Cup's.
+            # Resolve the series-specific feed URL (series_1/2/3) so O'Reilly and Truck get
+            # their own race, not whatever session Cup last ran. We used to read this URL out
+            # of live-ops.json's `live_feed_url_series{N}` key — that key doesn't exist in the
+            # real response (it only has logo/slug metadata), so that lookup always silently
+            # failed and every series fell through to the shared generic feed. Instead, find
+            # this series' current/most-recent race_id from its season schedule and build the
+            # URL directly — confirmed working against cf.nascar.com 2026-10-01.
             _NASCAR_SERIES_IDS: dict[str, int] = {
                 "nascar-premier": 1, "nascar-cup": 1,
                 "nascar-secondary": 2, "nascar-xfinity": 2,
@@ -551,29 +556,88 @@ def get_scoreboard(
             }
             expected_series_id = _NASCAR_SERIES_IDS.get(entry.league_id, 0)
 
+            def _clean_cf_name(raw: object) -> str:
+                # cf.nascar.com appends " #<n>" to some driver names and "(C)" for drivers
+                # currently in the playoffs — strip both so names match ESPN's plain "First Last".
+                cleaned = re.sub(r'\s*#.*$', '', str(raw or ''))
+                cleaned = re.sub(r'\s*\([^)]*\)\s*$', '', cleaned)
+                return cleaned.strip()
+
+            nascar_race_id = 0
+            if _is_nascar and expected_series_id:
+                try:
+                    _season_year = datetime.now(timezone.utc).year
+                    _race_list = _http_client.get_json(
+                        f"https://cf.nascar.com/cacher/{_season_year}/{expected_series_id}/race_list_basic.json",
+                        use_cache=True,
+                        cache_ttl_seconds=1800.0,
+                    )
+                    if isinstance(_race_list, list) and _race_list:
+                        # Anchor off this entry's own event start time — racing scoreboards
+                        # return essentially one current/next event, so pick the schedule
+                        # entry closest to it rather than assuming "today".
+                        _anchor_dt = None
+                        if normalized_games:
+                            _anchor_raw = str(normalized_games[0].get("startTimeUtc") or "").strip()
+                            if _anchor_raw:
+                                try:
+                                    _anchor_dt = datetime.fromisoformat(_anchor_raw)
+                                    if _anchor_dt.tzinfo is None:
+                                        _anchor_dt = _anchor_dt.replace(tzinfo=timezone.utc)
+                                except Exception:
+                                    _anchor_dt = None
+                        if _anchor_dt is None:
+                            _anchor_dt = datetime.now(timezone.utc)
+
+                        _best_race: dict | None = None
+                        _best_diff: float | None = None
+                        for _race in _race_list:
+                            if not isinstance(_race, dict):
+                                continue
+                            _race_raw = str(_race.get("race_date") or "").strip()
+                            if not _race_raw:
+                                continue
+                            try:
+                                _race_dt = datetime.fromisoformat(_race_raw)
+                                if _race_dt.tzinfo is None:
+                                    _race_dt = _race_dt.replace(tzinfo=timezone.utc)
+                            except Exception:
+                                continue
+                            _diff = abs((_race_dt - _anchor_dt).total_seconds())
+                            if _best_diff is None or _diff < _best_diff:
+                                _best_diff = _diff
+                                _best_race = _race
+                        if _best_race:
+                            nascar_race_id = int(_best_race.get("race_id") or 0)
+                except Exception:
+                    pass
+
             nascar_live_data: dict | None = None
+            # True only when the data came from the race-specific URL above (not the generic
+            # fallback) — used below to decide whether we can trust a "race finished" verdict
+            # even while ESPN still reports "pre" (see cf_race_finished veto).
+            cf_feed_is_race_specific = False
             if _is_nascar:
-                _cf_live_url = "https://cf.nascar.com/live/feeds/live-feed.json"  # generic fallback
-                try:
-                    _live_ops = _http_client.get_json(
-                        "https://cf.nascar.com/live-ops/live-ops.json",
-                        use_cache=True,
-                        cache_ttl_seconds=30.0,
-                    )
-                    if isinstance(_live_ops, dict) and expected_series_id:
-                        _ops_url = str(_live_ops.get(f"live_feed_url_series{expected_series_id}") or "").strip()
-                        if _ops_url:
-                            _cf_live_url = _ops_url
-                except Exception:
-                    pass
-                try:
-                    nascar_live_data = _http_client.get_json(
-                        _cf_live_url,
-                        use_cache=True,
-                        cache_ttl_seconds=5.0,
-                    )
-                except Exception:
-                    pass
+                _cf_candidates: list[tuple[str, bool]] = []
+                if nascar_race_id and expected_series_id:
+                    _cf_candidates.append((
+                        f"https://cf.nascar.com/live/feeds/series_{expected_series_id}/{nascar_race_id}/live_feed.json",
+                        True,
+                    ))
+                _cf_candidates.append(("https://cf.nascar.com/live/feeds/live-feed.json", False))  # last-resort fallback
+                for _cf_live_url, _is_specific in _cf_candidates:
+                    try:
+                        _candidate = _http_client.get_json(
+                            _cf_live_url,
+                            use_cache=True,
+                            cache_ttl_seconds=5.0,
+                        )
+                    except Exception:
+                        _candidate = None
+                    if isinstance(_candidate, dict) and _candidate:
+                        nascar_live_data = _candidate
+                        cf_feed_is_race_specific = _is_specific
+                        break
 
             cf_series_id = int(nascar_live_data.get("series_id") or 0) if nascar_live_data else 0
             cf_matches_series = cf_series_id > 0 and cf_series_id == expected_series_id
@@ -595,7 +659,7 @@ def get_scoreboard(
                 and cf_flag_state not in (4, 9)
             )
 
-            # Build cf.nascar.com vehicle map: name.lower() → (delta_or_None, running_pos)
+            # Build cf.nascar.com vehicle map: name.lower() → (delta_or_None, running_pos, in_chase)
             # Include all vehicles with a valid running_position even if delta is null
             # (the leader and sometimes 2nd place carry null delta in the cf feed).
             nascar_cf_vehicle_map: dict[str, tuple] = {}
@@ -608,13 +672,13 @@ def get_scoreboard(
                     v_pos = v.get("running_position")
                     if v_pos is None:
                         continue  # no position = nothing to sort on
-                    # cf.nascar.com appends " #" to some driver names — strip it
-                    v_full = re.sub(r'\s*#.*$', '', str(drv.get("full_name") or "")).strip().lower()
-                    v_last = re.sub(r'\s*#.*$', '', str(drv.get("last_name") or "")).strip().lower()
+                    v_in_chase = bool(drv.get("is_in_chase"))
+                    v_full = _clean_cf_name(drv.get("full_name")).lower()
+                    v_last = _clean_cf_name(drv.get("last_name")).lower()
                     if v_full:
-                        nascar_cf_vehicle_map[v_full] = (v_delta, v_pos)
+                        nascar_cf_vehicle_map[v_full] = (v_delta, v_pos, v_in_chase)
                     if v_last and v_last != v_full:
-                        nascar_cf_vehicle_map[v_last] = (v_delta, v_pos)
+                        nascar_cf_vehicle_map[v_last] = (v_delta, v_pos, v_in_chase)
 
             # Lookup tables for fixing ESPN series mislabeling
             _NASCAR_SERIES_LABELS: dict[str, str] = {
@@ -637,8 +701,14 @@ def get_scoreboard(
             )
 
             for game in normalized_games:
-                # Hard veto: cf says race is done — force out of live regardless of ESPN state
-                if cf_race_finished and str(game.get("state") or "").lower() == "in":
+                # Hard veto: cf confirms this exact race is done — force out of live/pre
+                # regardless of ESPN's reported state. Only trusted when cf_feed_is_race_specific
+                # (we resolved the race-id-specific feed) — the generic fallback can be a
+                # *different*, earlier race in the same series and must never be allowed to
+                # veto an upcoming ("pre") event's state on that basis. Not gated on ESPN's
+                # current state (unlike the old "in"-only check) because ESPN sometimes never
+                # flips a finished race off "pre" at all if it never reported "in" either.
+                if cf_race_finished and cf_feed_is_race_specific:
                     game["state"] = "post"
                     game["isLive"] = False
                     game["isCompleted"] = True
@@ -663,7 +733,7 @@ def get_scoreboard(
                         cf_built: list[dict] = []
                         for v in cf_vehicles:
                             drv = v.get("driver") or {}
-                            raw_full = re.sub(r'\s*#.*$', '', str(drv.get("full_name") or "")).strip()
+                            raw_full = _clean_cf_name(drv.get("full_name"))
                             if not raw_full:
                                 continue
                             v_pos = int(v.get("running_position") or 0)
@@ -681,7 +751,7 @@ def get_scoreboard(
                                 "position": v_pos,
                                 "_cfPos": v_pos,
                                 "name": raw_full,
-                                "shortName": re.sub(r'\s*#.*$', '', str(drv.get("last_name") or raw_full)).strip(),
+                                "shortName": _clean_cf_name(drv.get("last_name")) or raw_full,
                                 "score": score,
                                 "stats": [],
                                 "headshot": "",
@@ -692,6 +762,7 @@ def get_scoreboard(
                                 "athleteId": str(drv.get("driver_id") or "").strip(),
                                 "carBadge": "",
                                 "carNumber": str(v.get("vehicle_number") or "").strip(),
+                                "inChase": bool(drv.get("is_in_chase")),
                             })
                         if cf_built:
                             game["racingEntries"] = cf_built
@@ -797,10 +868,11 @@ def get_scoreboard(
                             cf_match = nascar_cf_vehicle_map.get(entry_name) or (nascar_cf_vehicle_map.get(surname_cf) if surname_cf else None)
                             if cf_match is not None:
                                 try:
-                                    cf_delta, cf_pos = cf_match
+                                    cf_delta, cf_pos, cf_in_chase = cf_match
                                     pos_int = int(cf_pos)
                                     race_entry["position"] = pos_int
                                     race_entry["_cfPos"] = pos_int
+                                    race_entry["inChase"] = cf_in_chase
                                     if pos_int == 1:
                                         race_entry["score"] = "LEAD"
                                     elif cf_delta is not None:
@@ -824,8 +896,11 @@ def get_scoreboard(
                 if nascar_series_logo:
                     game["seriesLogo"] = nascar_series_logo
 
-                # Inject lap number, laps to go, and flag state from cf.nascar.com live feed
-                if _is_nascar and nascar_live_data and str(game.get("state") or "").lower() == "in":
+                # Inject lap number, laps to go, and flag state from cf.nascar.com live feed.
+                # Requires cf_matches_series — without this guard, a stale generic-feed fetch
+                # for a *different* series (e.g. last week's Cup race while this game is a
+                # live Truck race) would stamp that other race's lap/flag data onto this card.
+                if _is_nascar and nascar_live_data and cf_matches_series and str(game.get("state") or "").lower() == "in":
                     _FLAG_INT_MAP = {1: "green", 2: "yellow", 3: "red", 4: "checkered", 5: "white", 8: "yellow", 9: "checkered"}
                     lap_num = nascar_live_data.get("lap_number")
                     laps_go = nascar_live_data.get("laps_to_go")

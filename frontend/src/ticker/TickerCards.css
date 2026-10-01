@@ -341,6 +341,16 @@
 .ticker-runtime-shell .board-pos    { width: 9.5cqh; text-align: center; font-weight: 900; font-size: 5.3cqh; color: #cfd6e2; font-variant-numeric: tabular-nums; }
 .ticker-runtime-shell .board-dot    { width: 3.2cqh; height: 3.2cqh; border-radius: 0.8cqh; flex: 0 0 auto; }
 .ticker-runtime-shell .board-name   { font-weight: 800; font-size: 5.8cqh; color: #eef2f8; flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Playoff/chase driver marker (the Cup) — a sibling of .board-name (not nested inside it) so
+   a long, ellipsis-truncated driver name never clips it off. */
+.ticker-runtime-shell .board-chase  {
+  flex: 0 0 auto;
+  font-size: 4cqh;
+  line-height: 1;
+  margin-left: 1.1cqh;
+  color: #F2C94C;
+}
+.ticker-runtime-shell .board-multi .board-chase { font-size: 3.4cqh; margin-left: 0.8cqh; }
 .ticker-runtime-shell .board-detail { margin-left: auto; flex: 0 0 auto; font-weight: 900; font-size: 5.8cqh; color: #fff; font-variant-numeric: tabular-nums; }
 .ticker-runtime-shell .board-foot   { display: flex; align-items: center; gap: 3.2cqh; border-top: 1px dashed #232a36; padding-top: 2.1cqh; }
 .ticker-runtime-shell .board-unit   { font-size: 3.2cqh; font-weight: 800; letter-spacing: .14em; color: #8a93a1; }

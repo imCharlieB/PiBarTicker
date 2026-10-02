@@ -983,16 +983,19 @@ def get_scoreboard(
 
                     # NASCAR surname join — inject headshot, car number, badge image, gap
                     if _is_nascar:
-                        # Fallback: ESPN CDN headshot from athleteId (no sync required)
-                        athlete_id = str(race_entry.get("athleteId") or "").strip()
-                        if athlete_id and not race_entry.get("headshot"):
-                            race_entry["headshot"] = f"https://a.espncdn.com/i/headshots/rpm/players/full/{athlete_id}.png"
+                        # Local cache checked FIRST now. This used to run after the ESPN CDN
+                        # fallback below, which set race_entry["headshot"] unconditionally
+                        # whenever athleteId was present — meaning the local-cache check's own
+                        # "not race_entry.get('headshot')" guard was already false by the time
+                        # it ran, making the local cache dead code for every entry with an
+                        # athleteId (i.e. almost all of them). Confirmed 2026-10-02 while
+                        # debugging a driver (Jesse Love) whose ESPN headshot 404s but whose
+                        # locally-cached photo is real and correct — it was never being used.
                         if nascar_drivers_meta:
                             full_name = str(race_entry.get("name") or "").strip()
                             surname = full_name.split()[-1].lower() if full_name else ""
                             driver = nascar_drivers_meta.teams.get(surname)
                             if driver:
-                                # Prefer locally-cached images (relative paths served via /logos/)
                                 if driver.logos.get("headshot") and not race_entry.get("headshot"):
                                     race_entry["headshot"] = driver.logos["headshot"]
                                 car_num = str(driver.remote_urls.get("car_number") or "").strip()
@@ -1009,6 +1012,11 @@ def get_scoreboard(
                                             race_entry["carBadge"] = cdn_badge
                                 if driver.color and not race_entry.get("teamColor"):
                                     race_entry["teamColor"] = driver.color
+                        # Fallback: ESPN CDN headshot from athleteId, only if the local cache
+                        # above didn't already resolve one.
+                        athlete_id = str(race_entry.get("athleteId") or "").strip()
+                        if athlete_id and not race_entry.get("headshot"):
+                            race_entry["headshot"] = f"https://a.espncdn.com/i/headshots/rpm/players/full/{athlete_id}.png"
                         # Inject gap-to-leader and running position from cf.nascar.com live feed
                         if nascar_cf_vehicle_map and str(game.get("state") or "").lower() == "in":
                             entry_name = str(race_entry.get("name") or "").strip().lower()

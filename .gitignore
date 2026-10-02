@@ -17,14 +17,34 @@ runtime-cache/
 # doesn't block a one-off fetch from a dev machine (NASCAR series logos + playoff badges,
 # confirmed 2026-10-01 -- see docs/ACTIVE_WORK.md). Those need to ship via git like any other
 # asset, or they only ever exist on whichever machine happened to fetch them by hand.
+#
+# NASCAR driver photos (scripts/sync_nascar_photos.py) are the same situation, one level deeper:
+# the whole nascar.com host is Cloudflare JS-challenged (not just header-checked), so only a real
+# browser on a dev machine can ever fetch these -- confirmed 2026-10-02. The *_photo.png files
+# and the team-meta JSON pointing at them both need to ship via git; the existing *_badge.png /
+# *_headshot.png files stay gitignored and dynamically synced via the normal Setup page button
+# as before (cf.nascar.com / ESPN CDN aren't Cloudflare-gated).
 /team-meta/*
 !/team-meta/nascar-series.json
+!/team-meta/nascar-cup.json
+!/team-meta/nascar-xfinity.json
+!/team-meta/nascar-trucks.json
 /logos/*
 !/logos/networks/
 !/logos/nascar/
 /logos/nascar/*
 !/logos/nascar/series_*
 !/logos/nascar/playoffs_*
+!/logos/nascar/manufacturers/
+!/logos/nascar/cup/
+!/logos/nascar/xfinity/
+!/logos/nascar/trucks/
+/logos/nascar/cup/*
+!/logos/nascar/cup/*_photo.png
+/logos/nascar/xfinity/*
+!/logos/nascar/xfinity/*_photo.png
+/logos/nascar/trucks/*
+!/logos/nascar/trucks/*_photo.png
 docs/
 
 # AI / agent context files (for Grok, Claude, Cursor, Copilot, etc.)

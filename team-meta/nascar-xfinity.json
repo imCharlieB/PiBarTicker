@@ -1,0 +1,820 @@
+{
+  "league": "nascar-xfinity",
+  "ts": "2026-06-21T14:52:42.408957+00:00",
+  "teams": {
+    "alfredo": {
+      "abbreviation": "",
+      "display_name": "Anthony Alfredo",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/xfinity/alfredo_4301_badge.png",
+        "headshot": "nascar/xfinity/alfredo_4301_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4301",
+        "team_name": "Viking Motorsports",
+        "car_number": "96",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/96.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "5588"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "allgaier": {
+      "abbreviation": "",
+      "display_name": "Justin Allgaier",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/xfinity/allgaier_34_badge.png",
+        "headshot": "nascar/xfinity/allgaier_34_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "34",
+        "team_name": "JR Motorsports",
+        "car_number": "7",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/7.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "731"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "bilicki": {
+      "abbreviation": "",
+      "display_name": "Josh Bilicki",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/xfinity/bilicki_4213_badge.png",
+        "headshot": "nascar/xfinity/bilicki_4213_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4213",
+        "team_name": "DGM Racing",
+        "car_number": "07",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/07.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "4757"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "burton": {
+      "abbreviation": "",
+      "display_name": "Jeb Burton",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/xfinity/burton_4018_badge.png",
+        "headshot": "nascar/xfinity/burton_4018_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4018",
+        "team_name": "Jordan Anderson Racing",
+        "car_number": "27",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/27.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "4527"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "busch": {
+      "abbreviation": "",
+      "display_name": "Kyle Busch",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/xfinity/busch_454_badge.png",
+        "headshot": "nascar/xfinity/busch_454_headshot.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "454",
+        "team_name": "Richard Childress Racing",
+        "car_number": "8",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/8.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "580"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "caruth": {
+      "abbreviation": "",
+      "display_name": "Rajah Caruth",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/xfinity/caruth_4422_badge.png",
+        "headshot": "nascar/xfinity/caruth_4422_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4422",
+        "team_name": "JR Motorsports",
+        "car_number": "88",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/88.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "5701"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "clements": {
+      "abbreviation": "",
+      "display_name": "Jeremy Clements",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/xfinity/clements_595_badge.png",
+        "headshot": "nascar/xfinity/clements_595_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "595",
+        "team_name": "Jeremy Clements Racing",
+        "car_number": "51",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/51.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "4284"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "creed": {
+      "abbreviation": "",
+      "display_name": "Sheldon Creed",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/xfinity/creed_4204_badge.png",
+        "headshot": "nascar/xfinity/creed_4204_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4204",
+        "team_name": "Haas Factory Team",
+        "car_number": "00",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/00.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "4747"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "crews": {
+      "abbreviation": "",
+      "display_name": "Brent Crews",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/xfinity/crews_4504_badge.png",
+        "headshot": "nascar/xfinity/crews_4504_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4504",
+        "team_name": "Joe Gibbs Racing",
+        "car_number": "19",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/19.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Toyota",
+        "espn_athlete_id": "5847"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "day": {
+      "abbreviation": "",
+      "display_name": "Corey Day",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/xfinity/day_4502_badge.png",
+        "headshot": "nascar/xfinity/day_4502_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4502",
+        "team_name": "Hendrick Motorsports",
+        "car_number": "17",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/17.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "5832"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "deegan": {
+      "abbreviation": "",
+      "display_name": "Hailie Deegan",
+      "color": "",
+      "alternate_color": "",
+      "logos": {},
+      "remote_urls": {
+        "nascar_driver_id": "4366",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Ford"
+      },
+      "preferred_variant": null,
+      "available_variants": [],
+      "groups": [],
+      "conference_name": ""
+    },
+    "ellis": {
+      "abbreviation": "",
+      "display_name": "Ryan Ellis",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/xfinity/ellis_4029_badge.png",
+        "headshot": "nascar/xfinity/ellis_4029_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4029",
+        "team_name": "Young's Motorsports",
+        "car_number": "02",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/02.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "4538"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "fenhaus": {
+      "abbreviation": "",
+      "display_name": "Luke Fenhaus",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/xfinity/fenhaus_4489_badge.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4489",
+        "team_name": "Hettinger Racing",
+        "car_number": "5",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/5.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Ford",
+        "espn_athlete_id": "5816"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "gray": {
+      "abbreviation": "",
+      "display_name": "Taylor Gray",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/xfinity/gray_4406_badge.png",
+        "headshot": "nascar/xfinity/gray_4406_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4406",
+        "team_name": "Joe Gibbs Racing",
+        "car_number": "54",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/54.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Toyota",
+        "espn_athlete_id": "5806"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "green": {
+      "abbreviation": "",
+      "display_name": "Austin Green",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/xfinity/green_4479_badge.png",
+        "headshot": "nascar/xfinity/green_4479_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4479",
+        "team_name": "Peterson Racing",
+        "car_number": "87",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/87.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "5804"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "hill": {
+      "abbreviation": "",
+      "display_name": "Austin Hill",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/xfinity/hill_4133_badge.png",
+        "headshot": "nascar/xfinity/hill_4133_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4133",
+        "team_name": "Richard Childress Racing",
+        "car_number": "21",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/21.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "4467"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "jaskol": {
+      "abbreviation": "",
+      "display_name": "Matt Jaskol",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/xfinity/jaskol_4381_badge.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4381",
+        "team_name": "G2G Racing",
+        "car_number": "46",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/46.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Toyota"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "jones": {
+      "abbreviation": "",
+      "display_name": "Brandon Jones",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/xfinity/jones_4085_badge.png",
+        "headshot": "nascar/xfinity/jones_4085_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4085",
+        "team_name": "Joe Gibbs Racing",
+        "car_number": "20",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/20.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Toyota",
+        "espn_athlete_id": "4777"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "kvapil": {
+      "abbreviation": "",
+      "display_name": "Carson Kvapil",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/xfinity/kvapil_4467_badge.png",
+        "headshot": "nascar/xfinity/kvapil_4467_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4467",
+        "team_name": "JR Motorsports",
+        "car_number": "1",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/1.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "5787"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "love": {
+      "abbreviation": "",
+      "display_name": "Jesse Love",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/xfinity/love_4463_badge.png",
+        "headshot": "nascar/xfinity/love_4463_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4463",
+        "team_name": "Richard Childress Racing",
+        "car_number": "2",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/2.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "5770"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "mayer": {
+      "abbreviation": "",
+      "display_name": "Sam Mayer",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/xfinity/mayer_4327_badge.png",
+        "headshot": "nascar/xfinity/mayer_4327_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4327",
+        "team_name": "Haas Factory Team",
+        "car_number": "41",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/41.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "5620"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "perkins": {
+      "abbreviation": "",
+      "display_name": "Blaine Perkins",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/xfinity/perkins_4376_badge.png",
+        "headshot": "nascar/xfinity/perkins_4376_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4376",
+        "team_name": "Jordan Anderson Racing",
+        "car_number": "31",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/31.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "5649"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "poole": {
+      "abbreviation": "",
+      "display_name": "Brennan Poole",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/xfinity/poole_4144_badge.png",
+        "headshot": "nascar/xfinity/poole_4144_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4144",
+        "team_name": "Alpha Prime Racing",
+        "car_number": "44",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/44.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "4681"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "retzlaff": {
+      "abbreviation": "",
+      "display_name": "Parker Retzlaff",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/xfinity/retzlaff_4419_badge.png",
+        "headshot": "nascar/xfinity/retzlaff_4419_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4419",
+        "team_name": "Viking Motorsports",
+        "car_number": "99",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/99.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "5700"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "sanchez": {
+      "abbreviation": "",
+      "display_name": "Nick Sanchez",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/xfinity/sanchez_4416_badge.png",
+        "headshot": "nascar/xfinity/sanchez_4416_headshot.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4416",
+        "team_name": "AM Racing",
+        "car_number": "25",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/25.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Ford",
+        "espn_athlete_id": "5708"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "sawalich": {
+      "abbreviation": "",
+      "display_name": "William Sawalich",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/xfinity/sawalich_4459_badge.png",
+        "headshot": "nascar/xfinity/sawalich_4459_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4459",
+        "car_number": "18",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/18.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Toyota",
+        "espn_athlete_id": "5749"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "scott": {
+      "abbreviation": "",
+      "display_name": "Lavar Scott",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/xfinity/scott_4518_badge.png",
+        "headshot": "nascar/xfinity/scott_4518_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4518",
+        "team_name": "Alpha Prime Racing",
+        "car_number": "45",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/45.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "5859"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "sieg": {
+      "abbreviation": "",
+      "display_name": "Kyle Sieg",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/xfinity/sieg_4388_badge.png",
+        "headshot": "nascar/xfinity/sieg_4388_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4388",
+        "team_name": "RSS Racing",
+        "car_number": "28",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/28.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "4345"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "smith": {
+      "abbreviation": "",
+      "display_name": "Sammy Smith",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/xfinity/smith_4441_badge.png",
+        "headshot": "nascar/xfinity/smith_4441_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4441",
+        "team_name": "JR Motorsports",
+        "car_number": "8",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/8.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "5558"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "staropoli": {
+      "abbreviation": "",
+      "display_name": "Patrick Staropoli",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/xfinity/staropoli_4227_badge.png",
+        "headshot": "nascar/xfinity/staropoli_4227_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4227",
+        "team_name": "Big Machine Racing",
+        "car_number": "48",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/48.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "4772"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "thompson": {
+      "abbreviation": "",
+      "display_name": "Dean Thompson",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/xfinity/thompson_4414_badge.png",
+        "headshot": "nascar/xfinity/thompson_4414_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4414",
+        "team_name": "Sam Hunt Racing",
+        "car_number": "26",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/26.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Toyota",
+        "espn_athlete_id": "5699"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "truex": {
+      "abbreviation": "",
+      "display_name": "Ryan Truex",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/xfinity/truex_3952_badge.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "3952",
+        "team_name": "Joe Gibbs Racing",
+        "car_number": "11",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/2/11.png",
+        "driver_series": "nascar-oreilly-auto-parts-series",
+        "manufacturer": "Toyota"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge"
+      ],
+      "groups": [],
+      "conference_name": ""
+    }
+  }
+}

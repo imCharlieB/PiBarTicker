@@ -480,7 +480,7 @@
 .ticker-runtime-shell .delta.up   { color: #0c120e; background: #7CF29B; }
 .ticker-runtime-shell .delta.down { color: #fff; background: #6b2a34; }
 .ticker-runtime-shell .delta.even { color: #9aa3b1; background: #1b1f28; }
-.ticker-runtime-shell .delta.pts  { color: #9aa3b1; background: #1b1f28; }
+.ticker-runtime-shell .delta.pts  { color: #0c120e; background: #7CF29B; }
 .ticker-runtime-shell .board-multi .delta { font-size: 3.6cqh; padding: 0.3cqh 1.3cqh; }
 .ticker-runtime-shell .board-foot.summary { gap: 2.1cqh; font-family: 'Spline Sans Mono', monospace; }
 .ticker-runtime-shell .board-foot.summary .board-unit-group { display: inline-flex; align-items: center; gap: 2.1cqh; }

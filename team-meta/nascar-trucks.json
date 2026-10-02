@@ -1,0 +1,622 @@
+{
+  "league": "nascar-trucks",
+  "ts": "2026-06-21T14:52:44.943217+00:00",
+  "teams": {
+    "ankrum": {
+      "abbreviation": "",
+      "display_name": "Tyler Ankrum",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/trucks/ankrum_4296_badge.png",
+        "headshot": "nascar/trucks/ankrum_4296_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4296",
+        "team_name": "McAnally-Hilgemann Racing",
+        "car_number": "18",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/3/18.png",
+        "driver_series": "nascar-craftsman-truck-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "5584"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "boyd": {
+      "abbreviation": "",
+      "display_name": "Spencer Boyd",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/trucks/boyd_4192_badge.png",
+        "headshot": "nascar/trucks/boyd_4192_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4192",
+        "team_name": "Freedom Racing Enterprises",
+        "car_number": "76",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/3/76.png",
+        "driver_series": "nascar-craftsman-truck-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "4739"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "butcher": {
+      "abbreviation": "",
+      "display_name": "Cole Butcher",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/trucks/butcher_4523_badge.png",
+        "headshot": "nascar/trucks/butcher_4523_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4523",
+        "team_name": "ThorSport Racing",
+        "car_number": "13",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/3/13.png",
+        "driver_series": "nascar-craftsman-truck-series",
+        "manufacturer": "Ford",
+        "espn_athlete_id": "5864"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "eckes": {
+      "abbreviation": "",
+      "display_name": "Christian Eckes",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/trucks/eckes_4268_badge.png",
+        "headshot": "nascar/trucks/eckes_4268_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4268",
+        "team_name": "McAnally-Hilgemann Racing",
+        "car_number": "91",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/3/91.png",
+        "driver_series": "nascar-craftsman-truck-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "5554"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "enfinger": {
+      "abbreviation": "",
+      "display_name": "Grant Enfinger",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/trucks/enfinger_3978_badge.png",
+        "headshot": "nascar/trucks/enfinger_3978_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "3978",
+        "team_name": "CR7 Motorsports",
+        "car_number": "9",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/3/9.png",
+        "driver_series": "nascar-craftsman-truck-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "4462"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "friesen": {
+      "abbreviation": "",
+      "display_name": "Stewart Friesen",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/trucks/friesen_4205_badge.png",
+        "headshot": "nascar/trucks/friesen_4205_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4205",
+        "team_name": "Halmar Friesen Racing",
+        "car_number": "52",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/3/52.png",
+        "driver_series": "nascar-craftsman-truck-series",
+        "manufacturer": "Toyota",
+        "espn_athlete_id": "4749"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "garcia": {
+      "abbreviation": "",
+      "display_name": "Jake Garcia",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/trucks/garcia_4423_badge.png",
+        "headshot": "nascar/trucks/garcia_4423_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4423",
+        "team_name": "ThorSport Racing",
+        "car_number": "98",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/3/98.png",
+        "driver_series": "nascar-craftsman-truck-series",
+        "manufacturer": "Ford",
+        "espn_athlete_id": "5714"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "gray": {
+      "abbreviation": "",
+      "display_name": "Tanner Gray",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/trucks/gray_4342_badge.png",
+        "headshot": "nascar/trucks/gray_4342_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4342",
+        "team_name": "TRICON Garage",
+        "car_number": "15",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/3/15.png",
+        "driver_series": "nascar-craftsman-truck-series",
+        "manufacturer": "Toyota",
+        "espn_athlete_id": "5806"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "haley": {
+      "abbreviation": "",
+      "display_name": "Justin Haley",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/trucks/haley_4172_badge.png",
+        "headshot": "nascar/trucks/haley_4172_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4172",
+        "team_name": "Kaulig Racing",
+        "car_number": "16",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/3/16.png",
+        "driver_series": "nascar-craftsman-truck-series",
+        "espn_athlete_id": "4710"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "hemric": {
+      "abbreviation": "",
+      "display_name": "Daniel Hemric",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/trucks/hemric_4093_badge.png",
+        "headshot": "nascar/trucks/hemric_4093_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4093",
+        "team_name": "McAnally-Hilgemann Racing",
+        "car_number": "19",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/3/19.png",
+        "driver_series": "nascar-craftsman-truck-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "4611"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "honeycutt": {
+      "abbreviation": "",
+      "display_name": "Kaden Honeycutt",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/trucks/honeycutt_4427_badge.png",
+        "headshot": "nascar/trucks/honeycutt_4427_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4427",
+        "team_name": "TRICON Garage",
+        "car_number": "11",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/3/11.png",
+        "driver_series": "nascar-craftsman-truck-series",
+        "manufacturer": "Toyota",
+        "espn_athlete_id": "5716"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "lajoie": {
+      "abbreviation": "",
+      "display_name": "Corey LaJoie",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/trucks/lajoie_4096_badge.png",
+        "headshot": "nascar/trucks/lajoie_4096_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4096",
+        "team_name": "Kaulig Racing",
+        "car_number": "10",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/3/10.png",
+        "driver_series": "nascar-craftsman-truck-series",
+        "espn_athlete_id": "4615"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "little": {
+      "abbreviation": "",
+      "display_name": "Jesse Little",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/trucks/little_4150_badge.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4150",
+        "team_name": "Young's Motorsports",
+        "car_number": "02",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/3/02.png",
+        "driver_series": "nascar-craftsman-truck-series",
+        "manufacturer": "Chevrolet"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "majeski": {
+      "abbreviation": "",
+      "display_name": "Ty Majeski",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/trucks/majeski_4235_badge.png",
+        "headshot": "nascar/trucks/majeski_4235_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4235",
+        "team_name": "ThorSport Racing",
+        "car_number": "88",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/3/88.png",
+        "driver_series": "nascar-craftsman-truck-series",
+        "manufacturer": "Ford",
+        "espn_athlete_id": "4785"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "muniz": {
+      "abbreviation": "",
+      "display_name": "Frankie Muniz",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/trucks/muniz_4478_badge.png",
+        "headshot": "nascar/trucks/muniz_4478_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4478",
+        "team_name": "Team Reaume",
+        "car_number": "33",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/3/33.png",
+        "driver_series": "nascar-craftsman-truck-series",
+        "manufacturer": "Ford",
+        "espn_athlete_id": "5796"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "p\u00e9rez": {
+      "abbreviation": "",
+      "display_name": "Andr\u00e9s P\u00e9rez",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/trucks/p\u00e9rez_4490_badge.png",
+        "headshot": "nascar/trucks/p\u00e9rez_4490_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4490",
+        "team_name": "Niece Motorsports",
+        "car_number": "44",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/3/44.png",
+        "driver_series": "nascar-craftsman-truck-series",
+        "manufacturer": "Chevrolet"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "queen": {
+      "abbreviation": "",
+      "display_name": "Brenden Queen",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/trucks/queen_4487_badge.png",
+        "headshot": "nascar/trucks/queen_4487_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4487",
+        "team_name": "Kaulig Racing",
+        "car_number": "12",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/3/12.png",
+        "driver_series": "nascar-craftsman-truck-series",
+        "espn_athlete_id": "5812"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "reaume": {
+      "abbreviation": "",
+      "display_name": "Josh Reaume",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/trucks/reaume_4102_badge.png",
+        "headshot": "nascar/trucks/reaume_4102_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4102",
+        "team_name": "Team Reaume",
+        "car_number": "22",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/3/22.png",
+        "driver_series": "nascar-craftsman-truck-series",
+        "manufacturer": "Ford",
+        "espn_athlete_id": "4586"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "rhodes": {
+      "abbreviation": "",
+      "display_name": "Ben Rhodes",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/trucks/rhodes_4107_badge.png",
+        "headshot": "nascar/trucks/rhodes_4107_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4107",
+        "team_name": "ThorSport Racing",
+        "car_number": "99",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/3/99.png",
+        "driver_series": "nascar-craftsman-truck-series",
+        "manufacturer": "Ford",
+        "espn_athlete_id": "4638"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "riggs": {
+      "abbreviation": "",
+      "display_name": "Layne Riggs",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/trucks/riggs_4446_badge.png",
+        "headshot": "nascar/trucks/riggs_4446_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4446",
+        "team_name": "Front Row Motorsports",
+        "car_number": "34",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/3/34.png",
+        "driver_series": "nascar-craftsman-truck-series",
+        "manufacturer": "Ford",
+        "espn_athlete_id": "5736"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "ruggiero": {
+      "abbreviation": "",
+      "display_name": "Gio Ruggiero",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/trucks/ruggiero_4503_badge.png",
+        "headshot": "nascar/trucks/ruggiero_4503_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4503",
+        "team_name": "TRICON Garage",
+        "car_number": "17",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/3/17.png",
+        "driver_series": "nascar-craftsman-truck-series",
+        "manufacturer": "Toyota",
+        "espn_athlete_id": "5839"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "smith": {
+      "abbreviation": "",
+      "display_name": "Chandler Smith",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/trucks/smith_4312_badge.png",
+        "headshot": "nascar/trucks/smith_4312_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4312",
+        "team_name": "Front Row Motorsports",
+        "car_number": "38",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/3/38.png",
+        "driver_series": "nascar-craftsman-truck-series",
+        "manufacturer": "Ford",
+        "espn_athlete_id": "5558"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "sutton": {
+      "abbreviation": "",
+      "display_name": "Dawson Sutton",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/trucks/sutton_4488_badge.png",
+        "headshot": "nascar/trucks/sutton_4488_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4488",
+        "team_name": "Rackley WAR",
+        "car_number": "26",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/3/26.png",
+        "driver_series": "nascar-craftsman-truck-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "5814"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "tyrrell": {
+      "abbreviation": "",
+      "display_name": "Timothy Tyrrell",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/trucks/tyrrell_4529_badge.png",
+        "headshot": "nascar/trucks/tyrrell_4529_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4529",
+        "team_name": "Kaulig Racing",
+        "car_number": "14",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/3/14.png",
+        "driver_series": "nascar-craftsman-truck-series",
+        "espn_athlete_id": "5877"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    }
+  }
+}

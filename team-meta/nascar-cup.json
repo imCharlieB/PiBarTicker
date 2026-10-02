@@ -1,0 +1,964 @@
+{
+  "league": "nascar-cup",
+  "ts": "2026-06-21T14:52:44.751391+00:00",
+  "teams": {
+    "allmendinger": {
+      "abbreviation": "",
+      "display_name": "AJ Allmendinger",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/allmendinger_3774_badge.png",
+        "headshot": "nascar/cup/allmendinger_3774_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "3774",
+        "team_name": "Kaulig Racing",
+        "car_number": "16",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/16.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "805"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "anderson": {
+      "abbreviation": "",
+      "display_name": "Jordan Anderson",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/anderson_4139_badge.png",
+        "headshot": "nascar/cup/anderson_4139_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4139",
+        "car_number": "3",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/3.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "4675"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "bell": {
+      "abbreviation": "",
+      "display_name": "Christopher Bell",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/bell_4153_badge.png",
+        "headshot": "nascar/cup/bell_4153_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4153",
+        "team_name": "Joe Gibbs Racing",
+        "car_number": "20",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/20.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Toyota",
+        "espn_athlete_id": "4700"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "berry": {
+      "abbreviation": "",
+      "display_name": "Josh Berry",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/berry_4123_badge.png",
+        "headshot": "nascar/cup/berry_4123_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4123",
+        "team_name": "Wood Brothers Racing",
+        "car_number": "21",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/21.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Ford",
+        "espn_athlete_id": "4656"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "blaney": {
+      "abbreviation": "",
+      "display_name": "Ryan Blaney",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/blaney_4023_badge.png",
+        "headshot": "nascar/cup/blaney_4023_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4023",
+        "team_name": "Team Penske",
+        "car_number": "12",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/12.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Ford",
+        "espn_athlete_id": "4531"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "bowman": {
+      "abbreviation": "",
+      "display_name": "Alex Bowman",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/bowman_4045_badge.png",
+        "headshot": "nascar/cup/bowman_4045_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4045",
+        "team_name": "Hendrick Motorsports",
+        "car_number": "48",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/48.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "4555"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "briscoe": {
+      "abbreviation": "",
+      "display_name": "Chase Briscoe",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/briscoe_4228_badge.png",
+        "headshot": "nascar/cup/briscoe_4228_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4228",
+        "team_name": "Joe Gibbs Racing",
+        "car_number": "19",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/19.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Toyota",
+        "espn_athlete_id": "4773"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "buescher": {
+      "abbreviation": "",
+      "display_name": "Chris Buescher",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/buescher_3989_badge.png",
+        "headshot": "nascar/cup/buescher_3989_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "3989",
+        "team_name": "RFK Racing",
+        "car_number": "17",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/17.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Ford",
+        "espn_athlete_id": "4480"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "byron": {
+      "abbreviation": "",
+      "display_name": "William Byron",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/byron_4184_badge.png",
+        "headshot": "nascar/cup/byron_4184_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4184",
+        "team_name": "Hendrick Motorsports",
+        "car_number": "24",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/24.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "4721"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "chastain": {
+      "abbreviation": "",
+      "display_name": "Ross Chastain",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/chastain_4001_badge.png",
+        "headshot": "nascar/cup/chastain_4001_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4001",
+        "team_name": "Trackhouse Racing",
+        "car_number": "1",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/1.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "4495"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "cindric": {
+      "abbreviation": "",
+      "display_name": "Austin Cindric",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/cindric_4180_badge.png",
+        "headshot": "nascar/cup/cindric_4180_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4180",
+        "team_name": "Team Penske",
+        "car_number": "2",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/2.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Ford",
+        "espn_athlete_id": "4718"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "custer": {
+      "abbreviation": "",
+      "display_name": "Cole Custer",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/custer_4104_badge.png",
+        "headshot": "nascar/cup/custer_4104_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4104",
+        "team_name": "Haas Factory Team",
+        "car_number": "41",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/41.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "4634"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "dillon": {
+      "abbreviation": "",
+      "display_name": "Austin Dillon",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/dillon_3873_badge.png",
+        "headshot": "nascar/cup/dillon_3873_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "3873",
+        "team_name": "Richard Childress Racing",
+        "car_number": "3",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/3.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "4332"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "elliott": {
+      "abbreviation": "",
+      "display_name": "Chase Elliott",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/elliott_4062_badge.png",
+        "headshot": "nascar/cup/elliott_4062_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4062",
+        "team_name": "Hendrick Motorsports",
+        "car_number": "9",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/9.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "4574"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "gibbs": {
+      "abbreviation": "",
+      "display_name": "Ty Gibbs",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/gibbs_4368_badge.png",
+        "headshot": "nascar/cup/gibbs_4368_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4368",
+        "team_name": "Joe Gibbs Racing",
+        "car_number": "54",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/54.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Toyota",
+        "espn_athlete_id": "5651"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "gilliland": {
+      "abbreviation": "",
+      "display_name": "Todd Gilliland",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/gilliland_4231_badge.png",
+        "headshot": "nascar/cup/gilliland_4231_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4231",
+        "team_name": "Front Row Motorsports",
+        "car_number": "34",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/34.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Ford",
+        "espn_athlete_id": "4782"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "gragson": {
+      "abbreviation": "",
+      "display_name": "Noah Gragson",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/gragson_4224_badge.png",
+        "headshot": "nascar/cup/gragson_4224_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4224",
+        "team_name": "Front Row Motorsports",
+        "car_number": "4",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/4.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Ford",
+        "espn_athlete_id": "4768"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "grala": {
+      "abbreviation": "",
+      "display_name": "Kaz Grala",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/grala_4191_badge.png",
+        "headshot": "nascar/cup/grala_4191_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4191",
+        "team_name": "Rick Ware Racing",
+        "car_number": "15",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/15.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Ford",
+        "espn_athlete_id": "4737"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "hamlin": {
+      "abbreviation": "",
+      "display_name": "Denny Hamlin",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/hamlin_1361_badge.png",
+        "headshot": "nascar/cup/hamlin_1361_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "1361",
+        "team_name": "Joe Gibbs Racing",
+        "car_number": "11",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/11.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Toyota",
+        "espn_athlete_id": "747"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "herbst": {
+      "abbreviation": "",
+      "display_name": "Riley Herbst",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/herbst_4269_badge.png",
+        "headshot": "nascar/cup/herbst_4269_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4269",
+        "team_name": "23XI Racing",
+        "car_number": "35",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/35.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Toyota",
+        "espn_athlete_id": "5555"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "hocevar": {
+      "abbreviation": "",
+      "display_name": "Carson Hocevar",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/hocevar_4326_badge.png",
+        "headshot": "nascar/cup/hocevar_4326_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4326",
+        "team_name": "Spire Motorsports",
+        "car_number": "77",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/77.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "5610"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "johnson": {
+      "abbreviation": "",
+      "display_name": "Jimmie Johnson",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/johnson_1717_badge.png",
+        "headshot": "nascar/cup/johnson_1717_headshot.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "1717",
+        "team_name": "Legacy Motor Club",
+        "car_number": "84",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/84.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Toyota",
+        "espn_athlete_id": "227"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "jones": {
+      "abbreviation": "",
+      "display_name": "Erik Jones",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/jones_4059_badge.png",
+        "headshot": "nascar/cup/jones_4059_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4059",
+        "team_name": "Legacy Motor Club",
+        "car_number": "43",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/43.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Toyota",
+        "espn_athlete_id": "4777"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "keselowski": {
+      "abbreviation": "",
+      "display_name": "Brad Keselowski",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/keselowski_1816_badge.png",
+        "headshot": "nascar/cup/keselowski_1816_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "1816",
+        "team_name": "RFK Racing",
+        "car_number": "6",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/6.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Ford",
+        "espn_athlete_id": "626"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "larson": {
+      "abbreviation": "",
+      "display_name": "Kyle Larson",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/larson_4030_badge.png",
+        "headshot": "nascar/cup/larson_4030_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4030",
+        "team_name": "Hendrick Motorsports",
+        "car_number": "5",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/5.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "4539"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "logano": {
+      "abbreviation": "",
+      "display_name": "Joey Logano",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/logano_3859_badge.png",
+        "headshot": "nascar/cup/logano_3859_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "3859",
+        "team_name": "Team Penske",
+        "car_number": "22",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/22.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Ford",
+        "espn_athlete_id": "4319"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "mcdowell": {
+      "abbreviation": "",
+      "display_name": "Michael McDowell",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/mcdowell_3832_badge.png",
+        "headshot": "nascar/cup/mcdowell_3832_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "3832",
+        "team_name": "Spire Motorsports",
+        "car_number": "71",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/71.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "4729"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "nemechek": {
+      "abbreviation": "",
+      "display_name": "John Hunter Nemechek",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/nemechek_4092_badge.png",
+        "headshot": "nascar/cup/nemechek_4092_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4092",
+        "team_name": "Legacy Motor Club",
+        "car_number": "42",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/42.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Toyota",
+        "espn_athlete_id": "4612"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "preece": {
+      "abbreviation": "",
+      "display_name": "Ryan Preece",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/preece_4070_badge.png",
+        "headshot": "nascar/cup/preece_4070_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4070",
+        "team_name": "RFK Racing",
+        "car_number": "60",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/60.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Ford",
+        "espn_athlete_id": "4585"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "reddick": {
+      "abbreviation": "",
+      "display_name": "Tyler Reddick",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/reddick_4065_badge.png",
+        "headshot": "nascar/cup/reddick_4065_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4065",
+        "team_name": "23XI Racing",
+        "car_number": "45",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/45.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Toyota",
+        "espn_athlete_id": "4577"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "smith": {
+      "abbreviation": "",
+      "display_name": "Zane Smith",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/smith_4272_badge.png",
+        "headshot": "nascar/cup/smith_4272_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4272",
+        "team_name": "Front Row Motorsports",
+        "car_number": "38",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/38.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Ford",
+        "espn_athlete_id": "5558"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "stenhouse jr.": {
+      "abbreviation": "",
+      "display_name": "Ricky Stenhouse Jr.",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/stenhouse jr._3888_badge.png",
+        "headshot": "nascar/cup/stenhouse jr._3888_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "3888",
+        "team_name": "HYAK Motorsports",
+        "car_number": "47",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/47.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Chevrolet"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "su\u00e1rez": {
+      "abbreviation": "",
+      "display_name": "Daniel Su\u00e1rez",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/su\u00e1rez_4113_badge.png",
+        "headshot": "nascar/cup/su\u00e1rez_4113_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4113",
+        "team_name": "Spire Motorsports",
+        "car_number": "7",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/7.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Chevrolet"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "van gisbergen": {
+      "abbreviation": "",
+      "display_name": "Shane van Gisbergen",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/van gisbergen_4469_badge.png",
+        "headshot": "nascar/cup/van gisbergen_4469_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4469",
+        "team_name": "Trackhouse Racing",
+        "car_number": "97",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/97.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Chevrolet"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "wallace": {
+      "abbreviation": "",
+      "display_name": "Bubba Wallace",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/wallace_4025_badge.png",
+        "headshot": "nascar/cup/wallace_4025_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4025",
+        "team_name": "23XI Racing",
+        "car_number": "23",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/23.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Toyota",
+        "espn_athlete_id": "4534"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "ware": {
+      "abbreviation": "",
+      "display_name": "Cody Ware",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/ware_4125_badge.png",
+        "headshot": "nascar/cup/ware_4125_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4125",
+        "team_name": "Rick Ware Racing",
+        "car_number": "51",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/51.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "4658"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    },
+    "zilisch": {
+      "abbreviation": "",
+      "display_name": "Connor Zilisch",
+      "color": "",
+      "alternate_color": "",
+      "logos": {
+        "badge": "nascar/cup/zilisch_4481_badge.png",
+        "headshot": "nascar/cup/zilisch_4481_photo.png"
+      },
+      "remote_urls": {
+        "nascar_driver_id": "4481",
+        "team_name": "Trackhouse Racing",
+        "car_number": "88",
+        "badge_image": "https://cf.nascar.com/data/images/carbadges/1/88.png",
+        "driver_series": "nascar-cup-series",
+        "manufacturer": "Chevrolet",
+        "espn_athlete_id": "5801"
+      },
+      "preferred_variant": null,
+      "available_variants": [
+        "badge",
+        "headshot"
+      ],
+      "groups": [],
+      "conference_name": ""
+    }
+  }
+}

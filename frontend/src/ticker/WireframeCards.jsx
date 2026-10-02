@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   densityFlags,
   formatRuntimeStatus,
@@ -162,6 +162,25 @@ function FlagChip({ state }) {
   if (!s || s === 'checkered' || s === 'white') return null
   const cls = s === 'green' ? 'chip-flag-green' : s === 'red' ? 'chip-flag-red' : 'chip-flag-yellow'
   return <span className={`chip ${cls}`}>{s.toUpperCase()}</span>
+}
+
+// Driver headshot → car badge → colored dot, with a real fallback chain (not just "does the URL
+// string exist") — an existing-but-dead headshot URL (ESPN doesn't have a photo for every driver,
+// confirmed 2026-10-02: some newer/rookie drivers 404 there even though their car badge is fine)
+// was showing broken/blank instead of ever trying the badge, same bug LogoBox above already
+// solves for team logos via onError + useState; this applies that same pattern here.
+function DriverImage({ headshot, carBadge, color, name, hsClass, badgeClass, dotClass }) {
+  const [hsErr, setHsErr] = useState(false)
+  const [badgeErr, setBadgeErr] = useState(false)
+  useEffect(() => { setHsErr(false) }, [headshot])
+  useEffect(() => { setBadgeErr(false) }, [carBadge])
+  if (headshot && !hsErr) {
+    return <img className={hsClass} src={headshot} alt={name} onError={() => setHsErr(true)} />
+  }
+  if (carBadge && !badgeErr) {
+    return <img className={badgeClass} src={carBadge} alt={name} onError={() => setBadgeErr(true)} />
+  }
+  return <span className={dotClass} style={{ background: color }} />
 }
 
 function LogoBox({ team, side, size }) {
@@ -627,7 +646,17 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
       carBadge: leaderEntry.carBadge ? (leaderEntry.carBadge.startsWith('http') ? leaderEntry.carBadge : `/logos/${leaderEntry.carBadge}`) : null,
       points: Number.isInteger(leaderEntry.points) ? leaderEntry.points : null,
     }
-    const fieldRowsAll = displayEntries.slice(1).map((entry, i) => ({
+    // Same single-column-vs-grid split as the final card (4 fits one column on the real
+    // 380px-tall card; more than that reuses the generic board's proven grid system). In
+    // non-solo mode the generic entryLimit cap (6 total = leader + 5) always lands one over
+    // SOLO_MAX, which used to force unwanted compact "board-multi" styling for just 5 rows in
+    // what's still really 1 column. Hard-cap to SOLO_MAX there instead of letting the grid
+    // math kick in at all — only a genuinely solo slate with a big field needs real columns.
+    const SOLO_MAX = 4
+    const GRID_MAX_PER_COL = 5
+    const GRID_MAX_COLS = 8
+    const fieldSource = isSoloSlate ? displayEntries.slice(1) : displayEntries.slice(1, 1 + SOLO_MAX)
+    const fieldRowsAll = fieldSource.map((entry, i) => ({
       pos: entry.position ?? i + 2,
       name: entry.shortName || entry.name || 'Driver',
       color: entryColor(entry),
@@ -635,11 +664,6 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
       carBadge: entry.carBadge ? (entry.carBadge.startsWith('http') ? entry.carBadge : `/logos/${entry.carBadge}`) : null,
       pointsGap: Number.isInteger(entry.pointsGap) ? entry.pointsGap : null,
     }))
-    // Same single-column-vs-grid split as the final card (4 fits one column on the real
-    // 380px-tall card; more than that reuses the generic board's proven grid system).
-    const SOLO_MAX = 4
-    const GRID_MAX_PER_COL = 5
-    const GRID_MAX_COLS = 8
     const useGrid = fieldRowsAll.length > SOLO_MAX
     const cols = useGrid ? Math.min(GRID_MAX_COLS, Math.ceil(fieldRowsAll.length / GRID_MAX_PER_COL)) : 1
     const perCol = useGrid
@@ -651,11 +675,10 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
       <div className={`card d-board d-board-final ${dirClass} ${useGrid ? 'board-multi' : ''}`}>
         <div className="winner-zone" style={{ '--rc': leader.color }}>
           <span className="winner-eyebrow">POINTS LEADER</span>
-          {leader.headshot
-            ? <img className="winner-hs" src={leader.headshot} alt={leader.name} />
-            : leader.carBadge
-              ? <img className="winner-badge" src={leader.carBadge} alt={leader.name} />
-              : <span className="winner-dot" style={{ background: leader.color }} />}
+          <DriverImage
+            headshot={leader.headshot} carBadge={leader.carBadge} color={leader.color} name={leader.name}
+            hsClass="winner-hs" badgeClass="winner-badge" dotClass="winner-dot"
+          />
           <span className="winner-name">{leader.name}</span>
           {leader.team ? <span className="winner-team">{leader.team}</span> : null}
           {leader.points != null ? (
@@ -679,11 +702,10 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
             {fieldRows.map((r, i) => (
               <div key={i} className="board-row" style={{ '--rc': r.color }}>
                 <span className="board-pos">{r.pos}</span>
-                {r.headshot
-                  ? <img className="board-hs" src={r.headshot} alt={r.name} />
-                  : r.carBadge
-                    ? <img className="board-badge" src={r.carBadge} alt={r.name} />
-                    : <span className="board-dot" style={{ background: r.color }} />}
+                <DriverImage
+                  headshot={r.headshot} carBadge={r.carBadge} color={r.color} name={r.name}
+                  hsClass="board-hs" badgeClass="board-badge" dotClass="board-dot"
+                />
                 <span className="board-name">{r.name}</span>
                 {r.pointsGap != null ? <span className="delta pts">{r.pointsGap}</span> : null}
               </div>
@@ -793,7 +815,11 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
       inChase: Boolean(winnerEntry.inChase),
     }
     const margin = formatRaceMargin(game.raceSummary.marginOfVictory)
-    const fieldRowsAll = displayEntries.slice(1).map((entry, i) => {
+    // Non-solo mode's generic entryLimit cap (6 total = winner + 5) always lands one over the
+    // 4-row single-column capacity, which used to force unwanted compact "board-multi" styling
+    // for what's still really just 1 column of 5. Hard-cap to 4 there instead; only a genuinely
+    // solo slate with a big field needs the real multi-column grid below.
+    const fieldRowsAll = (isSoloSlate ? displayEntries.slice(1) : displayEntries.slice(1, 5)).map((entry, i) => {
       const pos = entry.position ?? i + 2
       const startPos = Number.isInteger(entry.startPosition) ? entry.startPosition : null
       const delta = startPos != null ? startPos - pos : null
@@ -834,11 +860,10 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
       <div className={`card d-board d-board-final ${dirClass} ${useFieldGrid ? 'board-multi' : ''}`}>
         <div className="winner-zone" style={{ '--rc': winner.color }}>
           <span className="winner-eyebrow">WINNER</span>
-          {winner.headshot
-            ? <img className="winner-hs" src={winner.headshot} alt={winner.name} />
-            : winner.carBadge
-              ? <img className="winner-badge" src={winner.carBadge} alt={winner.name} />
-              : <span className="winner-dot" style={{ background: winner.color }} />}
+          <DriverImage
+            headshot={winner.headshot} carBadge={winner.carBadge} color={winner.color} name={winner.name}
+            hsClass="winner-hs" badgeClass="winner-badge" dotClass="winner-dot"
+          />
           <span className="winner-name">{winner.name}{winner.inChase ? <i className="mdi mdi-trophy board-chase winner-chase" title="Playoff driver" /> : null}</span>
           {winner.team ? <span className="winner-team">{winner.team}</span> : null}
           {(margin || winner.lapsLed) ? (
@@ -863,11 +888,10 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
             {fieldRows.map((r, i) => (
               <div key={i} className="board-row" style={{ '--rc': r.color }}>
                 <span className="board-pos">{r.pos}</span>
-                {r.headshot
-                  ? <img className="board-hs" src={r.headshot} alt={r.name} />
-                  : r.carBadge
-                    ? <img className="board-badge" src={r.carBadge} alt={r.name} />
-                    : <span className="board-dot" style={{ background: r.color }} />}
+                <DriverImage
+                  headshot={r.headshot} carBadge={r.carBadge} color={r.color} name={r.name}
+                  hsClass="board-hs" badgeClass="board-badge" dotClass="board-dot"
+                />
                 <span className="board-name">{r.name}</span>
                 {r.inChase ? <i className="mdi mdi-trophy board-chase" title="Playoff driver" /> : null}
                 {r.delta != null
@@ -944,11 +968,10 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
         {visibleRows.map((r, i) => (
           <div key={i} className={`board-row ${i === 0 ? 'leader' : ''} ${r.headshot ? 'has-hs' : r.carBadge ? 'has-badge' : ''}`} style={{ '--rc': r.color }}>
             <span className="board-pos">{r.pos}</span>
-            {r.headshot
-              ? <img className="board-hs" src={r.headshot} alt={r.name} />
-              : r.carBadge
-                ? <img className="board-badge" src={r.carBadge} alt={r.name} />
-                : <span className="board-dot" style={{ background: r.color }} />}
+            <DriverImage
+              headshot={r.headshot} carBadge={r.carBadge} color={r.color} name={r.name}
+              hsClass="board-hs" badgeClass="board-badge" dotClass="board-dot"
+            />
             <span className="board-name">{r.name}</span>
             {r.inChase ? <i className="mdi mdi-trophy board-chase" title="Playoff driver" /> : null}
             <span className="board-detail">{r.detail}</span>

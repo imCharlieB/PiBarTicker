@@ -636,7 +636,7 @@
   border: 1px solid rgba(255,255,255,.1); border-radius: 4.7cqh;
   padding: 2.6cqh 5.8cqh 2.6cqh 3.2cqh; box-shadow: 0 12px 36px rgba(0,0,0,.45);
 }
-.ticker-runtime-shell .l3-logo  { width: 13.7cqh; height: 13.7cqh; object-fit: contain; flex: 0 0 auto; background: rgba(245,248,252,.95); border-radius: 3.2cqh; padding: 1.6cqh; }
+.ticker-runtime-shell .l3-logo  { height: 13.7cqh; width: auto; max-width: 28cqh; object-fit: contain; flex: 0 0 auto; background: rgba(245,248,252,.95); border-radius: 3.2cqh; padding: 1.6cqh; }
 .ticker-runtime-shell .l3-badge { font-weight: 900; font-size: 6.3cqh; letter-spacing: .07em; color: #0c120e; background: #cfd6e2; padding: 2.6cqh 4.2cqh; border-radius: 2.6cqh; }
 .ticker-runtime-shell .l3-time  { font-family: 'Spline Sans Mono', monospace; font-weight: 700; font-size: 7.9cqh; color: #e7edf6; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
 

@@ -130,6 +130,19 @@ function splitDateTime(text) {
   return m ? { date: m[1].trim(), time: m[2].trim() } : { date: text, time: '' }
 }
 
+// cf.nascar.com's race_list_basic schedule[] gives start_time_utc without a trailing "Z" or
+// offset despite the name ("2026-10-03T20:30:00") — append one so Date doesn't read it as local.
+function formatScheduleTime(raw) {
+  const s = String(raw || '').trim()
+  if (!s) return ''
+  const hasTz = /Z$|[+-]\d\d:\d\d$/.test(s)
+  const date = new Date(hasTz ? s : `${s}Z`)
+  if (Number.isNaN(date.getTime())) return ''
+  return new Intl.DateTimeFormat('en-US', {
+    weekday: 'short', hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
+  }).format(date)
+}
+
 // ── Shared atoms ───────────────────────────────────────────────────────────
 
 function StateChip({ game, className }) {
@@ -607,8 +620,13 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
       || String(game?.status?.shortDetail || '').trim()
     const circuitImg = String(game?.circuitImage || '').trim()
     const circuitName = String(game?.circuitName || '').trim()
+    // NASCAR-only in practice (raceDetails is only ever set by the NASCAR backend enrichment),
+    // and only when there's no circuit image — F1 always has one, so it never reaches this
+    // branch and its board-pre-circuit layout/width is completely unaffected.
+    const raceDetails = !circuitImg ? game?.raceDetails : null
+    const playoffBadge = String(game?.playoffBadge || '').trim()
     return (
-      <div className={`card d-board ${dirClass} board-pre ${circuitImg ? 'board-pre-circuit' : ''}`}>
+      <div className={`card d-board ${dirClass} board-pre ${circuitImg ? 'board-pre-circuit' : ''} ${raceDetails ? 'board-pre-nascar' : ''}`}>
         <div className="board-head">
           <div className="board-titles">
             <span className="board-title">{title}</span>
@@ -634,6 +652,40 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
                 className="bpre-circuit-img"
                 onError={(e) => { e.currentTarget.closest('.bpre-circuit')?.remove() }}
               />
+            </div>
+          ) : raceDetails ? (
+            <div className="bpre-nascar">
+              <div className="bn-top">
+                <div className="bn-facts">
+                  {raceDetails.trackName ? <b>{raceDetails.trackName}</b> : null}
+                  {raceDetails.scheduledDistance ? <><span className="dot">·</span><span>{raceDetails.scheduledDistance} mi</span></> : null}
+                  {raceDetails.scheduledLaps ? <><span className="dot">·</span><span>{raceDetails.scheduledLaps} laps</span></> : null}
+                  {raceDetails.numberOfCarsInField ? <><span className="dot">·</span><span>{raceDetails.numberOfCarsInField} cars</span></> : null}
+                </div>
+                {playoffBadge && raceDetails.isPlayoffs
+                  ? <img className="bn-badge" src={playoffBadge.startsWith('http') ? playoffBadge : `/logos/${playoffBadge}`} alt="Playoffs" />
+                  : null}
+              </div>
+              {(raceDetails.stage1Laps || raceDetails.stage2Laps || raceDetails.stage3Laps) ? (
+                <div className="bn-stages">
+                  {raceDetails.stage1Laps ? <div className="bn-stage" style={{ flexGrow: raceDetails.stage1Laps }}>STAGE 1 · {raceDetails.stage1Laps}</div> : null}
+                  {raceDetails.stage2Laps ? <div className="bn-stage" style={{ flexGrow: raceDetails.stage2Laps }}>STAGE 2 · {raceDetails.stage2Laps}</div> : null}
+                  {raceDetails.stage3Laps ? <div className="bn-stage" style={{ flexGrow: raceDetails.stage3Laps }}>STAGE 3 · {raceDetails.stage3Laps}</div> : null}
+                </div>
+              ) : null}
+              {Array.isArray(raceDetails.schedule) && raceDetails.schedule.length ? (
+                <div className="bn-sched">
+                  {raceDetails.schedule.map((s, i) => (
+                    <div key={i} className="bn-sched-row">
+                      <span className="bn-sched-label">{s.label}</span>
+                      <span className="bn-sched-time">{formatScheduleTime(s.startTimeUtc)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              {raceDetails.lastRaceWinner ? (
+                <div className="bn-last">Last race: <b>{raceDetails.lastRaceWinner}</b> won at {raceDetails.lastRaceTrack}</div>
+              ) : null}
             </div>
           ) : null}
         </div>

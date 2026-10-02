@@ -493,6 +493,33 @@
   object-fit: contain; opacity: 0.9;
 }
 
+/* Board: NASCAR upcoming-race info panel — fills the space F1's circuit map occupies for F1,
+   left empty for every other racing league. Separate class/selectors from .bpre-circuit /
+   .board-pre-circuit above, which stay completely untouched — F1 always has a circuitImage so
+   it never reaches this branch. See WireframeCards.jsx's board-pre-nascar gating.
+   .bpre-when's 49.5cqh base flex-basis is a function of card HEIGHT, not width, so widening the
+   card alone doesn't widen it — needs its own override here, scoped to this class only. */
+.ticker-runtime-shell .d-board.board-pre-nascar { width: 224cqh; }
+.ticker-runtime-shell .board-pre-nascar .bpre-when { flex-basis: 70cqh; }
+.ticker-runtime-shell .board-pre-nascar .bpre-time { font-size: 10cqh; }
+.ticker-runtime-shell .bpre-nascar { flex: 1; display: flex; flex-direction: column; justify-content: space-between; min-width: 0; }
+.ticker-runtime-shell .bn-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 3.2cqh; }
+.ticker-runtime-shell .bn-facts { display: flex; flex-wrap: wrap; gap: 2.1cqh; font-size: 4.7cqh; color: #9aa3b1; font-weight: 700; padding-top: 0.5cqh; }
+.ticker-runtime-shell .bn-facts b { color: #eef2f8; font-weight: 800; }
+.ticker-runtime-shell .bn-facts .dot { color: #3a4150; }
+.ticker-runtime-shell .bn-badge { height: 21cqh; width: auto; flex: 0 0 auto; object-fit: contain; }
+.ticker-runtime-shell .bn-stages { display: flex; height: 9.5cqh; border-radius: 1.6cqh; overflow: hidden; }
+.ticker-runtime-shell .bn-stage { display: flex; align-items: center; justify-content: center; font-size: 3.7cqh; font-weight: 800; color: #0c0e13; }
+.ticker-runtime-shell .bn-stage:nth-child(1) { background: #7CF29B; }
+.ticker-runtime-shell .bn-stage:nth-child(2) { background: #F2C94C; }
+.ticker-runtime-shell .bn-stage:nth-child(3) { background: #e9a23d; }
+.ticker-runtime-shell .bn-sched { display: flex; flex-direction: column; gap: 2.4cqh; }
+.ticker-runtime-shell .bn-sched-row { display: flex; align-items: baseline; gap: 2.6cqh; font-size: 4.9cqh; }
+.ticker-runtime-shell .bn-sched-label { width: 31cqh; flex: 0 0 auto; font-weight: 800; letter-spacing: .1em; color: #6b7480; text-transform: uppercase; font-size: 3.7cqh; }
+.ticker-runtime-shell .bn-sched-time { font-family: 'Spline Sans Mono', monospace; font-weight: 700; color: #eef2f8; }
+.ticker-runtime-shell .bn-last { font-size: 4.2cqh; color: #9aa3b1; font-weight: 700; border-top: 1px dashed #232a36; padding-top: 2.6cqh; }
+.ticker-runtime-shell .bn-last b { color: #eef2f8; }
+
 /* ── Baseball live (full diamond + B/S/O) ───────────────────────────────── */
 .ticker-runtime-shell .live         { display: flex; align-items: center; gap: 4.7cqh; }
 .ticker-runtime-shell .live-compact { flex-direction: column; gap: 2.6cqh; align-items: center; }

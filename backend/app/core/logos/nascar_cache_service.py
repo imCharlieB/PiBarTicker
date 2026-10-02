@@ -75,6 +75,16 @@ _SERIES_SUBFOLDER: dict[str, str] = {
     "nascar-trucks": "trucks",
 }
 
+# Official per-series playoff badges. Static assets (don't change mid-season), so these are
+# just hardcoded rather than discovered from an API. Source URLs for reference/re-fetching —
+# the automated download below will likely fail in production (see _download_bytes); the actual
+# files were fetched once via curl and committed to logos/nascar/ + team-meta/nascar-series.json.
+_PLAYOFF_BADGE_URLS: dict[str, str] = {
+    "nascar-cup": "https://www.nascar.com/wp-content/uploads/sites/7/2025/08/26/NCS_PLAYOFFS_BADGE_FullColor_RGB-1.png",
+    "nascar-xfinity": "https://www.nascar.com/wp-content/uploads/sites/7/2025/03/15/nxs_playoffs.png",
+    "nascar-trucks": "https://www.nascar.com/wp-content/uploads/sites/7/2022/09/04/NCTS_Playoffs_FullColor_RGB.png",
+}
+
 # Known manufacturer logo URL substrings → display name
 _MANUFACTURER_NAMES: dict[str, str] = {
     "chevrolet": "Chevrolet",
@@ -129,7 +139,23 @@ def _fetch_json(url: str) -> Any:
 
 def _download_bytes(url: str) -> bytes | None:
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        # www.nascar.com/wp-content/... (series logos, playoff badges) sits behind Cloudflare
+        # bot management, which fingerprints the TLS handshake itself, not just headers.
+        # Confirmed 2026-10-01: a User-Agent + Referer gets curl (Windows/Schannel) a 200, but
+        # Python's urllib/httpx (OpenSSL-based, same as this call) still gets a hard 403 from
+        # Cloudflare with byte-identical headers — so this will very likely still fail from the
+        # production Pi (Linux, also OpenSSL-based) the same way it does here. Headers kept
+        # anyway since they're harmless and correct for the *other* nascar.com asset hosts this
+        # function also fetches from (badge/headshot CDNs), which aren't Cloudflare-gated and
+        # already worked fine before this. The actual series-logo/playoff-badge fix was fetching
+        # them once with curl and committing them as static files — see team-meta/nascar-series.json.
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "Referer": "https://www.nascar.com/",
+            },
+        )
         with urllib.request.urlopen(req, context=_ssl_ctx(), timeout=15) as r:
             return r.read()
     except Exception as exc:
@@ -375,12 +401,34 @@ class NascarCacheService:
             else:
                 resolved_series_logos[lid] = logo_url  # keep URL as fallback
 
+        # Download playoff badges locally, same pattern as series logos above. Stored under a
+        # separate "{lid}_playoff_badge" key in this same file rather than a new one, since it's
+        # the same kind of per-series static asset. Note this file is only ever read by the
+        # backend (scoreboard.py resolves nascar_series_logo from it and injects the result into
+        # each game payload as game.seriesLogo) — the frontend never reads it directly, so
+        # surfacing this badge path still needs the matching scoreboard.py wiring.
+        playoff_badges_downloaded = 0
+        for lid, badge_url in _PLAYOFF_BADGE_URLS.items():
+            ext = badge_url.rsplit(".", 1)[-1].lower().split("?")[0] or "png"
+            if ext not in ("png", "jpg", "jpeg", "svg", "webp", "gif"):
+                ext = "png"
+            badge_filename = f"playoffs_{lid}.{ext}"
+            badge_dest = logos_dir / badge_filename
+            if not badge_dest.exists():
+                badge_data = _download_bytes(badge_url)
+                if badge_data:
+                    badge_dest.write_bytes(badge_data)
+                    playoff_badges_downloaded += 1
+            if badge_dest.exists():
+                resolved_series_logos[f"{lid}_playoff_badge"] = f"nascar/{badge_filename}"
+
         resolved_series_logos["_ts"] = datetime.now(timezone.utc).isoformat()
         series_meta_path = self.paths.team_meta / "nascar-series.json"
         series_meta_path.write_text(json.dumps(resolved_series_logos, indent=2), encoding="utf-8")
 
         return {
             "ok": True,
+            "playoff_badges_downloaded": playoff_badges_downloaded,
             "drivers_synced": total_saved,
             "badges_downloaded": badges_downloaded,
             "headshots_downloaded": headshots_downloaded,

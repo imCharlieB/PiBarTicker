@@ -9,8 +9,22 @@ frontend/node_modules/
 frontend/dist/
 config.json
 runtime-cache/
-team-meta/
-/logos/
+
+# team-meta/ and logos/ are mostly runtime-synced (driver headshots/badges, team logos for every
+# league, etc.) and legitimately shouldn't be committed. But a handful of small, static files
+# have NO automated sync at all -- either there's no sync code for them (network broadcast
+# logos), or the sync host is Cloudflare-gated and blocks the Pi's Python backend even though it
+# doesn't block a one-off fetch from a dev machine (NASCAR series logos + playoff badges,
+# confirmed 2026-10-01 -- see docs/ACTIVE_WORK.md). Those need to ship via git like any other
+# asset, or they only ever exist on whichever machine happened to fetch them by hand.
+/team-meta/*
+!/team-meta/nascar-series.json
+/logos/*
+!/logos/networks/
+!/logos/nascar/
+/logos/nascar/*
+!/logos/nascar/series_*
+!/logos/nascar/playoffs_*
 docs/
 
 # AI / agent context files (for Grok, Claude, Cursor, Copilot, etc.)

@@ -426,6 +426,7 @@ def get_scoreboard(
             }
             nascar_drivers_meta = None
             nascar_series_logo: str = ""
+            nascar_playoff_badge: str = ""
             _is_nascar = "nascar" in entry.league_id.lower() or "nascar" in entry.league.lower()
             if _is_nascar:
                 nascar_cache_id = _NASCAR_ESPN_TO_CACHE.get(entry.league_id, entry.league_id)
@@ -437,6 +438,11 @@ def get_scoreboard(
                     series_meta_path = get_runtime_paths().team_meta / "nascar-series.json"
                     series_data: dict = json.loads(series_meta_path.read_text(encoding="utf-8"))
                     nascar_series_logo = str(series_data.get(nascar_cache_id) or series_data.get(entry.league_id) or "").strip()
+                    nascar_playoff_badge = str(
+                        series_data.get(f"{nascar_cache_id}_playoff_badge")
+                        or series_data.get(f"{entry.league_id}_playoff_badge")
+                        or ""
+                    ).strip()
                 except Exception:
                     pass
 
@@ -564,6 +570,7 @@ def get_scoreboard(
                 return cleaned.strip()
 
             nascar_race_id = 0
+            nascar_race_details: dict | None = None
             if _is_nascar and expected_series_id:
                 try:
                     _season_year = datetime.now(timezone.utc).year
@@ -609,6 +616,73 @@ def get_scoreboard(
                                 _best_race = _race
                         if _best_race:
                             nascar_race_id = int(_best_race.get("race_id") or 0)
+
+                            # Upcoming-card content: track/distance/laps/stages/field size/
+                            # schedule from this same race_list_basic.json entry (already fetched
+                            # above, no extra call), plus a "last race" teaser from whichever
+                            # entry in the same series' list sits immediately before this one.
+                            _schedule_items: list[dict] = []
+                            for _sched in (_best_race.get("schedule") or []):
+                                if not isinstance(_sched, dict):
+                                    continue
+                                _run_type = _sched.get("run_type")
+                                _label = {1: "Practice", 2: "Qualifying", 3: "Race"}.get(_run_type, "")
+                                if not _label:
+                                    continue  # skip logistics entries (hauler parade, driver meetings, etc.)
+                                _schedule_items.append({
+                                    "label": _label,
+                                    "startTimeUtc": str(_sched.get("start_time_utc") or "").strip(),
+                                })
+
+                            _last_race_winner = ""
+                            _last_race_track = ""
+                            try:
+                                _prev_race: dict | None = None
+                                _prev_diff: float | None = None
+                                _this_dt = datetime.fromisoformat(str(_best_race.get("race_date") or ""))
+                                if _this_dt.tzinfo is None:
+                                    _this_dt = _this_dt.replace(tzinfo=timezone.utc)
+                                for _race in _race_list:
+                                    if not isinstance(_race, dict) or _race.get("race_id") == _best_race.get("race_id"):
+                                        continue
+                                    try:
+                                        _race_dt = datetime.fromisoformat(str(_race.get("race_date") or ""))
+                                        if _race_dt.tzinfo is None:
+                                            _race_dt = _race_dt.replace(tzinfo=timezone.utc)
+                                    except Exception:
+                                        continue
+                                    if _race_dt >= _this_dt:
+                                        continue
+                                    _diff = (_this_dt - _race_dt).total_seconds()
+                                    if _prev_diff is None or _diff < _prev_diff:
+                                        _prev_diff = _diff
+                                        _prev_race = _race
+                                if _prev_race:
+                                    _winner_id = str(_prev_race.get("winner_driver_id") or "").strip()
+                                    if _winner_id and nascar_drivers_meta:
+                                        for _drv in nascar_drivers_meta.teams.values():
+                                            if str(_drv.remote_urls.get("nascar_driver_id") or "").strip() == _winner_id:
+                                                _last_race_winner = _drv.display_name
+                                                break
+                                    _last_race_track = str(_prev_race.get("track_name") or "").strip()
+                                    if not _last_race_winner:
+                                        _last_race_track = ""  # no winner name = nothing worth showing
+                            except Exception:
+                                pass
+
+                            nascar_race_details = {
+                                "trackName": str(_best_race.get("track_name") or "").strip(),
+                                "scheduledDistance": _best_race.get("scheduled_distance"),
+                                "scheduledLaps": _best_race.get("scheduled_laps"),
+                                "stage1Laps": _best_race.get("stage_1_laps"),
+                                "stage2Laps": _best_race.get("stage_2_laps"),
+                                "stage3Laps": _best_race.get("stage_3_laps"),
+                                "numberOfCarsInField": _best_race.get("number_of_cars_in_field"),
+                                "isPlayoffs": bool(_best_race.get("playoff_round")),
+                                "schedule": _schedule_items,
+                                "lastRaceWinner": _last_race_winner,
+                                "lastRaceTrack": _last_race_track,
+                            }
                 except Exception:
                     pass
 
@@ -895,6 +969,12 @@ def get_scoreboard(
                 # Inject seriesLogo for NASCAR so the frontend can display the real series logo
                 if nascar_series_logo:
                     game["seriesLogo"] = nascar_series_logo
+                if nascar_playoff_badge:
+                    game["playoffBadge"] = nascar_playoff_badge
+                # raceDetails only matters for the upcoming-card layout (pre-race, no circuit
+                # image) — scoped to that state so it's never a dead field on live/post games.
+                if nascar_race_details and str(game.get("state") or "").lower() == "pre":
+                    game["raceDetails"] = nascar_race_details
 
                 # Inject lap number, laps to go, and flag state from cf.nascar.com live feed.
                 # Requires cf_matches_series — without this guard, a stale generic-feed fetch

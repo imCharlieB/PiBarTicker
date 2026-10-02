@@ -100,6 +100,14 @@ function nameHue(str) {
   for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) & 0xffffff
   return h % 360
 }
+// cf.nascar.com's margin_of_victory is usually a bare decimal string (".565") but can also be
+// free text for a lapped-field win (e.g. "1 Lap"). Format the numeric case, pass text through as-is.
+function formatRaceMargin(raw) {
+  const s = String(raw || '').trim()
+  if (!s) return ''
+  const n = Number(s)
+  return /^-?[.\d]+$/.test(s) && !Number.isNaN(n) ? `${n.toFixed(3)}s` : s
+}
 function entryColor(entry) {
   if (entry?.teamColor) return `#${String(entry.teamColor).replace(/^#/, '')}`
   const name = String(entry?.shortName || entry?.name || '')
@@ -631,6 +639,124 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
         </div>
         <div className="board-foot">
           <MetaRow game={game} flags={{ ...flags, tv: false }} mono />
+        </div>
+      </div>
+    )
+  }
+
+  // Finished NASCAR race with weekend-feed enrichment (margin, laps led, starting position) →
+  // winner gets a dedicated full-height spotlight zone instead of just another row. Falls
+  // through to the generic rows layout below for golf, live/pre states, or whenever the
+  // weekend-feed lookup didn't resolve (game.raceSummary absent) — same card either way.
+  if (state === 'post' && !isGolf && game?.raceSummary && hasEntries) {
+    const winnerEntry = displayEntries[0]
+    const winner = {
+      name: winnerEntry.shortName || winnerEntry.name || 'Driver',
+      team: [winnerEntry.team, winnerEntry.carNumber ? `#${winnerEntry.carNumber}` : ''].filter(Boolean).join(' · '),
+      color: entryColor(winnerEntry),
+      headshot: winnerEntry.headshot ? (winnerEntry.headshot.startsWith('http') ? winnerEntry.headshot : `/logos/${winnerEntry.headshot}`) : null,
+      carBadge: winnerEntry.carBadge ? (winnerEntry.carBadge.startsWith('http') ? winnerEntry.carBadge : `/logos/${winnerEntry.carBadge}`) : null,
+      lapsLed: Number.isInteger(winnerEntry.lapsLed) ? winnerEntry.lapsLed : null,
+      inChase: Boolean(winnerEntry.inChase),
+    }
+    const margin = formatRaceMargin(game.raceSummary.marginOfVictory)
+    const fieldRowsAll = displayEntries.slice(1).map((entry, i) => {
+      const pos = entry.position ?? i + 2
+      const startPos = Number.isInteger(entry.startPosition) ? entry.startPosition : null
+      const delta = startPos != null ? startPos - pos : null
+      return {
+        pos,
+        name: entry.shortName || entry.name || 'Driver',
+        color: entryColor(entry),
+        headshot: entry.headshot ? (entry.headshot.startsWith('http') ? entry.headshot : `/logos/${entry.headshot}`) : null,
+        carBadge: entry.carBadge ? (entry.carBadge.startsWith('http') ? entry.carBadge : `/logos/${entry.carBadge}`) : null,
+        delta,
+        fallbackDetail: racingEntrySummary(entry) || String(entry?.score || ''),
+        inChase: Boolean(entry.inChase),
+      }
+    })
+    // Single column only fits 4 (confirmed empirically — 5 clipped the card's fixed 380px
+    // height once the winner moved into its own zone). Once a solo slate shows the full field
+    // (displayEntries is uncapped when isSoloSlate — see entryLimit above) reuse the exact
+    // same multi-column grid the generic board below already uses, so a 36-car Cup field still
+    // gets its full lineup instead of being silently truncated to 4.
+    const FIELD_MAX_PER_COL_SOLO = 4
+    const FIELD_MAX_PER_COL_GRID = 5
+    const FIELD_MAX_COLS = 8
+    const useFieldGrid = fieldRowsAll.length > FIELD_MAX_PER_COL_SOLO
+    const fieldCols = useFieldGrid ? Math.min(FIELD_MAX_COLS, Math.ceil(fieldRowsAll.length / FIELD_MAX_PER_COL_GRID)) : 1
+    const fieldPerCol = useFieldGrid
+      ? Math.min(Math.ceil(fieldRowsAll.length / fieldCols), FIELD_MAX_PER_COL_GRID)
+      : Math.min(fieldRowsAll.length, FIELD_MAX_PER_COL_SOLO)
+    const fieldRows = fieldRowsAll.slice(0, fieldPerCol * fieldCols)
+    const summaryParts = [
+      game.raceSummary.totalRaceTime,
+      Number.isInteger(game.raceSummary.numberOfCautions)
+        ? `${game.raceSummary.numberOfCautions} CAUTION${game.raceSummary.numberOfCautions === 1 ? '' : 'S'}`
+        : '',
+      Number.isInteger(game.raceSummary.numberOfLeadChanges) ? `${game.raceSummary.numberOfLeadChanges} LEAD CHANGES` : '',
+    ].filter(Boolean)
+
+    return (
+      <div className={`card d-board d-board-final ${dirClass} ${useFieldGrid ? 'board-multi' : ''}`}>
+        <div className="winner-zone" style={{ '--rc': winner.color }}>
+          <span className="winner-eyebrow">WINNER</span>
+          {winner.headshot
+            ? <img className="winner-hs" src={winner.headshot} alt={winner.name} />
+            : winner.carBadge
+              ? <img className="winner-badge" src={winner.carBadge} alt={winner.name} />
+              : <span className="winner-dot" style={{ background: winner.color }} />}
+          <span className="winner-name">{winner.name}{winner.inChase ? <i className="mdi mdi-trophy board-chase winner-chase" title="Playoff driver" /> : null}</span>
+          {winner.team ? <span className="winner-team">{winner.team}</span> : null}
+          {(margin || winner.lapsLed) ? (
+            <div className="winner-stats">
+              {margin ? <div className="winner-stat"><span className="l">Margin</span><span className="v">{margin}</span></div> : null}
+              {winner.lapsLed ? <div className="winner-stat"><span className="l">Led</span><span className="v">{winner.lapsLed} laps</span></div> : null}
+            </div>
+          ) : null}
+        </div>
+        <div className="field-zone">
+          <div className="board-head">
+            <div className="board-titles">
+              <span className="board-title">{title}</span>
+              <span className="board-sub">RESULTS</span>
+            </div>
+            <StateChip game={game} />
+          </div>
+          <div
+            className={`board-rows ${useFieldGrid ? 'cols-auto' : ''}`}
+            style={useFieldGrid ? { gridTemplateRows: `repeat(${fieldPerCol}, 1fr)` } : undefined}
+          >
+            {fieldRows.map((r, i) => (
+              <div key={i} className="board-row" style={{ '--rc': r.color }}>
+                <span className="board-pos">{r.pos}</span>
+                {r.headshot
+                  ? <img className="board-hs" src={r.headshot} alt={r.name} />
+                  : r.carBadge
+                    ? <img className="board-badge" src={r.carBadge} alt={r.name} />
+                    : <span className="board-dot" style={{ background: r.color }} />}
+                <span className="board-name">{r.name}</span>
+                {r.inChase ? <i className="mdi mdi-trophy board-chase" title="Playoff driver" /> : null}
+                {r.delta != null
+                  ? <span className={`delta ${r.delta > 0 ? 'up' : r.delta < 0 ? 'down' : 'even'}`}>
+                      {r.delta > 0 ? `↑${r.delta}` : r.delta < 0 ? `↓${Math.abs(r.delta)}` : '—'}
+                    </span>
+                  : <span className="board-detail">{r.fallbackDetail}</span>}
+              </div>
+            ))}
+          </div>
+          {summaryParts.length ? (
+            <div className="board-foot summary">
+              {summaryParts.map((part, i) => (
+                <span key={i} className="board-unit-group">
+                  {i > 0 ? <span className="sep">·</span> : null}
+                  <span className="board-unit">{part}</span>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <div className="board-foot"><MetaRow game={game} flags={flags} mono /></div>
+          )}
         </div>
       </div>
     )

@@ -438,6 +438,52 @@
 
 /* Board: pre-race circuit map */
 .ticker-runtime-shell .d-board.board-pre-circuit { width: 194.7cqh; }
+
+/* Board: finished-race winner spotlight (NASCAR, weekend-feed enrichment present).
+   Mirrors .d-slab's own pattern for its live-feature state: rather than growing the card
+   taller, the card is wider (221cqh vs the plain board's 152.6cqh — d-slab itself is already
+   168.4cqh for the same reason) and a fixed-width zone sits beside the existing row-list zone,
+   both full height. Row list keeps its normal row size/count, just one row shorter (winner
+   moves into its own zone instead of taking a row). */
+.ticker-runtime-shell .d-board.d-board-final { width: 221cqh; flex-direction: row; justify-content: flex-start; padding: 0; gap: 0; background: #101319; }
+.ticker-runtime-shell .winner-zone {
+  flex: 0 0 79cqh; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 2.1cqh; padding: 5.3cqh 4.7cqh; text-align: center;
+  background: linear-gradient(165deg, color-mix(in srgb, var(--rc) 26%, #101319), #101319 75%);
+  border-right: 1px solid #20252f;
+}
+.ticker-runtime-shell .winner-eyebrow { font-size: 3.2cqh; font-weight: 900; letter-spacing: .2em; color: var(--rc); }
+.ticker-runtime-shell .winner-hs {
+  width: 29cqh; height: 29cqh; border-radius: 50%; object-fit: cover;
+  border: 3px solid var(--rc); box-shadow: 0 0 0 1.3cqh color-mix(in srgb, var(--rc) 16%, transparent);
+}
+.ticker-runtime-shell .winner-badge { width: 29cqh; height: 29cqh; object-fit: contain; }
+.ticker-runtime-shell .winner-dot { width: 20cqh; height: 20cqh; border-radius: 50%; }
+.ticker-runtime-shell .winner-name { font-size: 8.4cqh; font-weight: 900; color: #fff; line-height: 1.04; }
+.ticker-runtime-shell .winner-chase { font-size: 5.8cqh; margin-left: 1.6cqh; vertical-align: middle; }
+.ticker-runtime-shell .winner-team { font-size: 3.7cqh; color: #9aa3b1; font-weight: 700; }
+.ticker-runtime-shell .winner-stats { display: flex; gap: 5.3cqh; margin-top: 1.1cqh; }
+.ticker-runtime-shell .winner-stat { display: flex; flex-direction: column; gap: 0.5cqh; }
+.ticker-runtime-shell .winner-stat .l { font-size: 2.9cqh; font-weight: 800; letter-spacing: .14em; color: #6b7480; text-transform: uppercase; }
+.ticker-runtime-shell .winner-stat .v { font-family: 'Spline Sans Mono', monospace; font-weight: 700; font-size: 5.3cqh; color: var(--rc); }
+.ticker-runtime-shell .field-zone { flex: 1; display: flex; flex-direction: column; justify-content: space-between; padding: 4.7cqh 5.3cqh; gap: 3.2cqh; min-width: 0; }
+.ticker-runtime-shell .d-board-final .board-pos { width: 7.4cqh; }
+/* Full-lineup mode: a solo slate shows every entry (entryLimit is null by default — see
+   displayEntries above), same as the generic board already does. Let the card grow to fit
+   multiple columns instead of truncating the field to 4, reusing the exact same cols-auto
+   grid + board-multi compact sizing the generic board below already uses. */
+.ticker-runtime-shell .d-board.d-board-final.board-multi { width: max-content; }
+.ticker-runtime-shell .d-board.d-board-final.board-multi .field-zone { flex: 0 0 auto; }
+/* Start→finish position delta, replacing the usually-blank score slot */
+.ticker-runtime-shell .delta { margin-left: auto; flex: 0 0 auto; font-size: 4.2cqh; font-weight: 800; padding: 0.4cqh 1.6cqh; border-radius: 1.1cqh; font-variant-numeric: tabular-nums; }
+.ticker-runtime-shell .delta.up   { color: #0c120e; background: #7CF29B; }
+.ticker-runtime-shell .delta.down { color: #fff; background: #6b2a34; }
+.ticker-runtime-shell .delta.even { color: #9aa3b1; background: #1b1f28; }
+.ticker-runtime-shell .board-multi .delta { font-size: 3.6cqh; padding: 0.3cqh 1.3cqh; }
+.ticker-runtime-shell .board-foot.summary { gap: 2.1cqh; font-family: 'Spline Sans Mono', monospace; }
+.ticker-runtime-shell .board-foot.summary .board-unit-group { display: inline-flex; align-items: center; gap: 2.1cqh; }
+.ticker-runtime-shell .board-foot.summary .board-unit { color: #cfd6e2; font-weight: 700; }
+.ticker-runtime-shell .board-foot.summary .sep { color: #3a4150; }
 .ticker-runtime-shell .bpre-circuit {
   flex: 1 1 auto; display: flex; align-items: center; justify-content: flex-end;
   overflow: hidden; border-radius: 2.1cqh; min-height: 0;

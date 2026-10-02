@@ -922,6 +922,60 @@ def get_scoreboard(
                         if fs in ("green", "yellow", "red", "caution", "checkered", "white"):
                             game["flagState"] = fs
 
+                # For a finished NASCAR race, enrich with weekend-feed.json: race-level summary
+                # (margin of victory, total time, cautions, lead changes) and each driver's
+                # starting position + laps led, so the FINAL card can show a real winner
+                # spotlight and finish-vs-start deltas instead of ESPN's usually-blank score.
+                # Cached 6h since a finished race's results never change.
+                if _is_nascar and nascar_race_id and str(game.get("state") or "").lower() == "post":
+                    try:
+                        nascar_weekend_data = _http_client.get_json(
+                            f"https://cf.nascar.com/cacher/{_season_year}/{expected_series_id}/{nascar_race_id}/weekend-feed.json",
+                            use_cache=True,
+                            cache_ttl_seconds=21600.0,
+                        )
+                    except Exception:
+                        nascar_weekend_data = None
+                    _weekend_races = (nascar_weekend_data or {}).get("weekend_race") if isinstance(nascar_weekend_data, dict) else None
+                    _weekend_race = _weekend_races[0] if isinstance(_weekend_races, list) and _weekend_races else None
+                    if isinstance(_weekend_race, dict):
+                        game["raceSummary"] = {
+                            "marginOfVictory": str(_weekend_race.get("margin_of_victory") or "").strip(),
+                            "totalRaceTime": str(_weekend_race.get("total_race_time") or "").strip(),
+                            "numberOfCautions": _weekend_race.get("number_of_cautions"),
+                            "numberOfCautionLaps": _weekend_race.get("number_of_caution_laps"),
+                            "numberOfLeadChanges": _weekend_race.get("number_of_lead_changes"),
+                        }
+                        # Name -> (starting_position, laps_led), same surname-join pattern as
+                        # nascar_cf_vehicle_map above.
+                        _results_map: dict[str, tuple] = {}
+                        for _res in (_weekend_race.get("results") or []):
+                            if not isinstance(_res, dict):
+                                continue
+                            _res_full = _clean_cf_name(_res.get("driver_fullname")).lower()
+                            _res_last = _res_full.split()[-1] if _res_full else ""
+                            _res_pair = (_res.get("starting_position"), _res.get("laps_led"))
+                            if _res_full:
+                                _results_map[_res_full] = _res_pair
+                            if _res_last and _res_last != _res_full:
+                                _results_map[_res_last] = _res_pair
+                        for race_entry in game.get("racingEntries") or []:
+                            _entry_name = str(race_entry.get("name") or "").strip().lower()
+                            _entry_surname = _entry_name.split()[-1] if _entry_name else ""
+                            _res_match = _results_map.get(_entry_name) or (_results_map.get(_entry_surname) if _entry_surname else None)
+                            if _res_match is not None:
+                                _start_pos, _laps_led = _res_match
+                                if _start_pos is not None:
+                                    try:
+                                        race_entry["startPosition"] = int(_start_pos)
+                                    except (TypeError, ValueError):
+                                        pass
+                                if _laps_led is not None:
+                                    try:
+                                        race_entry["lapsLed"] = int(_laps_led)
+                                    except (TypeError, ValueError):
+                                        pass
+
                 # Inject circuitImage + circuitName for F1 games.
                 # ESPN returns venue:null for all F1 events, so we match against the
                 # event title (shortName / name) which contains the race name.

@@ -49,6 +49,7 @@
 .ticker-runtime-shell .chip-live  { color: #0c120e; background: #7CF29B; }
 .ticker-runtime-shell .chip-final { color: #cdd6e4; background: #2a3142; }
 .ticker-runtime-shell .chip-pre        { color: #0b0e14; background: #F2C94C; }
+.ticker-runtime-shell .chip-standings  { color: #0c120e; background: #7CF29B; }
 .ticker-runtime-shell .chip-flag-green  { color: #0c120e; background: #3dd68c; }
 .ticker-runtime-shell .chip-flag-yellow { color: #0c120e; background: #F2C94C; }
 .ticker-runtime-shell .chip-flag-red    { color: #ffffff; background: #e03131; }
@@ -479,6 +480,7 @@
 .ticker-runtime-shell .delta.up   { color: #0c120e; background: #7CF29B; }
 .ticker-runtime-shell .delta.down { color: #fff; background: #6b2a34; }
 .ticker-runtime-shell .delta.even { color: #9aa3b1; background: #1b1f28; }
+.ticker-runtime-shell .delta.pts  { color: #9aa3b1; background: #1b1f28; }
 .ticker-runtime-shell .board-multi .delta { font-size: 3.6cqh; padding: 0.3cqh 1.3cqh; }
 .ticker-runtime-shell .board-foot.summary { gap: 2.1cqh; font-family: 'Spline Sans Mono', monospace; }
 .ticker-runtime-shell .board-foot.summary .board-unit-group { display: inline-flex; align-items: center; gap: 2.1cqh; }

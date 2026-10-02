@@ -774,6 +774,80 @@ def get_scoreboard(
                 and cf_laps_to_go == 0
             )
 
+            # Standings card: a synthetic entry appended right after the real race event so it
+            # plays immediately next to it in this league's own rotation (games within one league
+            # render back-to-back in array order — see prepareDisplayGames/App.jsx — nothing can
+            # slot in between two entries of the same league's own list). Built here, *before*
+            # the main per-game loop below, so it rides through the exact same enrichment
+            # (headshot/badge/teamColor joins, seriesLogo/playoffBadge injection) every other
+            # NASCAR entry gets, instead of needing its own separate enrichment pass.
+            if _is_nascar:
+                try:
+                    _standings_data = _http_client.get_json(
+                        f"https://site.api.espn.com/apis/v2/sports/racing/{entry.league_id}/standings",
+                        use_cache=True,
+                        cache_ttl_seconds=3600.0,
+                    )
+                    _standings_children = (_standings_data or {}).get("children") if isinstance(_standings_data, dict) else None
+                    _standings_entries = (
+                        ((_standings_children[0] or {}).get("standings") or {}).get("entries") or []
+                        if isinstance(_standings_children, list) and _standings_children else []
+                    )
+                    _standings_rows: list[dict] = []
+                    for _se in _standings_entries[:8]:
+                        if not isinstance(_se, dict):
+                            continue
+                        _athlete = _se.get("athlete") or {}
+                        _se_name = str(_athlete.get("displayName") or "").strip()
+                        if not _se_name:
+                            continue
+                        _se_rank = None
+                        _se_pts = None
+                        for _stat in (_se.get("stats") or []):
+                            if not isinstance(_stat, dict):
+                                continue
+                            if _stat.get("name") == "rank":
+                                _se_rank = _stat.get("value")
+                            elif _stat.get("name") == "championshipPts":
+                                _se_pts = _stat.get("value")
+                        _standings_rows.append({
+                            "id": "",
+                            "position": int(_se_rank) if _se_rank is not None else len(_standings_rows) + 1,
+                            "name": _se_name,
+                            "shortName": _se_name,
+                            "score": "",
+                            "stats": [],
+                            "headshot": "",
+                            "flag": {"href": "", "alt": ""},
+                            "team": "",
+                            "teamId": "",
+                            "teamColor": "",
+                            "athleteId": str(_athlete.get("id") or "").strip(),
+                            "carBadge": "",
+                            "carNumber": "",
+                            "points": int(_se_pts) if _se_pts is not None else None,
+                        })
+                    if _standings_rows and _standings_rows[0].get("points") is not None:
+                        _leader_pts = _standings_rows[0]["points"]
+                        for _row in _standings_rows[1:]:
+                            if _row.get("points") is not None:
+                                _row["pointsGap"] = _row["points"] - _leader_pts
+                        _correct_series = _NASCAR_SERIES_LABELS.get(entry.league_id, "")
+                        normalized_games.append({
+                            "id": f"nascar-standings-{entry.league_id}",
+                            "gameId": f"nascar-standings-{entry.league_id}",
+                            "sport": "racing",
+                            "league": entry.league,
+                            "state": "standings",
+                            "isLive": False,
+                            "isCompleted": False,
+                            "title": _correct_series or str(entry.league or "").strip(),
+                            "racingEntries": _standings_rows,
+                            "isPlayoffs": bool(nascar_race_details.get("isPlayoffs")) if nascar_race_details else False,
+                        })
+                except Exception:
+                    pass
+
             for game in normalized_games:
                 # Hard veto: cf confirms this exact race is done — force out of live/pre
                 # regardless of ESPN's reported state. Only trusted when cf_feed_is_race_specific

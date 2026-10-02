@@ -613,6 +613,87 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
     ? `d-${cs === 'marquee' ? 'marq' : cs}`
     : 'd-slab'
 
+  // Standings — a synthetic entry the backend appends right after the real race event for this
+  // league (state: 'standings', never produced by ESPN/cf.nascar.com) so it plays immediately
+  // next to it in the rotation. Reuses the exact same d-board-final layout as the finished-race
+  // card: points leader gets the spotlight zone, the rest in the row-list/full-lineup grid.
+  if (state === 'standings' && hasEntries) {
+    const leaderEntry = displayEntries[0]
+    const leader = {
+      name: leaderEntry.shortName || leaderEntry.name || 'Driver',
+      team: [leaderEntry.team, leaderEntry.carNumber ? `#${leaderEntry.carNumber}` : ''].filter(Boolean).join(' · '),
+      color: entryColor(leaderEntry),
+      headshot: leaderEntry.headshot ? (leaderEntry.headshot.startsWith('http') ? leaderEntry.headshot : `/logos/${leaderEntry.headshot}`) : null,
+      carBadge: leaderEntry.carBadge ? (leaderEntry.carBadge.startsWith('http') ? leaderEntry.carBadge : `/logos/${leaderEntry.carBadge}`) : null,
+      points: Number.isInteger(leaderEntry.points) ? leaderEntry.points : null,
+    }
+    const fieldRowsAll = displayEntries.slice(1).map((entry, i) => ({
+      pos: entry.position ?? i + 2,
+      name: entry.shortName || entry.name || 'Driver',
+      color: entryColor(entry),
+      headshot: entry.headshot ? (entry.headshot.startsWith('http') ? entry.headshot : `/logos/${entry.headshot}`) : null,
+      carBadge: entry.carBadge ? (entry.carBadge.startsWith('http') ? entry.carBadge : `/logos/${entry.carBadge}`) : null,
+      pointsGap: Number.isInteger(entry.pointsGap) ? entry.pointsGap : null,
+    }))
+    // Same single-column-vs-grid split as the final card (4 fits one column on the real
+    // 380px-tall card; more than that reuses the generic board's proven grid system).
+    const SOLO_MAX = 4
+    const GRID_MAX_PER_COL = 5
+    const GRID_MAX_COLS = 8
+    const useGrid = fieldRowsAll.length > SOLO_MAX
+    const cols = useGrid ? Math.min(GRID_MAX_COLS, Math.ceil(fieldRowsAll.length / GRID_MAX_PER_COL)) : 1
+    const perCol = useGrid
+      ? Math.min(Math.ceil(fieldRowsAll.length / cols), GRID_MAX_PER_COL)
+      : Math.min(fieldRowsAll.length, SOLO_MAX)
+    const fieldRows = fieldRowsAll.slice(0, perCol * cols)
+
+    return (
+      <div className={`card d-board d-board-final ${dirClass} ${useGrid ? 'board-multi' : ''}`}>
+        <div className="winner-zone" style={{ '--rc': leader.color }}>
+          <span className="winner-eyebrow">POINTS LEADER</span>
+          {leader.headshot
+            ? <img className="winner-hs" src={leader.headshot} alt={leader.name} />
+            : leader.carBadge
+              ? <img className="winner-badge" src={leader.carBadge} alt={leader.name} />
+              : <span className="winner-dot" style={{ background: leader.color }} />}
+          <span className="winner-name">{leader.name}</span>
+          {leader.team ? <span className="winner-team">{leader.team}</span> : null}
+          {leader.points != null ? (
+            <div className="winner-stats">
+              <div className="winner-stat"><span className="l">Points</span><span className="v">{leader.points}</span></div>
+            </div>
+          ) : null}
+        </div>
+        <div className="field-zone">
+          <div className="board-head">
+            <div className="board-titles">
+              <span className="board-title">{title}</span>
+              <span className="board-sub">STANDINGS</span>
+            </div>
+            {game?.isPlayoffs ? <span className="chip chip-standings">PLAYOFFS</span> : null}
+          </div>
+          <div
+            className={`board-rows ${useGrid ? 'cols-auto' : ''}`}
+            style={useGrid ? { gridTemplateRows: `repeat(${perCol}, 1fr)` } : undefined}
+          >
+            {fieldRows.map((r, i) => (
+              <div key={i} className="board-row" style={{ '--rc': r.color }}>
+                <span className="board-pos">{r.pos}</span>
+                {r.headshot
+                  ? <img className="board-hs" src={r.headshot} alt={r.name} />
+                  : r.carBadge
+                    ? <img className="board-badge" src={r.carBadge} alt={r.name} />
+                    : <span className="board-dot" style={{ background: r.color }} />}
+                <span className="board-name">{r.name}</span>
+                {r.pointsGap != null ? <span className="delta pts">{r.pointsGap}</span> : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   // Pre-race with no grid entries → simple upcoming card
   if (state === 'pre' && !hasEntries) {
     const timeText = game?.runtimeDateText

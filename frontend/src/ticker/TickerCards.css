@@ -1079,38 +1079,3 @@
 .ticker-runtime-shell .gb-strip:not(.gb-round) .gb-img { right: -4cqh; height: 128%; }
 .ticker-runtime-shell .gb-clip { right: -3cqh; }
 .ticker-runtime-shell .gb-txt b { font-size: 7cqh; }
-
-/* -- Podium (finished race): three tall cards, winner tallest in the middle -- */
-.ticker-runtime-shell .pd-card { width: 215cqh; display: block; border: 0; background: radial-gradient(ellipse 80% 120% at 50% 0%, #161a24 0%, #0b0d12 75%); font-family: 'Archivo', system-ui, sans-serif; }
-.ticker-runtime-shell .pd-hdr { position: absolute; left: 4cqh; top: 3cqh; z-index: 6; }
-.ticker-runtime-shell .pd-title { font-weight: 900; font-size: 5.2cqh; line-height: 1.05; color: #fff; }
-.ticker-runtime-shell .pd-sub { font-size: 2.7cqh; font-weight: 800; letter-spacing: .12em; color: #9aa3b1; margin-top: 0.6cqh; }
-.ticker-runtime-shell .pd-row { position: absolute; left: 3cqh; right: 3cqh; top: 12cqh; bottom: 3cqh; display: flex; align-items: flex-end; justify-content: center; gap: 3cqh; }
-.ticker-runtime-shell .pd-col { position: relative; flex: 1 1 0; height: 100%; min-width: 0; border-radius: 1.8cqh; overflow: hidden; display: flex; flex-direction: column; background: linear-gradient(180deg, #14171f, #0b0d12); box-shadow: inset 0 0 0 0.3cqh rgba(var(--rc-rgb),.55), 0 0 2.4cqh rgba(var(--rc-rgb),.3); }
-.ticker-runtime-shell .pd-col.pd-p1 { flex: 1.15 1 0; height: 100%; margin-top: -9cqh; box-shadow: inset 0 0 0 0.4cqh rgba(var(--rc-rgb),.9), 0 0 4cqh rgba(var(--rc-rgb),.55); }
-.ticker-runtime-shell .pd-col.pd-p2, .ticker-runtime-shell .pd-col.pd-p3 { margin-top: 0; }
-.ticker-runtime-shell .pd-top { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; }
-.ticker-runtime-shell .pd-wash { position: absolute; inset: 0; background: radial-gradient(ellipse 80% 90% at 50% 100%, rgba(var(--rc-rgb),.5) 0%, rgba(var(--rc-rgb),.14) 55%, transparent 80%); }
-.ticker-runtime-shell .pd-car { position: absolute; z-index: 1; right: 2cqh; top: 1.5cqh; font-weight: 900; font-style: italic; font-size: 17cqh; line-height: .9; color: rgba(var(--rc-rgb),.18); -webkit-text-stroke: 0.4cqh rgba(var(--rc-rgb),.9); }
-.ticker-runtime-shell .pd-brand { position: absolute; z-index: 3; left: 2cqh; top: 2cqh; max-width: 11cqh; max-height: 8cqh; width: auto; height: auto; filter: drop-shadow(0 0.4cqh 0.8cqh rgba(0,0,0,.7)); }
-.ticker-runtime-shell .pd-cut { position: absolute; z-index: 2; left: 50%; transform: translateX(-50%); bottom: -2cqh; height: 118%; width: auto; max-width: none; filter: drop-shadow(0 1cqh 1.6cqh rgba(0,0,0,.65)); }
-.ticker-runtime-shell .pd-clip { position: absolute; z-index: 2; left: 50%; transform: translateX(-50%); top: 3cqh; bottom: 0; width: 72%; overflow: hidden; }
-.ticker-runtime-shell .pd-clip img { display: block; width: 100%; height: auto; filter: drop-shadow(0 1cqh 1.6cqh rgba(0,0,0,.65)); }
-.ticker-runtime-shell .pd-win { position: absolute; z-index: 4; left: 2cqh; bottom: 2cqh; font-size: 3cqh; font-weight: 900; letter-spacing: .2em; color: #0b0d12; background: var(--rc); padding: 0.6cqh 1.6cqh; border-radius: 0.8cqh; box-shadow: 0 0 2cqh rgba(var(--rc-rgb),.8); }
-.ticker-runtime-shell .pd-bar { flex: 0 0 auto; padding: 1.2cqh 2.2cqh; background: rgba(5,7,10,.96); border-top: 0.4cqh solid var(--rc); display: flex; flex-direction: column; line-height: 1.05; }
-.ticker-runtime-shell .pd-first { font-size: 3.2cqh; font-weight: 800; letter-spacing: .12em; color: var(--rc); text-transform: uppercase; }
-.ticker-runtime-shell .pd-name { font-size: 7cqh; font-weight: 900; color: #fff; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ticker-runtime-shell .pd-p1 .pd-name { font-size: 8.4cqh; }
-.ticker-runtime-shell .pd-chase { font-size: 4.4cqh; margin-left: 1cqh; vertical-align: middle; }
-.ticker-runtime-shell .pd-team { font-size: 2.8cqh; font-weight: 800; letter-spacing: .1em; color: #9aa3b1; text-transform: uppercase; margin-top: 0.4cqh; }
-.ticker-runtime-shell .pd-mid { flex: 0 0 auto; display: flex; align-items: center; gap: 2cqh; padding: 1cqh 2.2cqh; background: rgba(20,24,33,.9); }
-.ticker-runtime-shell .pd-pos { font-weight: 900; font-style: italic; font-size: 11cqh; line-height: .9; color: #fff; text-shadow: 0 0 2.4cqh rgba(var(--rc-rgb),.9); }
-.ticker-runtime-shell .pd-p1 .pd-pos { font-size: 13cqh; }
-.ticker-runtime-shell .pd-carimg { flex: 1; min-width: 0; max-height: 9cqh; width: auto; object-fit: contain; object-position: right; }
-.ticker-runtime-shell .pd-stats { flex: 0 0 auto; display: flex; gap: 3cqh; padding: 0.4cqh 2.2cqh 1.4cqh; background: rgba(20,24,33,.9); min-height: 8cqh; }
-.ticker-runtime-shell .pd-stats span { display: flex; flex-direction: column; line-height: 1.05; }
-.ticker-runtime-shell .pd-stats em { font-style: normal; font-size: 2.4cqh; font-weight: 800; letter-spacing: .14em; color: #8a93a1; }
-.ticker-runtime-shell .pd-stats b { font-size: 3.8cqh; font-weight: 900; color: #fff; }
-.ticker-runtime-shell .pd-row { top: 15cqh; }
-.ticker-runtime-shell .pd-col { height: 86%; }
-.ticker-runtime-shell .pd-col.pd-p1 { height: 100%; margin-top: 0; }

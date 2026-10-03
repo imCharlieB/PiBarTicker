@@ -837,79 +837,6 @@ function StartingGridCard({ game, title, seriesName, displayEntries }) {
   )
 }
 
-// ── Podium (finished race, NASCAR + F1): top 3 in the standings-card style, winner biggest ─────
-function PodiumCard({ game, title, entries }) {
-  const isF1 = String(game?.leagueId || '').toLowerCase() === 'f1'
-  const toUrl = (p) => (p ? (p.startsWith('http') ? p : `/logos/${p}`) : null)
-  const margin = formatRaceMargin(game?.raceSummary?.marginOfVictory)
-  const summary = [
-    game?.raceSummary?.totalRaceTime,
-    Number.isInteger(game?.raceSummary?.numberOfCautions)
-      ? `${game.raceSummary.numberOfCautions} CAUTION${game.raceSummary.numberOfCautions === 1 ? '' : 'S'}` : '',
-    Number.isInteger(game?.raceSummary?.numberOfLeadChanges) ? `${game.raceSummary.numberOfLeadChanges} LEAD CHANGES` : '',
-  ].filter(Boolean)
-  const top = entries.slice(0, 3).map((e, i) => {
-    const mfr = String(e.manufacturer || '').toUpperCase()
-    const name = e.name || e.shortName || 'Driver'
-    const parts = name.split(' ')
-    return {
-      pos: i + 1,
-      surname: parts.length > 1 ? parts.slice(1).join(' ') : parts[0],
-      first: parts.length > 1 ? parts[0] : '',
-      team: e.team || '',
-      color: MANUFACTURER_COLORS[mfr] || entryColor(e),
-      img: toUrl(isF1 ? (e.render || e.headshot) : e.headshot),
-      car: e.carNumber ? String(e.carNumber) : '',
-      led: Number.isInteger(e.lapsLed) ? e.lapsLed : null,
-      started: Number.isInteger(e.startPosition) ? e.startPosition : null,
-      brand: toUrl(e.teamLogo) || MANUFACTURER_LOGOS[mfr] || null,
-      carImg: toUrl(e.carImage),
-      inChase: Boolean(e.inChase),
-    }
-  })
-  // On screen: 2nd, 1st (tallest, middle), 3rd
-  const order = [top[1], top[0], top[2]].filter(Boolean)
-  return (
-    <div className="card pd-card">
-      <div className="pd-hdr">
-        <div className="pd-title">{title}</div>
-        <div className="pd-sub">RACE RESULT{summary.length ? ` · ${summary.join(' · ')}` : ''}</div>
-      </div>
-      <div className="pd-row">
-        {order.map((d) => (
-          <div key={d.pos} className={`pd-col pd-p${d.pos}`} style={standingsColorVars(d.color)}>
-            <div className="pd-top">
-              <div className="pd-wash" />
-              {d.car ? <span className="pd-car">{d.car}</span> : null}
-              {d.brand ? <img className="pd-brand" src={d.brand} alt="" onError={(e) => { e.currentTarget.remove() }} /> : null}
-              {d.img ? (
-                isF1
-                  ? <span className="pd-clip"><img src={d.img} alt="" onError={(e) => { e.currentTarget.remove() }} /></span>
-                  : <img className="pd-cut" src={d.img} alt="" onError={(e) => { e.currentTarget.remove() }} />
-              ) : null}
-              {d.pos === 1 ? <span className="pd-win">WINNER</span> : null}
-            </div>
-            <div className="pd-bar">
-              <span className="pd-first">{d.first}</span>
-              <span className="pd-name">{d.surname}{d.inChase ? <i className="mdi mdi-trophy board-chase pd-chase" /> : null}</span>
-              {d.team ? <span className="pd-team">{d.team}</span> : null}
-            </div>
-            <div className="pd-mid">
-              <span className="pd-pos">{d.pos}</span>
-              {d.carImg ? <img className="pd-carimg" src={d.carImg} alt="" onError={(e) => { e.currentTarget.remove() }} /> : null}
-            </div>
-            <div className="pd-stats">
-              {d.pos === 1 && margin ? <span><em>MARGIN</em><b>{margin}</b></span> : null}
-              {d.pos === 1 && d.led ? <span><em>LED</em><b>{d.led} LAPS</b></span> : null}
-              {d.started ? <span><em>STARTED</em><b>P{d.started}</b></span> : null}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 // ── BOARD (racing / golf) — replaces RacingCard ────────────────────────────
 
 export function BoardCard({ game, isSoloSlate, renderLeague }) {
@@ -1053,13 +980,6 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
         </div>
       </div>
     )
-  }
-
-  // Finished NASCAR / F1 race with a full result -> podium card (winner biggest). NASCAR's margin / laps led
-  // come from raceSummary when the weekend-feed lookup resolved; F1 just omits them.
-  const podiumLeague = /nascar|^f1$/.test(String(game?.leagueId || '').toLowerCase())
-  if (state === 'post' && !isGolf && podiumLeague && allEntries.length >= 3) {
-    return <PodiumCard game={game} title={title} entries={allEntries} />
   }
 
   // Finished NASCAR race with weekend-feed enrichment (margin, laps led, starting position) →

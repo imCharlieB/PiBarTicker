@@ -1148,6 +1148,46 @@ def get_scoreboard(
                         game["isCompleted"] = False
                         if "practice" in _detail:
                             game["racingEntries"] = []
+                        # Qualifying done but ESPN still sends practice: build the starting order from
+                        # nascar.com's weekend feed (short cache — it updates through qualifying).
+                        if not game.get("racingEntries") and nascar_race_id:
+                            try:
+                                _wk = _http_client.get_json(
+                                    f"https://cf.nascar.com/cacher/{_season_year}/{expected_series_id}/{nascar_race_id}/weekend-feed.json",
+                                    use_cache=True,
+                                    cache_ttl_seconds=120.0,
+                                )
+                                _q_runs = [
+                                    r for r in ((_wk or {}).get("weekend_runs") or [])
+                                    if isinstance(r, dict) and "qualif" in str(r.get("run_name") or "").lower() and r.get("results")
+                                ]
+                                if _q_runs:
+                                    _qrun = max(_q_runs, key=lambda r: (len(r.get("results") or []), r.get("run_id") or 0))
+                                    _rows = sorted(
+                                        [x for x in _qrun["results"] if isinstance(x, dict) and x.get("finishing_position")],
+                                        key=lambda x: x["finishing_position"],
+                                    )
+                                    _by_name = {}
+                                    for _d in (nascar_drivers_meta.teams.values() if nascar_drivers_meta else []):
+                                        _by_name[_clean_cf_name(_d.display_name).lower()] = _d
+                                    _built = []
+                                    for _x in _rows:
+                                        _nm = _clean_cf_name(_x.get("driver_name"))
+                                        _drv = _by_name.get(_nm.lower())
+                                        _built.append({
+                                            "id": str(_x.get("driver_id") or ""),
+                                            "position": int(_x["finishing_position"]),
+                                            "name": _nm, "shortName": _nm, "score": "", "stats": [],
+                                            "headshot": (_drv.logos.get("headshot") if _drv else "") or "",
+                                            "flag": {"href": "", "alt": ""}, "team": "", "teamId": "", "teamColor": "",
+                                            "carBadge": (_drv.logos.get("badge") if _drv else "") or "",
+                                            "carNumber": str(_x.get("vehicle_number") or _x.get("car_number") or ""),
+                                            "manufacturer": str(_x.get("manufacturer") or "").strip(),
+                                        })
+                                    if _built:
+                                        game["racingEntries"] = _built
+                            except Exception:
+                                pass
                 if nascar_race_details and str(game.get("state") or "").lower() == "pre":
                     game["raceDetails"] = nascar_race_details
 

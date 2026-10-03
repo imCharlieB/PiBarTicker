@@ -1013,42 +1013,44 @@
 .ticker-runtime-shell .st-name { position: relative; z-index: 1; font-weight: 900; font-size: 3.6cqh; line-height: 1.05; }
 
 /* ── Upcoming race card (NASCAR + F1): session timeline, next session is the hero ───────────────
-   Series color field with plain gradients (no color-mix — older Pi Chromium drops the declaration). */
+   Space Grotesk (matches the approved mockup) at standings-card type sizes. Series color field
+   with plain gradients (no color-mix — older Pi Chromium drops the declaration). */
 .ticker-runtime-shell .up-card { padding: 4.4cqh 5cqh; gap: 4cqh; border: 0; font-family: 'Space Grotesk', 'Archivo', system-ui, sans-serif; text-transform: uppercase; }
-.ticker-runtime-shell .up-nas { width: 310cqh; background: linear-gradient(160deg, #ffd23a 0%, #f2a900 55%, #c97c00 100%); color: #15171d; }
-.ticker-runtime-shell .up-f1  { width: 520cqh; background: linear-gradient(160deg, #ff3b2e 0%, #c70f06 55%, #7d0703 100%); color: #fff; }
+.ticker-runtime-shell .up-nas { width: 290cqh; background: linear-gradient(160deg, #ffd23a 0%, #f2a900 55%, #c97c00 100%); color: #15171d; }
+.ticker-runtime-shell .up-f1  { width: 470cqh; background: linear-gradient(160deg, #ff3b2e 0%, #c70f06 55%, #7d0703 100%); color: #fff; }
+.ticker-runtime-shell .up-f1.up-nomap { width: 300cqh; }
 .ticker-runtime-shell .up-main { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.ticker-runtime-shell .up-ser { font-size: 6.6cqh; font-weight: 700; letter-spacing: .3em; opacity: .8; }
-.ticker-runtime-shell .up-head.has-dw { padding-right: 98cqh; }
-.ticker-runtime-shell .up-title { margin: 1cqh 0 0; font-size: calc(var(--ts-base, 17cqh) * var(--ts-scale, 1)); line-height: 1; font-weight: 700; letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ticker-runtime-shell .up-stats { font-size: 6.8cqh; font-weight: 700; letter-spacing: .08em; margin-top: 1.4cqh; opacity: .9; }
-.ticker-runtime-shell .up-stats i { font-style: normal; opacity: .55; margin: 0 1.6cqh; }
-.ticker-runtime-shell .up-dw { position: absolute; right: 0; top: 0; display: flex; align-items: center; gap: 3cqh; text-transform: none; }
-.ticker-runtime-shell .up-dw img { flex: 0 0 auto; width: 25cqh; height: 25cqh; border-radius: 50%; object-fit: cover; object-position: top; border: 0.5cqh solid currentColor; background: #0b0d12; }
-.ticker-runtime-shell .up-dw .k { font-size: 5.6cqh; font-weight: 700; letter-spacing: .14em; opacity: .8; text-transform: uppercase; line-height: 1.1; }
-.ticker-runtime-shell .up-dw .nm { font-size: 9.6cqh; font-weight: 700; line-height: 1.1; }
-.ticker-runtime-shell .up-dw .nm small { font-size: 6.6cqh; opacity: .7; margin-left: 1cqh; }
+.ticker-runtime-shell .up-ser { font-size: 4.6cqh; font-weight: 700; letter-spacing: .2em; opacity: .8; }
+.ticker-runtime-shell .up-head.has-dw { padding-right: 90cqh; }
+.ticker-runtime-shell .up-title { margin: 0.8cqh 0 0; font-size: calc(var(--ts-base, 13cqh) * var(--ts-scale, 1)); line-height: 1; font-weight: 700; letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ticker-runtime-shell .up-f1 .up-title { --ts-base: 10.5cqh; }
+.ticker-runtime-shell .up-stats { font-size: 5.2cqh; font-weight: 700; letter-spacing: .05em; margin-top: 1.4cqh; opacity: .9; }
+.ticker-runtime-shell .up-stats i { font-style: normal; opacity: .55; margin: 0 1.4cqh; }
+.ticker-runtime-shell .up-dw { position: absolute; right: 0; top: 0; display: flex; align-items: center; gap: 2.6cqh; text-transform: none; }
+.ticker-runtime-shell .up-dw img { flex: 0 0 auto; width: 20cqh; height: 20cqh; border-radius: 50%; object-fit: cover; object-position: top; border: 0.5cqh solid currentColor; background: #0b0d12; }
+.ticker-runtime-shell .up-dw .k { font-size: 3.8cqh; font-weight: 700; letter-spacing: .14em; opacity: .8; text-transform: uppercase; line-height: 1.1; }
+.ticker-runtime-shell .up-dw .nm { font-size: 7.4cqh; font-weight: 700; line-height: 1.1; }
+.ticker-runtime-shell .up-dw .nm small { font-size: 5cqh; font-weight: 700; opacity: .7; margin-left: 1cqh; }
 .ticker-runtime-shell .up-body { flex: 1; min-height: 0; display: flex; gap: 4cqh; align-items: flex-end; }
 .ticker-runtime-shell .up-tl { flex: 1; min-width: 0; position: relative; display: flex; align-items: flex-start; }
 .ticker-runtime-shell .up-tl::before { content: ''; position: absolute; left: 0; right: 0; top: 2.75cqh; height: 0.9cqh; background: currentColor; opacity: .55; border-radius: 1cqh; }
 .ticker-runtime-shell .up-st { position: relative; padding-top: 6.4cqh; flex: 1; }
 .ticker-runtime-shell .up-st::before { content: ''; position: absolute; top: 0; left: 0; width: 6.4cqh; height: 6.4cqh; margin-top: -0.1cqh; border-radius: 50%; background: currentColor; opacity: .55; }
-.ticker-runtime-shell .up-st .d { font-size: 4.6cqh; font-weight: 700; letter-spacing: .06em; white-space: nowrap; opacity: .85; }
-.ticker-runtime-shell .up-st .t { font-size: 8.6cqh; font-weight: 700; line-height: 1; margin: 0.6cqh 0; letter-spacing: -.01em; }
-.ticker-runtime-shell .up-st .t small { font-size: 4.6cqh; opacity: .85; }
-.ticker-runtime-shell .up-st .n { font-size: 4.6cqh; font-weight: 700; letter-spacing: .12em; opacity: .8; }
+.ticker-runtime-shell .up-st .d { font-size: 3.6cqh; font-weight: 700; letter-spacing: .05em; white-space: nowrap; opacity: .85; }
+.ticker-runtime-shell .up-st .t { font-size: 7.4cqh; font-weight: 700; line-height: 1; margin: 0.6cqh 0; }
+.ticker-runtime-shell .up-st .t small { font-size: 3.6cqh; font-style: normal; font-weight: 700; letter-spacing: .04em; margin-left: 0.8cqh; opacity: .85; }
+.ticker-runtime-shell .up-st .n { font-size: 3.6cqh; font-weight: 700; letter-spacing: .12em; opacity: .8; }
 .ticker-runtime-shell .up-st.done { opacity: .55; }
 .ticker-runtime-shell .up-st.med { flex: 1.5; }
-.ticker-runtime-shell .up-st.med .t { font-size: 10cqh; }
+.ticker-runtime-shell .up-st.med .t { font-size: 8.6cqh; }
 .ticker-runtime-shell .up-st.next { flex: 2.2; }
 .ticker-runtime-shell .up-st.next::before { opacity: 1; width: 7.4cqh; height: 7.4cqh; margin-top: -.6cqh; box-shadow: 0 0 0 1.2cqh rgba(255,255,255,.45); }
-.ticker-runtime-shell .up-st.next .d { font-size: 8cqh; opacity: 1; letter-spacing: .04em; }
-.ticker-runtime-shell .up-st.next .t { font-size: 22cqh; letter-spacing: -.03em; margin: 1cqh 0 1.4cqh; }
-.ticker-runtime-shell .up-st.next .t small { font-size: 8cqh; }
-.ticker-runtime-shell .up-st.next .n { font-size: 6.6cqh; opacity: 1; }
-.ticker-runtime-shell .up-tv { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 2cqh; }
-.ticker-runtime-shell .up-tv img { height: 10cqh; width: auto; }
-.ticker-runtime-shell .up-f1 .up-tv img { filter: brightness(0) invert(1); }
+.ticker-runtime-shell .up-st.next .d { font-size: 5.6cqh; opacity: 1; letter-spacing: .04em; }
+.ticker-runtime-shell .up-st.next .t { font-size: 19cqh; letter-spacing: -.02em; margin: 1cqh 0 1.4cqh; }
+.ticker-runtime-shell .up-st.next .t small { font-size: 5.6cqh; }
+.ticker-runtime-shell .up-st.next .n { font-size: 4.8cqh; opacity: 1; }
+/* Network logos are shipped for dark backgrounds (the USA PNG is translucent red) — keep them on one */
+.ticker-runtime-shell .up-tv { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 2cqh; background: #101319; padding: 1.6cqh 2.6cqh; border-radius: 1.8cqh; }
+.ticker-runtime-shell .up-tv img { height: 8cqh; width: auto; }
 .ticker-runtime-shell .up-map { flex: 0 0 176cqh; height: 100%; }
 .ticker-runtime-shell .up-map img { width: 100%; height: 100%; object-fit: contain; opacity: .9; }
-.ticker-runtime-shell .up-f1 .up-title { --ts-base: 11.5cqh; }

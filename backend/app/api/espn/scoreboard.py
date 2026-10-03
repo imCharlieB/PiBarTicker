@@ -1447,6 +1447,24 @@ def get_scoreboard(
                     pass
             threading.Thread(target=_bg_mma_cache, daemon=True).start()
 
+    # Racing weekends: once qualifying has set a starting order, the upcoming-race card owns the first
+    # slot (it replaces the entry list) — keep the order itself on screen as a second card right behind
+    # it until the race starts. Same game minus the race details, so it renders as the entry list.
+    if entry.sport == "racing":
+        _with_order: list[dict] = []
+        for _g in normalized_games:
+            _with_order.append(_g)
+            if (
+                str(_g.get("state") or "").lower() == "pre"
+                and _g.get("raceDetails")
+                and _g.get("racingEntries")
+            ):
+                _order = {k: v for k, v in _g.items() if k != "raceDetails"}
+                _order["id"] = f"{_g.get('id')}-order"
+                _order["gameId"] = f"{_g.get('gameId') or _g.get('id')}-order"
+                _with_order.append(_order)
+        normalized_games = _with_order
+
     event_count = len(filtered_events)
     return {
         "sport": entry.sport,

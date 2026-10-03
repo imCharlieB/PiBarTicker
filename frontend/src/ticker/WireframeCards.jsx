@@ -723,7 +723,7 @@ function UpcomingRaceCard({ game, title, seriesName, flags }) {
     rd.numberOfCarsInField ? <span key="c"><b>{rd.numberOfCarsInField}</b> CARS</span> : null,
   ].filter(Boolean)
   return (
-    <div className={`card up-card ${isF1 ? 'up-f1' : 'up-nas'}`}>
+    <div className={`card up-card ${isF1 ? 'up-f1' : 'up-nas'} ${isF1 && !circuitImg ? 'up-nomap' : ''}`}>
       <div className="up-main">
         {dw?.name ? (
           <div className="up-dw">

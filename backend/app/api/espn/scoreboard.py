@@ -626,10 +626,7 @@ def get_scoreboard(
                                 if not isinstance(_sched, dict):
                                     continue
                                 _run_type = _sched.get("run_type")
-                                # Race itself (run_type 3) deliberately excluded -- its start time is
-                                # already the card's own big "STARTS" time above; listing it again here
-                                # just showed the same time twice. Confirmed 2026-10-02.
-                                _label = {1: "Practice", 2: "Qualifying"}.get(_run_type, "")
+                                _label = {1: "Practice", 2: "Qualifying", 3: "Race"}.get(_run_type, "")
                                 if not _label:
                                     continue  # skip logistics entries (hauler parade, driver meetings, etc.)
                                 _schedule_items.append({
@@ -639,10 +636,6 @@ def get_scoreboard(
 
                             _last_race_winner = ""
                             _last_race_track = ""
-                            _last_race_winner_headshot = ""
-                            _last_race_winner_car_number = ""
-                            _last_race_winner_manufacturer = ""
-                            _last_race_winner_color = ""
                             try:
                                 _prev_race: dict | None = None
                                 _prev_diff: float | None = None
@@ -670,10 +663,6 @@ def get_scoreboard(
                                         for _drv in nascar_drivers_meta.teams.values():
                                             if str(_drv.remote_urls.get("nascar_driver_id") or "").strip() == _winner_id:
                                                 _last_race_winner = _drv.display_name
-                                                _last_race_winner_headshot = _drv.logos.get("headshot") or ""
-                                                _last_race_winner_car_number = str(_drv.remote_urls.get("car_number") or "").strip()
-                                                _last_race_winner_manufacturer = str(_drv.remote_urls.get("manufacturer") or "").strip()
-                                                _last_race_winner_color = _drv.color or ""
                                                 break
                                     _last_race_track = str(_prev_race.get("track_name") or "").strip()
                                     if not _last_race_winner:
@@ -693,10 +682,6 @@ def get_scoreboard(
                                 "schedule": _schedule_items,
                                 "lastRaceWinner": _last_race_winner,
                                 "lastRaceTrack": _last_race_track,
-                                "lastRaceWinnerHeadshot": _last_race_winner_headshot,
-                                "lastRaceWinnerCarNumber": _last_race_winner_car_number,
-                                "lastRaceWinnerManufacturer": _last_race_winner_manufacturer,
-                                "lastRaceWinnerColor": _last_race_winner_color,
                             }
                 except Exception:
                     pass

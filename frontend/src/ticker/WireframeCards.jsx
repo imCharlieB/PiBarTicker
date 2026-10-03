@@ -743,8 +743,9 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
     // and only when there's no circuit image — F1 always has one, so it never reaches this
     // branch and its board-pre-circuit layout/width is completely unaffected.
     const raceDetails = !circuitImg ? game?.raceDetails : null
+    const playoffBadge = String(game?.playoffBadge || '').trim()
     return (
-      <div className={`card d-board ${dirClass} board-pre ${circuitImg ? 'board-pre-circuit' : ''} ${raceDetails ? 'board-pre-nascar' : ''} ${raceDetails?.lastRaceWinnerHeadshot ? 'has-hero' : ''}`}>
+      <div className={`card d-board ${dirClass} board-pre ${circuitImg ? 'board-pre-circuit' : ''} ${raceDetails ? 'board-pre-nascar' : ''}`}>
         <div className="board-head">
           <div className="board-titles">
             <span className="board-title">{title}</span>
@@ -773,30 +774,6 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
             </div>
           ) : raceDetails ? (
             <>
-              {raceDetails.lastRaceWinnerHeadshot ? (
-                <div className="bn-hero" style={{ '--rc': raceDetails.lastRaceWinnerColor || '#7CF29B' }}>
-                  <img
-                    className="bn-hero-photo"
-                    src={raceDetails.lastRaceWinnerHeadshot.startsWith('http') ? raceDetails.lastRaceWinnerHeadshot : `/logos/${raceDetails.lastRaceWinnerHeadshot}`}
-                    alt={raceDetails.lastRaceWinner}
-                    onError={(e) => { e.currentTarget.closest('.bn-hero')?.remove() }}
-                  />
-                  <div className="bn-hero-info">
-                    <span className="bn-hero-eyebrow">Defending Winner</span>
-                    <span className="bn-hero-name">{raceDetails.lastRaceWinner}</span>
-                    <div className="bn-hero-badges">
-                      {raceDetails.lastRaceWinnerCarNumber ? <span className="bn-hero-num">#{raceDetails.lastRaceWinnerCarNumber}</span> : null}
-                      {MANUFACTURER_LOGOS[String(raceDetails.lastRaceWinnerManufacturer || '').toUpperCase()] ? (
-                        <img
-                          className="bn-hero-mfg"
-                          src={MANUFACTURER_LOGOS[String(raceDetails.lastRaceWinnerManufacturer).toUpperCase()]}
-                          alt={raceDetails.lastRaceWinnerManufacturer}
-                        />
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-              ) : null}
               <div className="bpre-nascar">
                 <div className="bn-top">
                   <div className="bn-facts">
@@ -805,6 +782,9 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
                     {raceDetails.scheduledLaps ? <><span className="dot">·</span><span>{raceDetails.scheduledLaps} laps</span></> : null}
                     {raceDetails.numberOfCarsInField ? <><span className="dot">·</span><span>{raceDetails.numberOfCarsInField} cars</span></> : null}
                   </div>
+                  {playoffBadge && raceDetails.isPlayoffs
+                    ? <img className="bn-badge" src={playoffBadge.startsWith('http') ? playoffBadge : `/logos/${playoffBadge}`} alt="Playoffs" />
+                    : null}
                 </div>
                 {(raceDetails.stage1Laps || raceDetails.stage2Laps || raceDetails.stage3Laps) ? (
                   <div className="bn-stages">
@@ -823,7 +803,7 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
                     ))}
                   </div>
                 ) : null}
-                {!raceDetails.lastRaceWinnerHeadshot && raceDetails.lastRaceWinner ? (
+                {raceDetails.lastRaceWinner ? (
                   <div className="bn-last">Last race: <b>{raceDetails.lastRaceWinner}</b> won at {raceDetails.lastRaceTrack}</div>
                 ) : null}
               </div>

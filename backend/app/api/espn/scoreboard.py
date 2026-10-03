@@ -1046,6 +1046,9 @@ def get_scoreboard(
                                 race_entry["teamColor"] = driver.color
                             if driver.logos.get("headshot") and not race_entry.get("headshot"):
                                 race_entry["headshot"] = driver.logos["headshot"]
+                            # Full-body transparent render — the starting-grid card uses it as a cutout
+                            if driver.logos.get("render"):
+                                race_entry["render"] = driver.logos["render"]
 
                     # NASCAR surname join — inject headshot, car number, badge image, gap
                     if _is_nascar:

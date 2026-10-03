@@ -775,8 +775,7 @@ function UpcomingRaceCard({ game, title, seriesName, flags }) {
 function StartingGridCard({ game, title, seriesName, displayEntries }) {
   const isF1 = String(game?.leagueId || '').toLowerCase() === 'f1'
   const toUrl = (p) => (p ? (p.startsWith('http') ? p : `/logos/${p}`) : null)
-  // F1 surnames are longer and its headshots are round crops, so its strips are wider
-  const STEP = isF1 ? 88 : 72, STAG = isF1 ? 40 : 34, PAD = 3
+  const STEP = 72, STAG = 34, PAD = 3
   const cols = Math.ceil(displayEntries.length / 2)
   const width = PAD + cols * STEP + STAG + 4
   return (
@@ -795,11 +794,13 @@ function StartingGridCard({ game, title, seriesName, displayEntries }) {
         const surname = parts.length > 1 ? parts.slice(1).join(' ') : parts[0]
         const first = parts.length > 1 ? parts[0] : ''
         const car = entry.carNumber ? `#${entry.carNumber}` : ''
-        const hs = toUrl(entry.headshot)
+        // F1: full-body transparent render (cutout, like the NASCAR photos); fall back to the round headshot
+        const hs = toUrl(isF1 ? (entry.render || entry.headshot) : entry.headshot)
+        const round = isF1 && !entry.render
         return (
           <div
             key={i}
-            className={`gb-strip ${isF1 ? 'gb-round' : ''}`}
+            className={`gb-strip ${round ? 'gb-round' : ''}`}
             style={{ ...standingsColorVars(color), '--gb-w': `${STEP - 4}cqh`, left: `${PAD + col * STEP + (lane ? STAG : 0)}cqh`, top: lane ? '56cqh' : '17cqh' }}
           >
             <div className="gb-pos"><em>{entry.position ?? i + 1}</em></div>

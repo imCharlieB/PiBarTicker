@@ -1069,3 +1069,5 @@
 .ticker-runtime-shell .gb-txt small { font-size: 3cqh; font-weight: 800; color: #9aa3b1; letter-spacing: .06em; }
 .ticker-runtime-shell .gb-img { position: absolute; right: -3cqh; bottom: 0; height: 124%; width: auto; transform: skewX(9deg); filter: drop-shadow(0 0.6cqh 1cqh rgba(0,0,0,.6)); z-index: 1; }
 .ticker-runtime-shell .gb-round .gb-img { height: 26cqh; width: 26cqh; right: 1cqh; bottom: 2cqh; border-radius: 50%; object-fit: cover; object-position: top; border: 0.5cqh solid var(--rc); background: #0b0d12; }
+.ticker-runtime-shell .gb-strip:not(.gb-round) .gb-img { object-fit: contain; object-position: bottom; }
+.ticker-runtime-shell .gb-strip:not(.gb-round) .gb-img { height: 138%; right: -1cqh; }

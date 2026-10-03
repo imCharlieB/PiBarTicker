@@ -956,6 +956,7 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
         mfgLogo: isF1 ? (isTeams ? null : toUrl(entry.carImage)) : (MANUFACTURER_LOGOS[mfr] || null),
         headshot: isF1 ? (isTeams ? null : toUrl(entry.render || entry.headshot)) : toUrl(entry.headshot),
         carImg: toUrl(entry.carImage),
+        teamLogo: toUrl(entry.teamLogo),
         carBadge: toUrl(entry.carBadge),
         points: Number.isInteger(entry.points) ? entry.points : null,
         pointsGap: Number.isInteger(entry.pointsGap) ? entry.pointsGap : null,
@@ -964,7 +965,14 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
     }
     // F1 renders are full-body cutouts -> crop waist-up; team rows show the car instead of a driver
     const art = (r, lead) => {
-      if (isF1 && isTeams) return r.carImg ? <img className={`st-car ${lead ? 'st-car-lead' : ''}`} src={r.carImg} alt="" /> : null
+      if (isF1 && isTeams) {
+        return (
+          <>
+            {r.teamLogo ? <img className={`st-tlogo ${lead ? 'st-tlogo-lead' : ''}`} src={r.teamLogo} alt="" /> : null}
+            {r.carImg ? <img className={`st-car ${lead ? 'st-car-lead' : ''}`} src={r.carImg} alt="" /> : null}
+          </>
+        )
+      }
       if (isF1 && r.headshot) return <span className={`st-rclip ${lead ? 'st-rclip-lead' : ''}`}><img src={r.headshot} alt="" /></span>
       return (
         <DriverImage

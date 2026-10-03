@@ -1145,3 +1145,11 @@
 .ticker-runtime-shell .st-car-lead { bottom: 38cqh; width: 86cqh; }
 .ticker-runtime-shell .st-f1 .st-rk img { max-width: 19cqh; max-height: 7cqh; }
 .ticker-runtime-shell .st-f1 .st-lead-row img { height: 7cqh; max-width: 24cqh; object-fit: contain; }
+
+/* F1 standings: images run down behind the name block (no hard cutoff); constructors get a big white team logo */
+.ticker-runtime-shell .st-f1 .st-rclip { bottom: 6cqh; height: 80%; }
+.ticker-runtime-shell .st-f1 .st-rclip-lead { bottom: 3cqh; height: 90cqh; }
+.ticker-runtime-shell .st-tlogo { position: absolute; z-index: 2; left: 50%; transform: translateX(-50%); top: 30%; width: 60%; aspect-ratio: 1 / 1; object-fit: contain; filter: drop-shadow(0 0.6cqh 1.4cqh rgba(0,0,0,.55)); }
+.ticker-runtime-shell .st-tlogo-lead { top: 19cqh; width: 36cqh; }
+.ticker-runtime-shell .st-teams .st-car { bottom: 15cqh; }
+.ticker-runtime-shell .st-teams .st-car-lead { bottom: 28cqh; width: 78cqh; }

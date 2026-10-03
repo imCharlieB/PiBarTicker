@@ -140,6 +140,15 @@ SOURCE_REAL="$(realpath "${SOURCE_DIR}")"
 APP_REAL="$(realpath "${APP_DIR}")"
 
 if [[ "${SOURCE_REAL}" != "${APP_REAL}" ]]; then
+  # team-meta/ and logos/ are mostly Pi-side runtime-synced caches and must survive
+  # reinstalls untouched -- but a handful of static files in them (NASCAR driver
+  # photos, series logos, playoff badges, manufacturer logos) ONLY exist in git,
+  # since they can only be fetched from a dev machine (see .gitignore's exceptions
+  # for the full explanation). Those specific files need to actually reach the Pi,
+  # so this filter set mirrors .gitignore's exceptions 1:1 instead of blanket-
+  # excluding the whole directories like before (confirmed 2026-10-02: the old
+  # blanket exclude meant new NASCAR photos never made it to the Pi no matter how
+  # many times install ran).
   rsync -a --delete \
     --exclude ".git" \
     --exclude ".venv" \
@@ -147,8 +156,30 @@ if [[ "${SOURCE_REAL}" != "${APP_REAL}" ]]; then
     --exclude "frontend/dist" \
     --exclude "config.json" \
     --exclude "runtime-cache" \
-    --exclude "team-meta" \
-    --exclude "/logos" \
+    --include "team-meta/" \
+    --include "team-meta/nascar-series.json" \
+    --include "team-meta/nascar-cup.json" \
+    --include "team-meta/nascar-xfinity.json" \
+    --include "team-meta/nascar-trucks.json" \
+    --exclude "team-meta/*" \
+    --include "logos/" \
+    --include "logos/networks/" \
+    --include "logos/networks/**" \
+    --include "logos/nascar/" \
+    --include "logos/nascar/series_*" \
+    --include "logos/nascar/playoffs_*" \
+    --include "logos/nascar/manufacturers/" \
+    --include "logos/nascar/manufacturers/**" \
+    --include "logos/nascar/cup/" \
+    --include "logos/nascar/cup/*_photo.png" \
+    --include "logos/nascar/xfinity/" \
+    --include "logos/nascar/xfinity/*_photo.png" \
+    --include "logos/nascar/trucks/" \
+    --include "logos/nascar/trucks/*_photo.png" \
+    --exclude "logos/nascar/cup/*" \
+    --exclude "logos/nascar/xfinity/*" \
+    --exclude "logos/nascar/trucks/*" \
+    --exclude "logos/*" \
     "${SOURCE_DIR}/" "${APP_DIR}/"
 else
   echo "Source and app directory are the same; skipping sync."

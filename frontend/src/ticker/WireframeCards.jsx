@@ -97,6 +97,38 @@ const MANUFACTURER_LOGOS = {
   RAM:       '/logos/nascar/manufacturers/ram.png',
 }
 
+// Standings card colors are computed here instead of with CSS color-mix(): the kiosk's Chromium
+// may predate color-mix (111+), and unsupported color-mix silently drops the whole declaration,
+// which showed up as flat grey panels on the board while a newer desktop browser looked right.
+function toRgb(color) {
+  const c = String(color || '').trim()
+  let m = c.match(/^#?([0-9a-f]{6})$/i)
+  if (m) { const n = parseInt(m[1], 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255] }
+  m = c.match(/^hsl\(\s*([\d.]+)\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%\s*\)$/i)
+  if (m) {
+    const h = Number(m[1]) / 360, sat = Number(m[2]) / 100, l = Number(m[3]) / 100
+    const q = l < 0.5 ? l * (1 + sat) : l + sat - l * sat, pp = 2 * l - q
+    const f = (t) => { t = (t + 1) % 1; return Math.round(255 * (t < 1 / 6 ? pp + (q - pp) * 6 * t : t < 1 / 2 ? q : t < 2 / 3 ? pp + (q - pp) * (2 / 3 - t) * 6 : pp)) }
+    return [f(h + 1 / 3), f(h), f(h - 1 / 3)]
+  }
+  return [242, 183, 5]
+}
+function mixRgb(rgb, pct, base) {
+  const w = pct / 100
+  return `rgb(${rgb.map((v, i) => Math.round(v * w + base[i] * (1 - w))).join(',')})`
+}
+function standingsColorVars(color) {
+  const rgb = toRgb(color)
+  const ink = [11, 13, 18], foot = [20, 24, 33], white = [255, 255, 255], black = [0, 0, 0]
+  return {
+    '--rc': `rgb(${rgb.join(',')})`,
+    '--rc-rgb': rgb.join(','),
+    '--rc-m18': mixRgb(rgb, 18, ink), '--rc-m25': mixRgb(rgb, 25, ink), '--rc-m60': mixRgb(rgb, 60, ink),
+    '--rc-m65': mixRgb(rgb, 65, ink), '--rc-m34f': mixRgb(rgb, 34, foot),
+    '--rc-m75k': mixRgb(rgb, 75, black), '--rc-m80w': mixRgb(rgb, 80, white), '--rc-m85w': mixRgb(rgb, 85, white),
+  }
+}
+
 // NASCAR has no per-driver team colors cached, so the standings card colors each driver by
 // manufacturer instead -- a real, meaningful signal rather than a hash of the name.
 const MANUFACTURER_COLORS = {
@@ -678,7 +710,7 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
     return (
       <div className="card d-board d-standings">
         <div className="st-inner">
-          <div className="st-lead" style={{ '--rc': leader.color }}>
+          <div className="st-lead" style={standingsColorVars(leader.color)}>
             <div className="st-lead-panel st-streaks"><div className="st-halo" /></div>
             <div className="st-lead-floor" />
             <DriverImage
@@ -707,7 +739,7 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
             </div>
             <div className="st-cards">
               {fieldRows.map((r, i) => (
-                <div key={i} className="st-fc" style={{ '--rc': r.color }}>
+                <div key={i} className="st-fc" style={standingsColorVars(r.color)}>
                   <div className="st-panel st-streaks"><div className="st-halo" /></div>
                   <div className="st-floor" />
                   <DriverImage

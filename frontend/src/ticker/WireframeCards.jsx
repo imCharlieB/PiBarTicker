@@ -782,7 +782,7 @@ function StartingGridCard({ game, title, seriesName, displayEntries }) {
     const parts = String(e.shortName || e.name || 'Driver').split(' ')
     return parts.length > 1 ? parts.slice(1).join(' ') : parts[0]
   }
-  const stripW = displayEntries.map((e) => Math.max(66, POS_W + 4 + surnameOf(e).length * CHAR_W + PHOTO_W))
+  const stripW = displayEntries.map((e) => Math.max(82, POS_W + 4 + surnameOf(e).length * CHAR_W + PHOTO_W))
   const colX = []
   let acc = PAD
   const cols = Math.ceil(displayEntries.length / 2)

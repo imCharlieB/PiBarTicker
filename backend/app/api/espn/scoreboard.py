@@ -1049,6 +1049,15 @@ def get_scoreboard(
                             # Full-body transparent render — the starting-grid card uses it as a cutout
                             if driver.logos.get("render"):
                                 race_entry["render"] = driver.logos["render"]
+                            _tn = str(driver.remote_urls.get("team_name") or "").strip()
+                            if _tn:
+                                race_entry["team"] = _tn
+                                _slug = re.sub(r"[^a-z0-9]", "", _tn.lower())
+                                _logos_dir = get_runtime_paths().logos / "f1"
+                                if (_logos_dir / "teams" / f"{_slug}_logo.webp").exists():
+                                    race_entry["teamLogo"] = f"f1/teams/{_slug}_logo.webp"
+                                if (_logos_dir / f"{_slug}_car.webp").exists():
+                                    race_entry["carImage"] = f"f1/{_slug}_car.webp"
 
                     # NASCAR surname join — inject headshot, car number, badge image, gap
                     if _is_nascar:

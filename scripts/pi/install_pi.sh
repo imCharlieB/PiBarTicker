@@ -179,6 +179,10 @@ if [[ "${SOURCE_REAL}" != "${APP_REAL}" ]]; then
     --exclude "logos/nascar/cup/*" \
     --exclude "logos/nascar/xfinity/*" \
     --exclude "logos/nascar/trucks/*" \
+    --include "logos/f1/" \
+    --include "logos/f1/teams/" \
+    --include "logos/f1/teams/**" \
+    --exclude "logos/f1/*" \
     --exclude "logos/*" \
     "${SOURCE_DIR}/" "${APP_DIR}/"
 else

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { Fragment, useState, useEffect } from 'react'
 import {
   densityFlags,
   formatRuntimeStatus,
@@ -54,6 +54,7 @@ const NETWORK_LOGOS = {
   'BIG TEN NETWORK':     '/logos/networks/btn.png',
   'BTN':                 '/logos/networks/btn.png',
   'USA NETWORK':         '/logos/networks/usa.png',
+  'USA NET':             '/logos/networks/usa.png',
   'USA':                 '/logos/networks/usa.png',
   'THE CW':              '/logos/networks/cw.png',
   'CW':                  '/logos/networks/cw.png',
@@ -179,19 +180,6 @@ function splitDateTime(text) {
   if (!text) return { date: '', time: '' }
   const m = text.match(/^(.+),\s*(\d+:\d+\s*(?:AM|PM)?)$/i)
   return m ? { date: m[1].trim(), time: m[2].trim() } : { date: text, time: '' }
-}
-
-// cf.nascar.com's race_list_basic schedule[] gives start_time_utc without a trailing "Z" or
-// offset despite the name ("2026-10-03T20:30:00") — append one so Date doesn't read it as local.
-function formatScheduleTime(raw) {
-  const s = String(raw || '').trim()
-  if (!s) return ''
-  const hasTz = /Z$|[+-]\d\d:\d\d$/.test(s)
-  const date = new Date(hasTz ? s : `${s}Z`)
-  if (Number.isNaN(date.getTime())) return ''
-  return new Intl.DateTimeFormat('en-US', {
-    weekday: 'short', hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
-  }).format(date)
 }
 
 // ── Shared atoms ───────────────────────────────────────────────────────────
@@ -662,6 +650,108 @@ function MarqueeCard({ game, flags }) {
   )
 }
 
+// ── Upcoming race card (NASCAR + F1) — session timeline, next session is the hero ──────────────
+
+// cf.nascar.com schedule times carry no offset ("2026-10-03T20:30:00" is UTC) — see formatScheduleTime.
+function parseSessionMs(raw) {
+  const s = String(raw || '').trim()
+  if (!s) return NaN
+  return new Date(/Z$|[+-]\d\d:\d\d$/.test(s) ? s : `${s}Z`).getTime()
+}
+
+function sessionStops(game, now) {
+  const rd = game?.raceDetails || {}
+  const raw = Array.isArray(game?.sessions) && game.sessions.length
+    ? game.sessions.map((s) => ({ label: s.label, ms: parseSessionMs(s.startTimeUtc), post: s.state === 'post' }))
+    : (Array.isArray(rd.schedule) ? rd.schedule : []).map((s) => ({ label: s.label, ms: parseSessionMs(s.startTimeUtc), post: false }))
+  const stops = raw.filter((s) => Number.isFinite(s.ms)).sort((a, b) => a.ms - b.ms)
+    .map((s) => ({ ...s, done: s.post || s.ms <= now }))
+  let next = stops.findIndex((s) => !s.done)
+  if (next < 0) next = stops.length - 1
+  return stops.map((s, i) => ({ ...s, next: i === next }))
+}
+
+function sessionParts(ms) {
+  const d = new Date(ms)
+  const date = new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).formatToParts(d)
+  const time = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }).formatToParts(d)
+  const pick = (parts, t) => parts.find((p) => p.type === t)?.value || ''
+  return {
+    day: `${pick(date, 'weekday')} ${pick(date, 'month')} ${pick(date, 'day')}`.toUpperCase(),
+    clock: `${pick(time, 'hour')}:${pick(time, 'minute')}`,
+    period: pick(time, 'dayPeriod').toUpperCase(),
+    tz: pick(time, 'timeZoneName'),
+  }
+}
+
+const TRACK_SUFFIX = /\s+(Motor Speedway|International Speedway|International Raceway|Superspeedway|Speedway|Raceway|Motorsports Park)$/i
+
+function UpcomingRaceCard({ game, title, seriesName, flags }) {
+  const rd = game.raceDetails
+  const isF1 = String(game?.leagueId || '').toLowerCase() === 'f1'
+  const circuitImg = String(game?.circuitImage || '').trim()
+  // Re-evaluated each minute so the "next" session advances while the card is on screen
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60000)
+    return () => clearInterval(id)
+  }, [])
+  const stops = sessionStops(game, now)
+  const dw = rd.defendingWinner
+  const track = String(rd.trackName || '').replace(TRACK_SUFFIX, '').trim()
+  const stats = [
+    rd.scheduledLaps ? <span key="l"><b>{rd.scheduledLaps}</b> LAPS</span> : null,
+    rd.scheduledDistance ? <span key="d"><b>{rd.scheduledDistance}</b> MI{rd.trackMiles ? ' RACE' : ''}</span> : null,
+    rd.trackMiles ? <span key="t"><b>{rd.trackMiles}</b> MI TRACK</span> : null,
+    rd.numberOfCarsInField ? <span key="c"><b>{rd.numberOfCarsInField}</b> CARS</span> : null,
+  ].filter(Boolean)
+  return (
+    <div className={`card up-card ${isF1 ? 'up-f1' : 'up-nas'}`}>
+      <div className="up-main">
+        {dw?.name ? (
+          <div className="up-dw">
+            {dw.headshot ? <img src={dw.headshot} alt="" onError={(e) => { e.currentTarget.remove() }} /> : null}
+            <div><div className="k">DEFENDING WINNER</div><div className="nm">{dw.name}<small>{dw.year}</small></div></div>
+          </div>
+        ) : null}
+        <div className={`up-head ${dw?.name ? 'has-dw' : ''}`}>
+          <div className="up-ser">{[seriesName, track].filter(Boolean).join(' · ')}</div>
+          <h3 className="up-title">{rd.raceName || title}</h3>
+          {stats.length ? (
+            <div className="up-stats">
+              {stats.map((el, i) => <Fragment key={i}>{i ? <i>·</i> : null}{el}</Fragment>)}
+            </div>
+          ) : null}
+        </div>
+        <div className="up-body">
+          <div className="up-tl">
+            {stops.map((s, i) => {
+              const p = sessionParts(s.ms)
+              return (
+                <div key={i} className={`up-st ${s.next ? 'next' : s.done ? 'done' : 'med'}`}>
+                  <div className="d">{s.next ? 'NEXT · ' : ''}{p.day}</div>
+                  <div className="t">{p.clock}<small> {p.period}{s.next ? ` ${p.tz}` : ''}</small></div>
+                  <div className="n">{s.label}</div>
+                </div>
+              )
+            })}
+          </div>
+          {game?.broadcastText && flags.tv ? (
+            <span className="up-tv">
+              {game.broadcastText.split(/\s*\/\s*/).filter(Boolean).map((n, i) => <NetworkLogo key={i} name={n} />)}
+            </span>
+          ) : null}
+        </div>
+      </div>
+      {circuitImg ? (
+        <div className="up-map">
+          <img src={circuitImg} alt="Circuit map" onError={(e) => { e.currentTarget.closest('.up-map')?.remove() }} />
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 // ── BOARD (racing / golf) — replaces RacingCard ────────────────────────────
 
 export function BoardCard({ game, isSoloSlate, renderLeague }) {
@@ -764,23 +854,23 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
     )
   }
 
-  // Pre-race with no grid entries → simple upcoming card
+  // Upcoming race (NASCAR / F1): session timeline with the next session as the hero. Shown for the
+  // whole pre-race window — including after qualifying, when ESPN already lists a starting order.
+  if (state === 'pre' && !isGolf && game?.raceDetails) {
+    return <UpcomingRaceCard game={game} title={title} seriesName={seriesName} flags={flags} />
+  }
+
+  // Pre-race with no grid entries → simple upcoming card (golf and any league without race details)
   if (state === 'pre' && !hasEntries) {
     const timeText = game?.runtimeDateText
       || formatRuntimeDate(game)
       || String(game?.status?.shortDetail || '').trim()
-    const circuitImg = String(game?.circuitImage || '').trim()
-    const circuitName = String(game?.circuitName || '').trim()
-    // NASCAR-only in practice (raceDetails is only ever set by the NASCAR backend enrichment),
-    // and only when there's no circuit image — F1 always has one, so it never reaches this
-    // branch and its board-pre-circuit layout/width is completely unaffected.
-    const raceDetails = !circuitImg ? game?.raceDetails : null
     return (
-      <div className={`card d-board ${dirClass} board-pre ${circuitImg ? 'board-pre-circuit' : ''} ${raceDetails ? 'board-pre-nascar' : ''}`}>
+      <div className={`card d-board ${dirClass} board-pre`}>
         <div className="board-head">
           <div className="board-titles">
             <span className="board-title">{title}</span>
-            <span className="board-sub">{circuitName || seriesName}</span>
+            <span className="board-sub">{seriesName}</span>
           </div>
           <StateChip game={game} />
         </div>
@@ -794,49 +884,6 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
                 </span>
               : null}
           </div>
-          {circuitImg ? (
-            <div className="bpre-circuit" id={`bpre-c-${game?.gameId}`}>
-              <img
-                src={circuitImg}
-                alt="Circuit map"
-                className="bpre-circuit-img"
-                onError={(e) => { e.currentTarget.closest('.bpre-circuit')?.remove() }}
-              />
-            </div>
-          ) : raceDetails ? (
-            <>
-              <div className="bpre-nascar">
-                <div className="bn-top">
-                  <div className="bn-facts">
-                    {raceDetails.trackName ? <b>{raceDetails.trackName}</b> : null}
-                    {raceDetails.scheduledDistance ? <><span className="dot">·</span><span>{raceDetails.scheduledDistance} mi</span></> : null}
-                    {raceDetails.scheduledLaps ? <><span className="dot">·</span><span>{raceDetails.scheduledLaps} laps</span></> : null}
-                    {raceDetails.numberOfCarsInField ? <><span className="dot">·</span><span>{raceDetails.numberOfCarsInField} cars</span></> : null}
-                  </div>
-                </div>
-                {(raceDetails.stage1Laps || raceDetails.stage2Laps || raceDetails.stage3Laps) ? (
-                  <div className="bn-stages">
-                    {raceDetails.stage1Laps ? <div className="bn-stage" style={{ flexGrow: raceDetails.stage1Laps }}>STAGE 1 · {raceDetails.stage1Laps}</div> : null}
-                    {raceDetails.stage2Laps ? <div className="bn-stage" style={{ flexGrow: raceDetails.stage2Laps }}>STAGE 2 · {raceDetails.stage2Laps}</div> : null}
-                    {raceDetails.stage3Laps ? <div className="bn-stage" style={{ flexGrow: raceDetails.stage3Laps }}>STAGE 3 · {raceDetails.stage3Laps}</div> : null}
-                  </div>
-                ) : null}
-                {Array.isArray(raceDetails.schedule) && raceDetails.schedule.length ? (
-                  <div className="bn-sched">
-                    {raceDetails.schedule.map((s, i) => (
-                      <div key={i} className="bn-sched-row">
-                        <span className="bn-sched-label">{s.label}</span>
-                        <span className="bn-sched-time">{formatScheduleTime(s.startTimeUtc)}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-                {raceDetails.lastRaceWinner ? (
-                  <div className="bn-last">Last race: <b>{raceDetails.lastRaceWinner}</b> won at {raceDetails.lastRaceTrack}</div>
-                ) : null}
-              </div>
-            </>
-          ) : null}
         </div>
         <div className="board-foot">
           <MetaRow game={game} flags={{ ...flags, tv: false }} mono />

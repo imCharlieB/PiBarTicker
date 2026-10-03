@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, Query
 from ...core.espn_normalizer import normalize_scoreboard_events
 from ...core.espn_registry import resolve_registry_entry
 from ...core.espn_scoreboard import EspnScoreboardClient, resolve_calendar_weeks
+from ...core.f1_circuit_stats import f1_circuit_stats
 import json
 import re
 
@@ -670,7 +671,46 @@ def get_scoreboard(
                             except Exception:
                                 pass
 
+                            # Defending winner: last season's race at this same track (same race name
+                            # when the track hosts two, e.g. Las Vegas spring/fall), winner joined to
+                            # the cached driver meta for a name + headshot.
+                            _defending: dict | None = None
+                            try:
+                                _prev_year_list = _http_client.get_json(
+                                    f"https://cf.nascar.com/cacher/{_season_year - 1}/{expected_series_id}/race_list_basic.json",
+                                    use_cache=True,
+                                    cache_ttl_seconds=86400.0,
+                                )
+                                if isinstance(_prev_year_list, list):
+                                    _same_track = [
+                                        r for r in _prev_year_list
+                                        if isinstance(r, dict)
+                                        and r.get("track_id") == _best_race.get("track_id")
+                                        and r.get("winner_driver_id")
+                                    ]
+                                    _same_name = [r for r in _same_track if r.get("race_name") == _best_race.get("race_name")]
+                                    _pick_from = _same_name or _same_track
+                                    if _pick_from and nascar_drivers_meta:
+                                        _prev_win = max(_pick_from, key=lambda r: str(r.get("race_date") or ""))
+                                        _win_id = str(_prev_win.get("winner_driver_id") or "").strip()
+                                        for _drv in nascar_drivers_meta.teams.values():
+                                            if str(_drv.remote_urls.get("nascar_driver_id") or "").strip() == _win_id:
+                                                _hs = str(_drv.logos.get("headshot") or "")
+                                                # Prefer the round-crop "_headshot" variant over the transparent cutout
+                                                _hs_round = _hs.replace("_photo.png", "_headshot.png")
+                                                if _hs_round != _hs and not (get_runtime_paths().logos / _hs_round).exists():
+                                                    _hs_round = _hs
+                                                _defending = {
+                                                    "name": _drv.display_name,
+                                                    "year": _season_year - 1,
+                                                    "headshot": f"/logos/{_hs_round}" if _hs_round else "",
+                                                }
+                                                break
+                            except Exception:
+                                _defending = None
+
                             nascar_race_details = {
+                                "raceName": str(_best_race.get("race_name") or "").strip(),
                                 "trackName": str(_best_race.get("track_name") or "").strip(),
                                 "scheduledDistance": _best_race.get("scheduled_distance"),
                                 "scheduledLaps": _best_race.get("scheduled_laps"),
@@ -682,6 +722,7 @@ def get_scoreboard(
                                 "schedule": _schedule_items,
                                 "lastRaceWinner": _last_race_winner,
                                 "lastRaceTrack": _last_race_track,
+                                "defendingWinner": _defending,
                             }
                 except Exception:
                     pass
@@ -1170,6 +1211,51 @@ def get_scoreboard(
                         game["circuitImage"] = matched[0]
                         if matched[1]:
                             game["circuitName"] = matched[1]
+
+                # F1 upcoming-card details: laps / distance / track length from a static table
+                # (ESPN has none), plus last season's winner at this same circuit.
+                if entry.league_id == "f1" and game.get("circuitImage") and str(game.get("state") or "").lower() == "pre":
+                    _f1_details = dict(f1_circuit_stats(game["circuitImage"]) or {})
+                    try:
+                        _season = datetime.now(timezone.utc).year
+                        _prev = _http_client.get_json(
+                            f"https://site.api.espn.com/apis/site/v2/sports/racing/f1/scoreboard?dates={_season - 1}",
+                            use_cache=True,
+                            cache_ttl_seconds=86400.0,
+                        )
+                        _cur_cid = str(game.get("circuitId") or "").strip()
+                        _cur_name = str(game.get("eventName") or "").strip().lower()
+                        _match_ev = None
+                        for _ev in (_prev or {}).get("events") or []:
+                            if not isinstance(_ev, dict):
+                                continue
+                            _ev_cid = str((_ev.get("circuit") or {}).get("id") or "").strip()
+                            _ev_name = str(_ev.get("name") or "").strip().lower()
+                            if (_cur_cid and _ev_cid == _cur_cid) or (
+                                _cur_name and _ev_name and (_ev_name in _cur_name or _cur_name in _ev_name)
+                            ):
+                                _match_ev = _ev
+                                break
+                        if _match_ev and f1_drivers_meta:
+                            for _comp in _match_ev.get("competitions") or []:
+                                if str((_comp.get("type") or {}).get("abbreviation") or "") != "Race":
+                                    continue
+                                for _c in _comp.get("competitors") or []:
+                                    if not _c.get("winner"):
+                                        continue
+                                    _ath = _c.get("athlete") or {}
+                                    _full = str(_ath.get("displayName") or _ath.get("fullName") or "").strip()
+                                    _drv = f1_drivers_meta.teams.get(_full.split()[-1].lower()) if _full else None
+                                    _hs = str((_drv.logos.get("headshot") if _drv else "") or "")
+                                    _f1_details["defendingWinner"] = {
+                                        "name": _full,
+                                        "year": _season - 1,
+                                        "headshot": f"/logos/{_hs}" if _hs else "",
+                                    }
+                                    break
+                    except Exception:
+                        pass
+                    game["raceDetails"] = _f1_details
         except Exception:
             pass
 

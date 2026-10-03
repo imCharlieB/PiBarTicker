@@ -437,9 +437,6 @@
 }
 .ticker-runtime-shell .board-multi .board-badge { width: 8.4cqh; height: 8.4cqh; }
 
-/* Board: pre-race circuit map */
-.ticker-runtime-shell .d-board.board-pre-circuit { width: 194.7cqh; }
-
 /* Board: finished-race winner spotlight (NASCAR, weekend-feed enrichment present).
    Mirrors .d-slab's own pattern for its live-feature state: rather than growing the card
    taller, the card is wider (221cqh vs the plain board's 152.6cqh — d-slab itself is already
@@ -486,42 +483,6 @@
 .ticker-runtime-shell .board-foot.summary .board-unit-group { display: inline-flex; align-items: center; gap: 2.1cqh; }
 .ticker-runtime-shell .board-foot.summary .board-unit { color: #cfd6e2; font-weight: 700; }
 .ticker-runtime-shell .board-foot.summary .sep { color: #3a4150; }
-.ticker-runtime-shell .bpre-circuit {
-  flex: 1 1 auto; display: flex; align-items: center; justify-content: flex-end;
-  overflow: hidden; border-radius: 2.1cqh; min-height: 0;
-}
-.ticker-runtime-shell .bpre-circuit-img {
-  height: 100%; width: auto; max-width: 100%;
-  object-fit: contain; opacity: 0.9;
-}
-
-/* Board: NASCAR upcoming-race info panel — fills the space F1's circuit map occupies for F1,
-   left empty for every other racing league. Separate class/selectors from .bpre-circuit /
-   .board-pre-circuit above, which stay completely untouched — F1 always has a circuitImage so
-   it never reaches this branch. See WireframeCards.jsx's board-pre-nascar gating.
-   .bpre-when's 49.5cqh base flex-basis is a function of card HEIGHT, not width, so widening the
-   card alone doesn't widen it — needs its own override here, scoped to this class only. */
-.ticker-runtime-shell .d-board.board-pre-nascar { width: 224cqh; }
-.ticker-runtime-shell .board-pre-nascar .bpre-when { flex-basis: 70cqh; }
-.ticker-runtime-shell .board-pre-nascar .bpre-time { font-size: 10cqh; }
-.ticker-runtime-shell .bpre-nascar { flex: 1; display: flex; flex-direction: column; justify-content: space-between; min-width: 0; }
-
-.ticker-runtime-shell .bn-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 3.2cqh; }
-.ticker-runtime-shell .bn-facts { display: flex; flex-wrap: wrap; gap: 2.1cqh; font-size: 4.7cqh; color: #9aa3b1; font-weight: 700; padding-top: 0.5cqh; }
-.ticker-runtime-shell .bn-facts b { color: #eef2f8; font-weight: 800; }
-.ticker-runtime-shell .bn-facts .dot { color: #3a4150; }
-.ticker-runtime-shell .bn-stages { display: flex; height: 9.5cqh; border-radius: 1.6cqh; overflow: hidden; }
-.ticker-runtime-shell .bn-stage { display: flex; align-items: center; justify-content: center; font-size: 3.7cqh; font-weight: 800; color: #0c0e13; }
-.ticker-runtime-shell .bn-stage:nth-child(1) { background: #7CF29B; }
-.ticker-runtime-shell .bn-stage:nth-child(2) { background: #F2C94C; }
-.ticker-runtime-shell .bn-stage:nth-child(3) { background: #e9a23d; }
-.ticker-runtime-shell .bn-sched { display: flex; flex-direction: column; gap: 2.4cqh; }
-.ticker-runtime-shell .bn-sched-row { display: flex; align-items: baseline; gap: 2.6cqh; font-size: 4.9cqh; }
-.ticker-runtime-shell .bn-sched-label { width: 31cqh; flex: 0 0 auto; font-weight: 800; letter-spacing: .1em; color: #6b7480; text-transform: uppercase; font-size: 3.7cqh; }
-.ticker-runtime-shell .bn-sched-time { font-family: 'Spline Sans Mono', monospace; font-weight: 700; color: #eef2f8; }
-.ticker-runtime-shell .bn-last { font-size: 4.2cqh; color: #9aa3b1; font-weight: 700; border-top: 1px dashed #232a36; padding-top: 2.6cqh; }
-.ticker-runtime-shell .bn-last b { color: #eef2f8; }
-
 /* ── Baseball live (full diamond + B/S/O) ───────────────────────────────── */
 .ticker-runtime-shell .live         { display: flex; align-items: center; gap: 4.7cqh; }
 .ticker-runtime-shell .live-compact { flex-direction: column; gap: 2.6cqh; align-items: center; }
@@ -1050,3 +1011,44 @@
 .ticker-runtime-shell .st-foot::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 45%; background: linear-gradient(180deg, rgba(255,255,255,.16), transparent); pointer-events: none; }
 .ticker-runtime-shell .st-foot img { position: relative; z-index: 1; height: 6.3cqh; width: auto; flex: 0 0 auto; }
 .ticker-runtime-shell .st-name { position: relative; z-index: 1; font-weight: 900; font-size: 3.6cqh; line-height: 1.05; }
+
+/* ── Upcoming race card (NASCAR + F1): session timeline, next session is the hero ───────────────
+   Series color field with plain gradients (no color-mix — older Pi Chromium drops the declaration). */
+.ticker-runtime-shell .up-card { padding: 4.4cqh 5cqh; gap: 4cqh; border: 0; font-family: 'Space Grotesk', 'Archivo', system-ui, sans-serif; text-transform: uppercase; }
+.ticker-runtime-shell .up-nas { width: 310cqh; background: linear-gradient(160deg, #ffd23a 0%, #f2a900 55%, #c97c00 100%); color: #15171d; }
+.ticker-runtime-shell .up-f1  { width: 520cqh; background: linear-gradient(160deg, #ff3b2e 0%, #c70f06 55%, #7d0703 100%); color: #fff; }
+.ticker-runtime-shell .up-main { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ticker-runtime-shell .up-ser { font-size: 6.6cqh; font-weight: 700; letter-spacing: .3em; opacity: .8; }
+.ticker-runtime-shell .up-head.has-dw { padding-right: 98cqh; }
+.ticker-runtime-shell .up-title { margin: 1cqh 0 0; font-size: 17cqh; line-height: 1; font-weight: 700; letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ticker-runtime-shell .up-stats { font-size: 6.8cqh; font-weight: 700; letter-spacing: .08em; margin-top: 1.4cqh; opacity: .9; }
+.ticker-runtime-shell .up-stats i { font-style: normal; opacity: .55; margin: 0 1.6cqh; }
+.ticker-runtime-shell .up-dw { position: absolute; right: 0; top: 0; display: flex; align-items: center; gap: 3cqh; text-transform: none; }
+.ticker-runtime-shell .up-dw img { flex: 0 0 auto; width: 25cqh; height: 25cqh; border-radius: 50%; object-fit: cover; object-position: top; border: 0.5cqh solid currentColor; background: #0b0d12; }
+.ticker-runtime-shell .up-dw .k { font-size: 5.6cqh; font-weight: 700; letter-spacing: .14em; opacity: .8; text-transform: uppercase; line-height: 1.1; }
+.ticker-runtime-shell .up-dw .nm { font-size: 9.6cqh; font-weight: 700; line-height: 1.1; }
+.ticker-runtime-shell .up-dw .nm small { font-size: 6.6cqh; opacity: .7; margin-left: 1cqh; }
+.ticker-runtime-shell .up-body { flex: 1; min-height: 0; display: flex; gap: 4cqh; align-items: flex-end; }
+.ticker-runtime-shell .up-tl { flex: 1; min-width: 0; position: relative; display: flex; align-items: flex-start; }
+.ticker-runtime-shell .up-tl::before { content: ''; position: absolute; left: 0; right: 0; top: 2.75cqh; height: 0.9cqh; background: currentColor; opacity: .55; border-radius: 1cqh; }
+.ticker-runtime-shell .up-st { position: relative; padding-top: 6.4cqh; flex: 1; }
+.ticker-runtime-shell .up-st::before { content: ''; position: absolute; top: 0; left: 0; width: 6.4cqh; height: 6.4cqh; margin-top: -0.1cqh; border-radius: 50%; background: currentColor; opacity: .55; }
+.ticker-runtime-shell .up-st .d { font-size: 4.6cqh; font-weight: 700; letter-spacing: .06em; white-space: nowrap; opacity: .85; }
+.ticker-runtime-shell .up-st .t { font-size: 8.6cqh; font-weight: 700; line-height: 1; margin: 0.6cqh 0; letter-spacing: -.01em; }
+.ticker-runtime-shell .up-st .t small { font-size: 4.6cqh; opacity: .85; }
+.ticker-runtime-shell .up-st .n { font-size: 4.6cqh; font-weight: 700; letter-spacing: .12em; opacity: .8; }
+.ticker-runtime-shell .up-st.done { opacity: .55; }
+.ticker-runtime-shell .up-st.med { flex: 1.5; }
+.ticker-runtime-shell .up-st.med .t { font-size: 10cqh; }
+.ticker-runtime-shell .up-st.next { flex: 2.2; }
+.ticker-runtime-shell .up-st.next::before { opacity: 1; width: 7.4cqh; height: 7.4cqh; margin-top: -.6cqh; box-shadow: 0 0 0 1.2cqh rgba(255,255,255,.45); }
+.ticker-runtime-shell .up-st.next .d { font-size: 8cqh; opacity: 1; letter-spacing: .04em; }
+.ticker-runtime-shell .up-st.next .t { font-size: 22cqh; letter-spacing: -.03em; margin: 1cqh 0 1.4cqh; }
+.ticker-runtime-shell .up-st.next .t small { font-size: 8cqh; }
+.ticker-runtime-shell .up-st.next .n { font-size: 6.6cqh; opacity: 1; }
+.ticker-runtime-shell .up-tv { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 2cqh; }
+.ticker-runtime-shell .up-tv img { height: 10cqh; width: auto; }
+.ticker-runtime-shell .up-f1 .up-tv img { filter: brightness(0) invert(1); }
+.ticker-runtime-shell .up-map { flex: 0 0 176cqh; height: 100%; }
+.ticker-runtime-shell .up-map img { width: 100%; height: 100%; object-fit: contain; opacity: .9; }
+.ticker-runtime-shell .up-f1 .up-title { font-size: 11.5cqh; }

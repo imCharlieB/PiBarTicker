@@ -671,3 +671,29 @@ def test_normalize_single_competition_event_not_expanded():
     event["competitions"] = [event["competitions"][0]]
     games = normalize_scoreboard_events(entry=_MMA, events=[event])
     assert len(games) == 1
+
+
+# ── Racing sessions + F1 circuit stats (upcoming-race card) ────────────────
+
+def test_racing_sessions_orders_f1_weekend():
+    from app.core.espn_normalizer import _racing_sessions
+    event = {"competitions": [
+        {"type": {"abbreviation": "Race"}, "date": "2026-10-04T07:00Z", "status": {"type": {"state": "pre"}}},
+        {"type": {"abbreviation": "FP1"}, "date": "2026-10-02T04:30Z", "status": {"type": {"state": "post"}}},
+        {"type": {"abbreviation": "Qual"}, "date": "2026-10-03T08:00Z", "status": {"type": {"state": "post"}}},
+    ]}
+    out = _racing_sessions(event)
+    assert [s["label"] for s in out] == ["FP1", "Quali", "Race"]
+    assert out[-1]["state"] == "pre"
+
+
+def test_racing_sessions_single_competition_is_empty():
+    from app.core.espn_normalizer import _racing_sessions
+    assert _racing_sessions({"competitions": [{"type": {"abbreviation": "Race"}, "date": "2026-10-04T07:00Z"}]}) == []
+
+
+def test_f1_circuit_stats_known_and_unknown():
+    from app.core.f1_circuit_stats import f1_circuit_stats
+    stats = f1_circuit_stats("/logos/f1/circuits/Bahrain_Circuit.png")
+    assert stats["scheduledLaps"] == 57
+    assert f1_circuit_stats("/logos/f1/circuits/Nowhere_Circuit.png") is None

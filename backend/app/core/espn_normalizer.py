@@ -296,6 +296,34 @@ def _map_live_state(
     }
 
 
+_RACING_SESSION_LABELS = {
+    "FP1": "FP1", "FP2": "FP2", "FP3": "FP3",
+    "Qual": "Quali", "SS": "Sprint Quali", "SR": "Sprint", "Race": "Race",
+}
+
+
+def _racing_sessions(event: dict[str, Any]) -> list[dict[str, Any]]:
+    """Every session of a multi-session racing weekend (F1: FP1-3, Qual, Race; sprint weekends:
+    FP1, SS, SR, Qual, Race) in date order, for the upcoming-race card's timeline. Single-session
+    events (NASCAR) return [] — their schedule comes from cf.nascar.com instead."""
+    comps = [c for c in (event.get("competitions") or []) if isinstance(c, dict)]
+    if len(comps) < 2:
+        return []
+    out: list[dict[str, Any]] = []
+    for comp in comps:
+        abbr = str((comp.get("type") or {}).get("abbreviation") or "").strip()
+        start = _parse_event_datetime(comp.get("date") or comp.get("startDate"))
+        if not abbr or not start:
+            continue
+        out.append({
+            "label": _RACING_SESSION_LABELS.get(abbr, abbr),
+            "startTimeUtc": start.isoformat(),
+            "state": _normalized(((comp.get("status") or {}).get("type") or {}).get("state")),
+        })
+    out.sort(key=lambda x: x["startTimeUtc"])
+    return out
+
+
 def _pick_best_competition(competitions: list[dict[str, Any]]) -> dict[str, Any]:
     if not isinstance(competitions, list) or not competitions:
         return {}
@@ -421,6 +449,9 @@ def normalize_scoreboard_events(
                         "details": odds_detail,
                     },
                     "sessionLabel": str((competition.get("type") or {}).get("abbreviation") or "").strip(),
+                    "sessions": _racing_sessions(event) if entry.sport == "racing" else [],
+                    "circuitId": str((event.get("circuit") or {}).get("id") or "").strip() if entry.sport == "racing" else "",
+                    "eventName": str(event.get("name") or "").strip() if entry.sport == "racing" else "",
                     "racingEntries": _racing_entries(competition if isinstance(competition, dict) else {}) if entry.sport in ("racing", "golf") else [],
                     "liveState": _map_live_state(
                         sport=entry.sport,

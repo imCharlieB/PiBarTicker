@@ -1114,3 +1114,21 @@
 .ticker-runtime-shell .pd-row { top: 15cqh; }
 .ticker-runtime-shell .pd-col { height: 86%; }
 .ticker-runtime-shell .pd-col.pd-p1 { height: 100%; margin-top: 0; }
+
+/* podium: heads break out over the top of the card */
+.ticker-runtime-shell .pd-col { overflow: visible; }
+.ticker-runtime-shell .pd-top { overflow: visible; }
+.ticker-runtime-shell .pd-wash { border-radius: 1.8cqh 1.8cqh 0 0; }
+.ticker-runtime-shell .pd-cut { height: 135%; bottom: -3cqh; }
+.ticker-runtime-shell .pd-clip { top: -9cqh; bottom: 0; width: 76%; overflow: hidden; }
+.ticker-runtime-shell .pd-bar { position: relative; z-index: 3; }
+.ticker-runtime-shell .pd-mid { border-radius: 0; }
+.ticker-runtime-shell .pd-stats { border-radius: 0 0 1.8cqh 1.8cqh; }
+.ticker-runtime-shell .pd-pos-over { position: absolute; z-index: 4; left: 2cqh; bottom: 2cqh; font-size: 17cqh; }
+.ticker-runtime-shell .pd-p1 .pd-pos-over { font-size: 22cqh; bottom: 5cqh; }
+.ticker-runtime-shell .pd-win { left: auto; right: 2cqh; bottom: 2cqh; }
+.ticker-runtime-shell .pd-nstats { display: flex; gap: 3cqh; padding: 1cqh 2.2cqh 1.6cqh; background: rgba(5,7,10,.96); border-radius: 0 0 1.8cqh 1.8cqh; min-height: 8cqh; }
+.ticker-runtime-shell .pd-nstats span { display: flex; flex-direction: column; line-height: 1.05; }
+.ticker-runtime-shell .pd-nstats em { font-style: normal; font-size: 2.4cqh; font-weight: 800; letter-spacing: .14em; color: #8a93a1; }
+.ticker-runtime-shell .pd-nstats b { font-size: 3.8cqh; font-weight: 900; color: #fff; }
+.ticker-runtime-shell .pd-hdr { z-index: 8; }

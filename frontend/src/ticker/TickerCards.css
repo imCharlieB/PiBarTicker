@@ -502,9 +502,39 @@
    .bpre-when's 49.5cqh base flex-basis is a function of card HEIGHT, not width, so widening the
    card alone doesn't widen it — needs its own override here, scoped to this class only. */
 .ticker-runtime-shell .d-board.board-pre-nascar { width: 224cqh; }
+.ticker-runtime-shell .d-board.board-pre-nascar.has-hero { width: 297cqh; }
 .ticker-runtime-shell .board-pre-nascar .bpre-when { flex-basis: 70cqh; }
 .ticker-runtime-shell .board-pre-nascar .bpre-time { font-size: 10cqh; }
 .ticker-runtime-shell .bpre-nascar { flex: 1; display: flex; flex-direction: column; justify-content: space-between; min-width: 0; }
+
+/* Board: NASCAR upcoming card — hero spotlight on the defending race winner, same full-height
+   photo treatment nascar.com's own driver pages use (real nascar.com photo, not a cropped
+   circle -- those lose too much of the shot, see board-hs/winner-hs's object-position: top fix
+   instead for the small circular ones elsewhere). Sits between .bpre-when and .bpre-nascar. */
+.ticker-runtime-shell .bn-hero {
+  position: relative; flex: 0 0 68cqh; border-radius: 2.6cqh; overflow: hidden;
+  background: #0c0f15; box-shadow: inset 0 0 0 1px #1d2430;
+}
+.ticker-runtime-shell .bn-hero-photo {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; object-position: top center;
+}
+.ticker-runtime-shell .bn-hero-info {
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 3.2cqh 3.7cqh 3.7cqh;
+  display: flex; flex-direction: column; gap: 1.3cqh;
+  background: linear-gradient(0deg, rgba(8,10,14,.94) 0%, rgba(8,10,14,.72) 60%, transparent 100%);
+}
+.ticker-runtime-shell .bn-hero-eyebrow { font-size: 2.9cqh; font-weight: 900; letter-spacing: .18em; text-transform: uppercase; color: var(--rc, #7CF29B); }
+.ticker-runtime-shell .bn-hero-name { font-size: 6.3cqh; font-weight: 900; color: #fff; line-height: 1.05; }
+.ticker-runtime-shell .bn-hero-badges { display: flex; align-items: center; gap: 1.6cqh; }
+.ticker-runtime-shell .bn-hero-num {
+  font-size: 4.2cqh; font-weight: 900; color: #0c0e13; background: var(--rc, #7CF29B);
+  padding: 0.3cqh 1.6cqh; border-radius: 1cqh;
+}
+.ticker-runtime-shell .bn-hero-mfg {
+  height: 5.3cqh; width: auto; object-fit: contain; background: rgba(245,248,252,.95);
+  border-radius: 0.8cqh; padding: 0.8cqh 1.3cqh;
+}
 .ticker-runtime-shell .bn-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 3.2cqh; }
 .ticker-runtime-shell .bn-facts { display: flex; flex-wrap: wrap; gap: 2.1cqh; font-size: 4.7cqh; color: #9aa3b1; font-weight: 700; padding-top: 0.5cqh; }
 .ticker-runtime-shell .bn-facts b { color: #eef2f8; font-weight: 800; }
@@ -1002,3 +1032,50 @@
   color: #6b7480;
   text-transform: uppercase;
 }
+
+/* ── Standings card: foil trading-card layout ───────────────────────────────
+   Driver photos are transparent cutouts: each driver stands in front of a team-color panel
+   and breaks out over its top edge. Colors come from manufacturer, not a per-driver hash. */
+.ticker-runtime-shell .d-standings {
+  width: 311cqh; padding: 0.6cqh; border: 0; border-radius: 4.2cqh; overflow: visible;
+  background: linear-gradient(135deg, #f6e3a1 0%, #a9742a 22%, #fff6d6 42%, #8a6218 60%, #f6e3a1 80%, #a9742a 100%);
+  flex-direction: row; justify-content: flex-start; gap: 0; align-items: stretch;
+}
+.ticker-runtime-shell .st-inner { position: relative; width: 100%; height: 100%; display: flex; border-radius: 3.7cqh; overflow: hidden; background: radial-gradient(ellipse 60% 90% at 20% 0%, #1b2030 0%, #0b0d12 70%); }
+.ticker-runtime-shell .st-cut { position: absolute; z-index: 2; display: block; width: auto; max-width: none; filter: drop-shadow(0 0 0.7cqh color-mix(in srgb, var(--rc) 80%, #fff)) drop-shadow(0 0 2.2cqh color-mix(in srgb, var(--rc) 60%, transparent)) drop-shadow(0 1cqh 1.8cqh rgba(0,0,0,.65)); }
+.ticker-runtime-shell .st-nodot { display: none; }
+.ticker-runtime-shell .st-streaks::before { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(115deg, rgba(255,255,255,.045) 0 0.35cqh, transparent 0.35cqh 2.8cqh); pointer-events: none; }
+.ticker-runtime-shell .st-streaks::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 45%; background: linear-gradient(180deg, rgba(255,255,255,.22) 0%, rgba(255,255,255,.06) 18%, transparent 100%); pointer-events: none; }
+.ticker-runtime-shell .st-halo { position: absolute; inset: 0; background: radial-gradient(circle at 50% 28%, color-mix(in srgb, var(--rc) 85%, #fff) 0%, color-mix(in srgb, var(--rc) 55%, transparent) 22%, transparent 58%); opacity: .75; pointer-events: none; }
+
+.ticker-runtime-shell .st-lead { position: relative; flex: 0 0 102cqh; }
+.ticker-runtime-shell .st-lead-panel { position: absolute; left: 3cqh; right: 2cqh; top: 17cqh; bottom: 3cqh; border-radius: 2.6cqh; overflow: hidden; background: radial-gradient(ellipse 85% 75% at 50% 25%, color-mix(in srgb, var(--rc) 75%, #000) 0%, color-mix(in srgb, var(--rc) 25%, #0b0d12) 58%, #0b0d12 100%); box-shadow: inset 0 0 0 0.35cqh color-mix(in srgb, var(--rc) 80%, transparent), 0 0 3.7cqh color-mix(in srgb, var(--rc) 45%, transparent); }
+.ticker-runtime-shell .st-lead-floor { position: absolute; z-index: 1; left: 50%; bottom: 3cqh; transform: translateX(-50%); width: 100%; height: 40cqh; background: radial-gradient(ellipse 48% 55% at 50% 100%, color-mix(in srgb, var(--rc) 85%, transparent) 0%, transparent 70%); pointer-events: none; }
+.ticker-runtime-shell .st-lead-cut { left: 50%; transform: translateX(-50%); bottom: 3cqh; height: 93cqh; }
+.ticker-runtime-shell .st-lrk { position: absolute; z-index: 4; top: 8.6cqh; left: 5cqh; font-weight: 900; font-style: italic; font-size: 15cqh; line-height: .9; color: #fff; -webkit-text-stroke: 0.3cqh rgba(0,0,0,.55); paint-order: stroke fill; text-shadow: 0 0.5cqh 0 rgba(0,0,0,.45), 0 0 3cqh color-mix(in srgb, var(--rc) 90%, transparent); }
+.ticker-runtime-shell .st-lead-badge { position: absolute; z-index: 5; top: 11cqh; right: 4cqh; height: 13cqh; width: auto; filter: drop-shadow(0 0.6cqh 1.3cqh rgba(0,0,0,.7)); }
+.ticker-runtime-shell .st-lead-info { position: absolute; z-index: 3; left: 3cqh; right: 2cqh; bottom: 3cqh; padding: 9cqh 3.7cqh 3.2cqh; border-radius: 0 0 2.6cqh 2.6cqh; background: linear-gradient(0deg, rgba(8,10,14,.96) 0%, rgba(8,10,14,.82) 55%, transparent 100%); display: flex; flex-direction: column; gap: 0.8cqh; }
+.ticker-runtime-shell .st-eyebrow { font-size: 3cqh; font-weight: 900; letter-spacing: .24em; color: var(--rc); }
+.ticker-runtime-shell .st-lead-name { font-size: 8.4cqh; font-weight: 900; line-height: .96; }
+.ticker-runtime-shell .st-lead-row { display: flex; align-items: center; gap: 1.6cqh; font-size: 3.4cqh; color: #d7dce5; font-weight: 700; }
+.ticker-runtime-shell .st-lead-row img { height: 5cqh; width: auto; }
+.ticker-runtime-shell .st-lead-pts { margin-left: auto; background: var(--rc); color: #0c0e13; font-weight: 900; font-size: 4.4cqh; padding: 0.4cqh 1.8cqh; border-radius: 0.6cqh; box-shadow: 0 0 2cqh color-mix(in srgb, var(--rc) 60%, transparent); }
+
+.ticker-runtime-shell .st-field { flex: 1; display: flex; flex-direction: column; padding: 4.2cqh 4.2cqh 3cqh 2.6cqh; gap: 1.6cqh; min-width: 0; }
+.ticker-runtime-shell .st-head { display: flex; align-items: center; justify-content: space-between; gap: 2cqh; }
+.ticker-runtime-shell .st-title { font-weight: 900; font-size: 5.6cqh; line-height: 1.05; }
+.ticker-runtime-shell .st-sub { font-size: 2.9cqh; color: #9aa3b1; font-weight: 800; margin-top: 0.6cqh; letter-spacing: .14em; }
+.ticker-runtime-shell .st-cards { flex: 1; display: flex; gap: 1.8cqh; min-height: 0; }
+.ticker-runtime-shell .st-fc { position: relative; flex: 1; min-width: 0; }
+.ticker-runtime-shell .st-panel { position: absolute; left: 0; right: 0; bottom: 0; top: 24%; border-radius: 1.6cqh; overflow: hidden; background: linear-gradient(180deg, color-mix(in srgb, var(--rc) 60%, #0b0d12) 0%, color-mix(in srgb, var(--rc) 18%, #0b0d12) 62%, #0b0d12 100%); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rc) 55%, transparent); }
+.ticker-runtime-shell .st-floor { position: absolute; z-index: 1; left: 50%; bottom: 12cqh; transform: translateX(-50%); width: 140%; height: 26cqh; background: radial-gradient(ellipse 48% 55% at 50% 100%, color-mix(in srgb, var(--rc) 85%, transparent) 0%, transparent 70%); pointer-events: none; }
+.ticker-runtime-shell .st-fc .st-cut { left: 50%; transform: translateX(-50%); bottom: 10.5cqh; height: 70%; }
+.ticker-runtime-shell .st-rk { position: absolute; z-index: 4; top: calc(24% - 6.2cqh); left: 1.3cqh; display: flex; flex-direction: column; align-items: center; gap: 0.6cqh; }
+.ticker-runtime-shell .st-rk b { font-weight: 900; font-style: italic; font-size: 11cqh; line-height: .9; color: #fff; -webkit-text-stroke: 0.25cqh rgba(0,0,0,.55); paint-order: stroke fill; text-shadow: 0 0.4cqh 0 rgba(0,0,0,.45), 0 0 2.4cqh color-mix(in srgb, var(--rc) 90%, transparent); }
+.ticker-runtime-shell .st-rk img { max-width: 12.6cqh; max-height: 5.8cqh; width: auto; height: auto; filter: drop-shadow(0 0.3cqh 0.8cqh rgba(0,0,0,.8)); }
+.ticker-runtime-shell .st-gap { position: absolute; z-index: 4; bottom: 9.2cqh; right: 0.8cqh; font-size: 2.4cqh; font-weight: 800; letter-spacing: .08em; color: #fff; background: color-mix(in srgb, var(--rc) 65%, #0b0d12); padding: 0.4cqh 1.2cqh; border-radius: 0.6cqh; box-shadow: 0 0.4cqh 1.2cqh rgba(0,0,0,.6), 0 0 1.6cqh color-mix(in srgb, var(--rc) 45%, transparent); }
+.ticker-runtime-shell .st-gap b { font-size: 3.6cqh; letter-spacing: 0; }
+.ticker-runtime-shell .st-foot { position: absolute; z-index: 3; left: 0; right: 0; bottom: 0; padding: 1.3cqh 1.4cqh 1.5cqh; display: flex; align-items: center; gap: 1.1cqh; border-top: 0.8cqh solid var(--rc); border-radius: 0 0 1.6cqh 1.6cqh; background: linear-gradient(180deg, color-mix(in srgb, var(--rc) 34%, #141821) 0%, #0b0d12 100%); box-shadow: 0 -0.6cqh 2cqh rgba(0,0,0,.5), 0 -0.4cqh 2.6cqh color-mix(in srgb, var(--rc) 35%, transparent); overflow: hidden; }
+.ticker-runtime-shell .st-foot::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 45%; background: linear-gradient(180deg, rgba(255,255,255,.16), transparent); pointer-events: none; }
+.ticker-runtime-shell .st-foot img { position: relative; z-index: 1; height: 6.3cqh; width: auto; flex: 0 0 auto; }
+.ticker-runtime-shell .st-name { position: relative; z-index: 1; font-weight: 900; font-size: 3.6cqh; line-height: 1.05; }

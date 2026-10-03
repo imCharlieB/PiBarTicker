@@ -87,6 +87,25 @@ const NETWORK_LOGOS = {
   'MLBTV':               '/logos/networks/mlbnetwork.png',
 }
 
+// ── NASCAR manufacturer logo map — files live in logos/nascar/manufacturers/ ─
+// Populated by scripts/sync_nascar_photos.py. Keys match remote_urls.manufacturer
+// from team-meta (case-insensitive lookup below).
+const MANUFACTURER_LOGOS = {
+  CHEVROLET: '/logos/nascar/manufacturers/chevrolet.png',
+  TOYOTA:    '/logos/nascar/manufacturers/toyota.png',
+  FORD:      '/logos/nascar/manufacturers/ford.png',
+  RAM:       '/logos/nascar/manufacturers/ram.png',
+}
+
+// NASCAR has no per-driver team colors cached, so the standings card colors each driver by
+// manufacturer instead -- a real, meaningful signal rather than a hash of the name.
+const MANUFACTURER_COLORS = {
+  CHEVROLET: '#F2B705',
+  TOYOTA:    '#EB0A1E',
+  FORD:      '#0A4DA6',
+  RAM:       '#C8102E',
+}
+
 // ── Shared helpers ─────────────────────────────────────────────────────────
 
 function teamAbbr(team) {
@@ -634,82 +653,79 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
 
   // Standings — a synthetic entry the backend appends right after the real race event for this
   // league (state: 'standings', never produced by ESPN/cf.nascar.com) so it plays immediately
-  // next to it in the rotation. Reuses the exact same d-board-final layout as the finished-race
-  // card: points leader gets the spotlight zone, the rest in the row-list/full-lineup grid.
+  // next to it in the rotation. Foil trading-card layout: leader spotlight on the left, P2–P5 as
+  // panels on the right. Driver photos are transparent cutouts, so each driver stands in front
+  // of a team-color panel with head and shoulders breaking out over its top edge.
   if (state === 'standings' && hasEntries) {
-    const leaderEntry = displayEntries[0]
-    const leader = {
-      name: leaderEntry.shortName || leaderEntry.name || 'Driver',
-      team: [leaderEntry.team, leaderEntry.carNumber ? `#${leaderEntry.carNumber}` : ''].filter(Boolean).join(' · '),
-      color: entryColor(leaderEntry),
-      headshot: leaderEntry.headshot ? (leaderEntry.headshot.startsWith('http') ? leaderEntry.headshot : `/logos/${leaderEntry.headshot}`) : null,
-      carBadge: leaderEntry.carBadge ? (leaderEntry.carBadge.startsWith('http') ? leaderEntry.carBadge : `/logos/${leaderEntry.carBadge}`) : null,
-      points: Number.isInteger(leaderEntry.points) ? leaderEntry.points : null,
+    const toUrl = (p) => (p ? (p.startsWith('http') ? p : `/logos/${p}`) : null)
+    const shape = (entry, i) => {
+      const mfr = String(entry.manufacturer || '').toUpperCase()
+      return {
+        pos: entry.position ?? i + 1,
+        name: entry.shortName || entry.name || 'Driver',
+        team: entry.team || '',
+        color: MANUFACTURER_COLORS[mfr] || entryColor(entry),
+        mfgLogo: MANUFACTURER_LOGOS[mfr] || null,
+        headshot: toUrl(entry.headshot),
+        carBadge: toUrl(entry.carBadge),
+        points: Number.isInteger(entry.points) ? entry.points : null,
+        pointsGap: Number.isInteger(entry.pointsGap) ? entry.pointsGap : null,
+      }
     }
-    // Same single-column-vs-grid split as the final card (4 fits one column on the real
-    // 380px-tall card; more than that reuses the generic board's proven grid system). In
-    // non-solo mode the generic entryLimit cap (6 total = leader + 5) always lands one over
-    // SOLO_MAX, which used to force unwanted compact "board-multi" styling for just 5 rows in
-    // what's still really 1 column. Hard-cap to SOLO_MAX there instead of letting the grid
-    // math kick in at all — only a genuinely solo slate with a big field needs real columns.
-    const SOLO_MAX = 4
-    const GRID_MAX_PER_COL = 5
-    const GRID_MAX_COLS = 8
-    const fieldSource = isSoloSlate ? displayEntries.slice(1) : displayEntries.slice(1, 1 + SOLO_MAX)
-    const fieldRowsAll = fieldSource.map((entry, i) => ({
-      pos: entry.position ?? i + 2,
-      name: entry.shortName || entry.name || 'Driver',
-      color: entryColor(entry),
-      headshot: entry.headshot ? (entry.headshot.startsWith('http') ? entry.headshot : `/logos/${entry.headshot}`) : null,
-      carBadge: entry.carBadge ? (entry.carBadge.startsWith('http') ? entry.carBadge : `/logos/${entry.carBadge}`) : null,
-      pointsGap: Number.isInteger(entry.pointsGap) ? entry.pointsGap : null,
-    }))
-    const useGrid = fieldRowsAll.length > SOLO_MAX
-    const cols = useGrid ? Math.min(GRID_MAX_COLS, Math.ceil(fieldRowsAll.length / GRID_MAX_PER_COL)) : 1
-    const perCol = useGrid
-      ? Math.min(Math.ceil(fieldRowsAll.length / cols), GRID_MAX_PER_COL)
-      : Math.min(fieldRowsAll.length, SOLO_MAX)
-    const fieldRows = fieldRowsAll.slice(0, perCol * cols)
+    const leader = shape(displayEntries[0], 0)
+    const fieldRows = displayEntries.slice(1, 5).map((e, i) => shape(e, i + 1))
 
     return (
-      <div className={`card d-board d-board-final ${dirClass} ${useGrid ? 'board-multi' : ''}`}>
-        <div className="winner-zone" style={{ '--rc': leader.color }}>
-          <span className="winner-eyebrow">POINTS LEADER</span>
-          <DriverImage
-            headshot={leader.headshot} carBadge={leader.carBadge} color={leader.color} name={leader.name}
-            hsClass="winner-hs" badgeClass="winner-badge" dotClass="winner-dot"
-          />
-          <span className="winner-name">{leader.name}</span>
-          {leader.team ? <span className="winner-team">{leader.team}</span> : null}
-          {leader.points != null ? (
-            <div className="winner-stats">
-              <div className="winner-stat"><span className="l">Points</span><span className="v">{leader.points}</span></div>
+      <div className="card d-board d-standings">
+        <div className="st-inner">
+          <div className="st-lead" style={{ '--rc': leader.color }}>
+            <div className="st-lead-panel st-streaks"><div className="st-halo" /></div>
+            <div className="st-lead-floor" />
+            <DriverImage
+              headshot={leader.headshot} carBadge={null} color={leader.color} name={leader.name}
+              hsClass="st-cut st-lead-cut" badgeClass="st-cut st-lead-cut" dotClass="st-nodot"
+            />
+            <span className="st-lrk">{leader.pos}</span>
+            {leader.carBadge ? <img className="st-lead-badge" src={leader.carBadge} alt="" /> : null}
+            <div className="st-lead-info">
+              <span className="st-eyebrow">POINTS LEADER</span>
+              <span className="st-lead-name">{leader.name}</span>
+              <span className="st-lead-row">
+                {leader.team}
+                {leader.mfgLogo ? <img src={leader.mfgLogo} alt="" /> : null}
+                {leader.points != null ? <span className="st-lead-pts">{leader.points}</span> : null}
+              </span>
             </div>
-          ) : null}
-        </div>
-        <div className="field-zone">
-          <div className="board-head">
-            <div className="board-titles">
-              <span className="board-title">{title}</span>
-              <span className="board-sub">STANDINGS</span>
-            </div>
-            {game?.isPlayoffs ? <span className="chip chip-standings">PLAYOFFS</span> : null}
           </div>
-          <div
-            className={`board-rows ${useGrid ? 'cols-auto' : ''}`}
-            style={useGrid ? { gridTemplateRows: `repeat(${perCol}, 1fr)` } : undefined}
-          >
-            {fieldRows.map((r, i) => (
-              <div key={i} className="board-row" style={{ '--rc': r.color }}>
-                <span className="board-pos">{r.pos}</span>
-                <DriverImage
-                  headshot={r.headshot} carBadge={r.carBadge} color={r.color} name={r.name}
-                  hsClass="board-hs" badgeClass="board-badge" dotClass="board-dot"
-                />
-                <span className="board-name">{r.name}</span>
-                {r.pointsGap != null ? <span className="delta pts">{r.pointsGap}</span> : null}
+          <div className="st-field">
+            <div className="st-head">
+              <div>
+                <div className="st-title">{title}</div>
+                <div className="st-sub">STANDINGS</div>
               </div>
-            ))}
+              {game?.isPlayoffs ? <span className="chip chip-standings">PLAYOFFS</span> : null}
+            </div>
+            <div className="st-cards">
+              {fieldRows.map((r, i) => (
+                <div key={i} className="st-fc" style={{ '--rc': r.color }}>
+                  <div className="st-panel st-streaks"><div className="st-halo" /></div>
+                  <div className="st-floor" />
+                  <DriverImage
+                    headshot={r.headshot} carBadge={null} color={r.color} name={r.name}
+                    hsClass="st-cut" badgeClass="st-cut" dotClass="st-nodot"
+                  />
+                  <span className="st-rk">
+                    <b>{r.pos}</b>
+                    {r.mfgLogo ? <img src={r.mfgLogo} alt="" /> : null}
+                  </span>
+                  {r.pointsGap != null ? <span className="st-gap"><b>{r.pointsGap}</b> PTS</span> : null}
+                  <div className="st-foot">
+                    {r.carBadge ? <img src={r.carBadge} alt="" /> : null}
+                    <span className="st-name">{r.name}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -728,7 +744,7 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
     // branch and its board-pre-circuit layout/width is completely unaffected.
     const raceDetails = !circuitImg ? game?.raceDetails : null
     return (
-      <div className={`card d-board ${dirClass} board-pre ${circuitImg ? 'board-pre-circuit' : ''} ${raceDetails ? 'board-pre-nascar' : ''}`}>
+      <div className={`card d-board ${dirClass} board-pre ${circuitImg ? 'board-pre-circuit' : ''} ${raceDetails ? 'board-pre-nascar' : ''} ${raceDetails?.lastRaceWinnerHeadshot ? 'has-hero' : ''}`}>
         <div className="board-head">
           <div className="board-titles">
             <span className="board-title">{title}</span>
@@ -756,36 +772,62 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
               />
             </div>
           ) : raceDetails ? (
-            <div className="bpre-nascar">
-              <div className="bn-top">
-                <div className="bn-facts">
-                  {raceDetails.trackName ? <b>{raceDetails.trackName}</b> : null}
-                  {raceDetails.scheduledDistance ? <><span className="dot">·</span><span>{raceDetails.scheduledDistance} mi</span></> : null}
-                  {raceDetails.scheduledLaps ? <><span className="dot">·</span><span>{raceDetails.scheduledLaps} laps</span></> : null}
-                  {raceDetails.numberOfCarsInField ? <><span className="dot">·</span><span>{raceDetails.numberOfCarsInField} cars</span></> : null}
-                </div>
-              </div>
-              {(raceDetails.stage1Laps || raceDetails.stage2Laps || raceDetails.stage3Laps) ? (
-                <div className="bn-stages">
-                  {raceDetails.stage1Laps ? <div className="bn-stage" style={{ flexGrow: raceDetails.stage1Laps }}>STAGE 1 · {raceDetails.stage1Laps}</div> : null}
-                  {raceDetails.stage2Laps ? <div className="bn-stage" style={{ flexGrow: raceDetails.stage2Laps }}>STAGE 2 · {raceDetails.stage2Laps}</div> : null}
-                  {raceDetails.stage3Laps ? <div className="bn-stage" style={{ flexGrow: raceDetails.stage3Laps }}>STAGE 3 · {raceDetails.stage3Laps}</div> : null}
-                </div>
-              ) : null}
-              {Array.isArray(raceDetails.schedule) && raceDetails.schedule.length ? (
-                <div className="bn-sched">
-                  {raceDetails.schedule.map((s, i) => (
-                    <div key={i} className="bn-sched-row">
-                      <span className="bn-sched-label">{s.label}</span>
-                      <span className="bn-sched-time">{formatScheduleTime(s.startTimeUtc)}</span>
+            <>
+              {raceDetails.lastRaceWinnerHeadshot ? (
+                <div className="bn-hero" style={{ '--rc': raceDetails.lastRaceWinnerColor || '#7CF29B' }}>
+                  <img
+                    className="bn-hero-photo"
+                    src={raceDetails.lastRaceWinnerHeadshot.startsWith('http') ? raceDetails.lastRaceWinnerHeadshot : `/logos/${raceDetails.lastRaceWinnerHeadshot}`}
+                    alt={raceDetails.lastRaceWinner}
+                    onError={(e) => { e.currentTarget.closest('.bn-hero')?.remove() }}
+                  />
+                  <div className="bn-hero-info">
+                    <span className="bn-hero-eyebrow">Defending Winner</span>
+                    <span className="bn-hero-name">{raceDetails.lastRaceWinner}</span>
+                    <div className="bn-hero-badges">
+                      {raceDetails.lastRaceWinnerCarNumber ? <span className="bn-hero-num">#{raceDetails.lastRaceWinnerCarNumber}</span> : null}
+                      {MANUFACTURER_LOGOS[String(raceDetails.lastRaceWinnerManufacturer || '').toUpperCase()] ? (
+                        <img
+                          className="bn-hero-mfg"
+                          src={MANUFACTURER_LOGOS[String(raceDetails.lastRaceWinnerManufacturer).toUpperCase()]}
+                          alt={raceDetails.lastRaceWinnerManufacturer}
+                        />
+                      ) : null}
                     </div>
-                  ))}
+                  </div>
                 </div>
               ) : null}
-              {raceDetails.lastRaceWinner ? (
-                <div className="bn-last">Last race: <b>{raceDetails.lastRaceWinner}</b> won at {raceDetails.lastRaceTrack}</div>
-              ) : null}
-            </div>
+              <div className="bpre-nascar">
+                <div className="bn-top">
+                  <div className="bn-facts">
+                    {raceDetails.trackName ? <b>{raceDetails.trackName}</b> : null}
+                    {raceDetails.scheduledDistance ? <><span className="dot">·</span><span>{raceDetails.scheduledDistance} mi</span></> : null}
+                    {raceDetails.scheduledLaps ? <><span className="dot">·</span><span>{raceDetails.scheduledLaps} laps</span></> : null}
+                    {raceDetails.numberOfCarsInField ? <><span className="dot">·</span><span>{raceDetails.numberOfCarsInField} cars</span></> : null}
+                  </div>
+                </div>
+                {(raceDetails.stage1Laps || raceDetails.stage2Laps || raceDetails.stage3Laps) ? (
+                  <div className="bn-stages">
+                    {raceDetails.stage1Laps ? <div className="bn-stage" style={{ flexGrow: raceDetails.stage1Laps }}>STAGE 1 · {raceDetails.stage1Laps}</div> : null}
+                    {raceDetails.stage2Laps ? <div className="bn-stage" style={{ flexGrow: raceDetails.stage2Laps }}>STAGE 2 · {raceDetails.stage2Laps}</div> : null}
+                    {raceDetails.stage3Laps ? <div className="bn-stage" style={{ flexGrow: raceDetails.stage3Laps }}>STAGE 3 · {raceDetails.stage3Laps}</div> : null}
+                  </div>
+                ) : null}
+                {Array.isArray(raceDetails.schedule) && raceDetails.schedule.length ? (
+                  <div className="bn-sched">
+                    {raceDetails.schedule.map((s, i) => (
+                      <div key={i} className="bn-sched-row">
+                        <span className="bn-sched-label">{s.label}</span>
+                        <span className="bn-sched-time">{formatScheduleTime(s.startTimeUtc)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                {!raceDetails.lastRaceWinnerHeadshot && raceDetails.lastRaceWinner ? (
+                  <div className="bn-last">Last race: <b>{raceDetails.lastRaceWinner}</b> won at {raceDetails.lastRaceTrack}</div>
+                ) : null}
+              </div>
+            </>
           ) : null}
         </div>
         <div className="board-foot">

@@ -1143,3 +1143,5 @@
 .ticker-runtime-shell .st-rclip-lead { bottom: 3cqh; width: 78cqh; height: 90cqh; }
 .ticker-runtime-shell .st-car { position: absolute; z-index: 2; left: 50%; transform: translateX(-50%); bottom: 17cqh; width: 100%; max-width: none; height: auto; filter: drop-shadow(0 1cqh 1.8cqh rgba(0,0,0,.65)); }
 .ticker-runtime-shell .st-car-lead { bottom: 38cqh; width: 86cqh; }
+.ticker-runtime-shell .st-f1 .st-rk img { max-width: 19cqh; max-height: 7cqh; }
+.ticker-runtime-shell .st-f1 .st-lead-row img { height: 7cqh; max-width: 24cqh; object-fit: contain; }

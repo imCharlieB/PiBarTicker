@@ -79,11 +79,15 @@ function runtimeCardStyle(game, useTeamCardColors = false) {
 }
 
 function resolveLeagueLogo(league, payload) {
-  const explicitLogo = String(league?.logo || '').trim()
-  if (explicitLogo) return explicitLogo
-  // NASCAR: use the real series logo captured during driver sync (injected per-game by backend)
+  // NASCAR: real series logo captured during driver sync (injected per-game by backend) wins
+  // over config's league.logo, which for NASCAR is just ESPN's generic placeholder icon
+  // (same icon for Cup/Xfinity/Trucks) captured once at add-time in Setup -- confirmed
+  // 2026-10-02 that Truck/Xfinity still had that stuck in config.json since it's checked
+  // first below otherwise.
   const seriesLogo = String(payload?.normalizedGames?.[0]?.seriesLogo || '').trim()
   if (seriesLogo) return seriesLogo.startsWith('http') ? seriesLogo : `/logos/${seriesLogo}`
+  const explicitLogo = String(league?.logo || '').trim()
+  if (explicitLogo) return explicitLogo
   const payloadLogo = String(payload?.scoreboard?.leagues?.[0]?.logos?.[0]?.href || '').trim()
   if (payloadLogo) return payloadLogo
   const leagueId = String(league?.id || '').trim().toLowerCase()

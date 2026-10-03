@@ -727,7 +727,6 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
     // and only when there's no circuit image — F1 always has one, so it never reaches this
     // branch and its board-pre-circuit layout/width is completely unaffected.
     const raceDetails = !circuitImg ? game?.raceDetails : null
-    const playoffBadge = String(game?.playoffBadge || '').trim()
     return (
       <div className={`card d-board ${dirClass} board-pre ${circuitImg ? 'board-pre-circuit' : ''} ${raceDetails ? 'board-pre-nascar' : ''}`}>
         <div className="board-head">
@@ -765,9 +764,6 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
                   {raceDetails.scheduledLaps ? <><span className="dot">·</span><span>{raceDetails.scheduledLaps} laps</span></> : null}
                   {raceDetails.numberOfCarsInField ? <><span className="dot">·</span><span>{raceDetails.numberOfCarsInField} cars</span></> : null}
                 </div>
-                {playoffBadge && raceDetails.isPlayoffs
-                  ? <img className="bn-badge" src={playoffBadge.startsWith('http') ? playoffBadge : `/logos/${playoffBadge}`} alt="Playoffs" />
-                  : null}
               </div>
               {(raceDetails.stage1Laps || raceDetails.stage2Laps || raceDetails.stage3Laps) ? (
                 <div className="bn-stages">

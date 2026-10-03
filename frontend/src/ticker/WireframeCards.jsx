@@ -953,7 +953,7 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
         name: isF1 && !isTeams && parts.length > 1 ? parts[parts.length - 1] : (entry.shortName || entry.name || 'Driver'),
         team: isTeams ? '' : (entry.team || ''),
         color: MANUFACTURER_COLORS[mfr] || entryColor(entry),
-        mfgLogo: isF1 ? (isTeams ? null : toUrl(entry.carImage)) : (MANUFACTURER_LOGOS[mfr] || null),
+        mfgLogo: isF1 ? (isTeams ? null : toUrl(entry.teamLogo)) : (MANUFACTURER_LOGOS[mfr] || null),
         headshot: isF1 ? (isTeams ? null : toUrl(entry.render || entry.headshot)) : toUrl(entry.headshot),
         carImg: toUrl(entry.carImage),
         teamLogo: toUrl(entry.teamLogo),

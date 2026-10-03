@@ -32,6 +32,9 @@ runtime-cache/
 /logos/*
 !/logos/networks/
 !/logos/nascar/
+!/logos/f1/
+/logos/f1/*
+!/logos/f1/teams/
 /logos/nascar/*
 !/logos/nascar/series_*
 !/logos/nascar/playoffs_*

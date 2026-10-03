@@ -943,37 +943,52 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
   // of a team-color panel with head and shoulders breaking out over its top edge.
   if (state === 'standings' && hasEntries) {
     const toUrl = (p) => (p ? (p.startsWith('http') ? p : `/logos/${p}`) : null)
+    const isF1 = String(game?.leagueId || '').toLowerCase() === 'f1'
+    const isTeams = game?.standingsKind === 'teams'
     const shape = (entry, i) => {
       const mfr = String(entry.manufacturer || '').toUpperCase()
+      const parts = String(entry.name || entry.shortName || '').split(' ')
       return {
         pos: entry.position ?? i + 1,
-        name: entry.shortName || entry.name || 'Driver',
-        team: entry.team || '',
+        name: isF1 && !isTeams && parts.length > 1 ? parts[parts.length - 1] : (entry.shortName || entry.name || 'Driver'),
+        team: isTeams ? '' : (entry.team || ''),
         color: MANUFACTURER_COLORS[mfr] || entryColor(entry),
-        mfgLogo: MANUFACTURER_LOGOS[mfr] || null,
-        headshot: toUrl(entry.headshot),
+        mfgLogo: isF1 ? toUrl(entry.teamLogo) : (MANUFACTURER_LOGOS[mfr] || null),
+        headshot: isF1 ? (isTeams ? null : toUrl(entry.render || entry.headshot)) : toUrl(entry.headshot),
+        carImg: toUrl(entry.carImage),
         carBadge: toUrl(entry.carBadge),
         points: Number.isInteger(entry.points) ? entry.points : null,
         pointsGap: Number.isInteger(entry.pointsGap) ? entry.pointsGap : null,
+        round: isF1 && !isTeams && !entry.render,
       }
+    }
+    // F1 renders are full-body cutouts -> crop waist-up; team rows show the car instead of a driver
+    const art = (r, lead) => {
+      if (isF1 && isTeams) return r.carImg ? <img className={`st-car ${lead ? 'st-car-lead' : ''}`} src={r.carImg} alt="" /> : null
+      if (isF1 && r.headshot) return <span className={`st-rclip ${lead ? 'st-rclip-lead' : ''}`}><img src={r.headshot} alt="" /></span>
+      return (
+        <DriverImage
+          headshot={r.headshot} carBadge={null} color={r.color} name={r.name}
+          hsClass={lead ? 'st-cut st-lead-cut' : 'st-cut'} badgeClass={lead ? 'st-cut st-lead-cut' : 'st-cut'} dotClass="st-nodot"
+        />
+      )
     }
     const leader = shape(displayEntries[0], 0)
     const fieldRows = displayEntries.slice(1, 5).map((e, i) => shape(e, i + 1))
+    const eyebrow = isTeams ? 'CHAMPIONSHIP LEADER' : 'POINTS LEADER'
+    const subLabel = isTeams ? "CONSTRUCTORS' STANDINGS" : isF1 ? "DRIVERS' STANDINGS" : 'STANDINGS'
 
     return (
-      <div className="card d-board d-standings">
+      <div className={`card d-board d-standings ${isF1 ? (isTeams ? 'st-f1 st-teams' : 'st-f1') : ''}`}>
         <div className="st-inner">
           <div className="st-lead" style={standingsColorVars(leader.color)}>
             <div className="st-lead-panel st-streaks"><div className="st-halo" /></div>
             <div className="st-lead-floor" />
-            <DriverImage
-              headshot={leader.headshot} carBadge={null} color={leader.color} name={leader.name}
-              hsClass="st-cut st-lead-cut" badgeClass="st-cut st-lead-cut" dotClass="st-nodot"
-            />
+            {art(leader, true)}
             <span className="st-lrk">{leader.pos}</span>
             {leader.carBadge ? <img className="st-lead-badge" src={leader.carBadge} alt="" /> : null}
             <div className="st-lead-info">
-              <span className="st-eyebrow">POINTS LEADER</span>
+              <span className="st-eyebrow">{eyebrow}</span>
               <span className="st-lead-name">{leader.name}</span>
               <span className="st-lead-row">
                 {leader.team}
@@ -986,7 +1001,7 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
             <div className="st-head">
               <div>
                 <div className="st-title">{title}</div>
-                <div className="st-sub">STANDINGS</div>
+                <div className="st-sub">{subLabel}</div>
               </div>
               {game?.isPlayoffs ? <span className="chip chip-standings">PLAYOFFS</span> : null}
             </div>
@@ -995,10 +1010,7 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
                 <div key={i} className="st-fc" style={standingsColorVars(r.color)}>
                   <div className="st-panel st-streaks"><div className="st-halo" /></div>
                   <div className="st-floor" />
-                  <DriverImage
-                    headshot={r.headshot} carBadge={null} color={r.color} name={r.name}
-                    hsClass="st-cut" badgeClass="st-cut" dotClass="st-nodot"
-                  />
+                  {art(r, false)}
                   <span className="st-rk">
                     <b>{r.pos}</b>
                     {r.mfgLogo ? <img src={r.mfgLogo} alt="" /> : null}

@@ -1136,3 +1136,10 @@
 /* podium final: NASCAR has no stats box (the name bar closes the card); F1 gets a bigger team logo */
 .ticker-runtime-shell .pd-nas .pd-bar { border-radius: 0 0 1.8cqh 1.8cqh; padding-bottom: 1.6cqh; }
 .ticker-runtime-shell .pd-f1 .pd-brand { max-width: 19cqh; max-height: 15cqh; }
+
+/* F1 standings: renders cropped waist-up, constructors show the car */
+.ticker-runtime-shell .st-rclip { position: absolute; z-index: 2; left: 50%; transform: translateX(-50%); bottom: 10.5cqh; width: 92%; height: 72%; overflow: hidden; }
+.ticker-runtime-shell .st-rclip img { display: block; width: 100%; height: auto; filter: drop-shadow(0 1cqh 1.8cqh rgba(0,0,0,.65)); }
+.ticker-runtime-shell .st-rclip-lead { bottom: 3cqh; width: 78cqh; height: 90cqh; }
+.ticker-runtime-shell .st-car { position: absolute; z-index: 2; left: 50%; transform: translateX(-50%); bottom: 17cqh; width: 100%; max-width: none; height: auto; filter: drop-shadow(0 1cqh 1.8cqh rgba(0,0,0,.65)); }
+.ticker-runtime-shell .st-car-lead { bottom: 38cqh; width: 86cqh; }

@@ -914,6 +914,64 @@ def get_scoreboard(
                 except Exception:
                     pass
 
+            # F1 standings cards (drivers + constructors): synthetic games appended behind the race event, same
+            # idea as the NASCAR standings card. Data: Jolpica (Ergast successor) — ESPN has no F1 standings.
+            if entry.league_id == "f1":
+                try:
+                    _slug = lambda n: re.sub(r"[^a-z0-9]", "", unicodedata.normalize("NFKD", str(n or "")).encode("ascii", "ignore").decode().lower())
+                    _ALIAS = {"rbf1team": "racingbulls", "redbull": "redbullracing", "alpinef1team": "alpine", "haasf1team": "haasf1team"}
+                    _f1_logos = get_runtime_paths().logos / "f1"
+                    _team_color: dict[str, str] = {}
+                    for _d in (f1_drivers_meta.teams.values() if f1_drivers_meta else []):
+                        _tn = _slug(_d.remote_urls.get("team_name"))
+                        if _tn and _d.color and _tn not in _team_color:
+                            _team_color[_tn] = _d.color
+                    _jd = _http_client.get_json("https://api.jolpi.ca/ergast/f1/current/driverStandings.json", use_cache=True, cache_ttl_seconds=3600.0)
+                    _jc = _http_client.get_json("https://api.jolpi.ca/ergast/f1/current/constructorStandings.json", use_cache=True, cache_ttl_seconds=3600.0)
+                    _dl = ((_jd or {}).get("MRData") or {}).get("StandingsTable", {}).get("StandingsLists") or []
+                    _cl = ((_jc or {}).get("MRData") or {}).get("StandingsTable", {}).get("StandingsLists") or []
+                    _drows = []
+                    for _x in ((_dl[0] if _dl else {}).get("DriverStandings") or [])[:8]:
+                        _dr = _x.get("Driver") or {}
+                        _nm = f"{_dr.get('givenName', '')} {_dr.get('familyName', '')}".strip()
+                        _tm = (_x.get("Constructors") or [{}])[-1].get("name") or ""
+                        _drows.append({
+                            "id": "", "position": int(_x.get("position") or len(_drows) + 1), "name": _nm, "shortName": _nm,
+                            "score": "", "stats": [], "headshot": "", "flag": {"href": "", "alt": ""}, "team": _tm, "teamId": "",
+                            "teamColor": "", "athleteId": "", "carBadge": "", "carNumber": str(_dr.get("permanentNumber") or ""),
+                            "points": int(float(_x.get("points") or 0)), "wins": int(_x.get("wins") or 0),
+                        })
+                    if _drows:
+                        for _r in _drows[1:]:
+                            _r["pointsGap"] = _r["points"] - _drows[0]["points"]
+                        normalized_games.append({
+                            "id": "f1-standings-drivers", "gameId": "f1-standings-drivers", "sport": "racing", "league": entry.league,
+                            "leagueId": "f1", "state": "standings", "isLive": False, "isCompleted": False,
+                            "title": "Formula 1", "standingsKind": "drivers", "racingEntries": _drows,
+                        })
+                    _trows = []
+                    for _x in ((_cl[0] if _cl else {}).get("ConstructorStandings") or [])[:8]:
+                        _cn = (_x.get("Constructor") or {}).get("name") or ""
+                        _sg = _ALIAS.get(_slug(_cn), _slug(_cn))
+                        _trows.append({
+                            "id": "", "position": int(_x.get("position") or len(_trows) + 1), "name": _cn, "shortName": _cn,
+                            "score": "", "stats": [], "headshot": "", "flag": {"href": "", "alt": ""}, "team": _cn, "teamId": "",
+                            "teamColor": _team_color.get(_sg, ""), "athleteId": "", "carBadge": "", "carNumber": "",
+                            "points": int(float(_x.get("points") or 0)), "wins": int(_x.get("wins") or 0),
+                            "teamLogo": f"f1/teams/{_sg}_logo.webp" if (_f1_logos / "teams" / f"{_sg}_logo.webp").exists() else "",
+                            "carImage": f"f1/{_sg}_car.webp" if (_f1_logos / f"{_sg}_car.webp").exists() else "",
+                        })
+                    if _trows:
+                        for _r in _trows[1:]:
+                            _r["pointsGap"] = _r["points"] - _trows[0]["points"]
+                        normalized_games.append({
+                            "id": "f1-standings-teams", "gameId": "f1-standings-teams", "sport": "racing", "league": entry.league,
+                            "leagueId": "f1", "state": "standings", "isLive": False, "isCompleted": False,
+                            "title": "Formula 1", "standingsKind": "teams", "racingEntries": _trows,
+                        })
+                except Exception:
+                    pass
+
             for game in normalized_games:
                 # Hard veto: cf confirms this exact race is done — force out of live/pre
                 # regardless of ESPN's reported state. Only trusted when cf_feed_is_race_specific
@@ -1322,7 +1380,7 @@ def get_scoreboard(
                 # Inject circuitImage + circuitName for F1 games.
                 # ESPN returns venue:null for all F1 events, so we match against the
                 # event title (shortName / name) which contains the race name.
-                if f1_circuit_lookup and not game.get("circuitImage"):
+                if f1_circuit_lookup and not game.get("circuitImage") and game.get("state") != "standings":
                     venue = game.get("venue") or {}
                     venue_city = str(venue.get("city") or "").strip().lower()
                     venue_name = str(venue.get("name") or "").strip().lower()

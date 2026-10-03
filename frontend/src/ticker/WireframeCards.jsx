@@ -1089,9 +1089,11 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
           </div>
         ))}
       </div>
-      <div className="board-foot">
-        <MetaRow game={game} flags={flags} mono />
-      </div>
+      {game?.isStartingOrder ? null : (
+        <div className="board-foot">
+          <MetaRow game={game} flags={flags} mono />
+        </div>
+      )}
     </div>
   )
 }

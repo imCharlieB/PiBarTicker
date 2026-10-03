@@ -887,6 +887,7 @@ function PodiumCard({ game, title, entries }) {
                   ? <span className="pd-clip"><img src={d.img} alt="" onError={(e) => { e.currentTarget.remove() }} /></span>
                   : <img className="pd-cut" src={d.img} alt="" onError={(e) => { e.currentTarget.remove() }} />
               ) : null}
+              {!isF1 ? <span className="pd-pos pd-pos-over">{d.pos}</span> : null}
               {d.pos === 1 ? <span className="pd-win">WINNER</span> : null}
             </div>
             <div className="pd-bar">
@@ -894,15 +895,24 @@ function PodiumCard({ game, title, entries }) {
               <span className="pd-name">{d.surname}{d.inChase ? <i className="mdi mdi-trophy board-chase pd-chase" /> : null}</span>
               {d.team ? <span className="pd-team">{d.team}</span> : null}
             </div>
-            <div className="pd-mid">
-              <span className="pd-pos">{d.pos}</span>
-              {d.carImg ? <img className="pd-carimg" src={d.carImg} alt="" onError={(e) => { e.currentTarget.remove() }} /> : null}
-            </div>
-            <div className="pd-stats">
-              {d.pos === 1 && margin ? <span><em>MARGIN</em><b>{margin}</b></span> : null}
-              {d.pos === 1 && d.led ? <span><em>LED</em><b>{d.led} LAPS</b></span> : null}
-              {d.started ? <span><em>STARTED</em><b>P{d.started}</b></span> : null}
-            </div>
+            {isF1 ? (
+              <>
+                <div className="pd-mid">
+                  <span className="pd-pos">{d.pos}</span>
+                  {d.carImg ? <img className="pd-carimg" src={d.carImg} alt="" onError={(e) => { e.currentTarget.remove() }} /> : null}
+                </div>
+                <div className="pd-stats">
+                  {d.pos === 1 && margin ? <span><em>MARGIN</em><b>{margin}</b></span> : null}
+                  {d.started ? <span><em>STARTED</em><b>P{d.started}</b></span> : null}
+                </div>
+              </>
+            ) : (
+              <div className="pd-nstats">
+                {d.pos === 1 && margin ? <span><em>MARGIN</em><b>{margin}</b></span> : null}
+                {d.pos === 1 && d.led ? <span><em>LED</em><b>{d.led} LAPS</b></span> : null}
+                {d.started ? <span><em>STARTED</em><b>P{d.started}</b></span> : null}
+              </div>
+            )}
           </div>
         ))}
       </div>

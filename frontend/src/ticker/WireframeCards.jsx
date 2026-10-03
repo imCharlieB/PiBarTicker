@@ -369,9 +369,21 @@ function LiveFeature({ game, compact }) {
 
 // ── TV network logo with text fallback ────────────────────────────────────
 
-function NetworkLogo({ name }) {
+// usa.png ships ~35%-opaque red, so it reads pink on anything but black. `solid` repaints it in its
+// real red at full strength using the PNG as a mask (the hidden <img> only supplies the box size).
+const SOLID_LOGO_COLORS = { '/logos/networks/usa.png': '#D91E25' }
+
+function NetworkLogo({ name, solid }) {
   const [err, setErr] = useState(false)
   const url = NETWORK_LOGOS[name.trim().toUpperCase()] ?? null
+  if (url && !err && solid && SOLID_LOGO_COLORS[url]) {
+    const mask = `url(${url})`
+    return (
+      <span className="meta-tv-solid" style={{ background: SOLID_LOGO_COLORS[url], WebkitMaskImage: mask, maskImage: mask, WebkitMaskSize: '100% 100%', maskSize: '100% 100%' }}>
+        <img className="meta-tv-logo" src={url} alt={name} style={{ visibility: 'hidden' }} onError={() => setErr(true)} />
+      </span>
+    )
+  }
   if (url && !err) {
     return <img className="meta-tv-logo" src={url} alt={name} onError={() => setErr(true)} />
   }
@@ -755,7 +767,7 @@ function UpcomingRaceCard({ game, title, seriesName, flags }) {
           </div>
           {game?.broadcastText && flags.tv ? (
             <span className="up-tv">
-              {game.broadcastText.split(/\s*\/\s*/).filter(Boolean).map((n, i) => <NetworkLogo key={i} name={n} />)}
+              {game.broadcastText.split(/\s*\/\s*/).filter(Boolean).map((n, i) => <NetworkLogo key={i} name={n} solid />)}
             </span>
           ) : null}
         </div>
@@ -780,7 +792,8 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
   const allEntries = Array.isArray(game?.racingEntries) ? game.racingEntries : []
   const entryLimit = Number.isInteger(renderLeague?.entryLimit) ? renderLeague.entryLimit : null
   const cappedEntries = entryLimit ? allEntries.slice(0, entryLimit) : allEntries
-  const displayEntries = isSoloSlate ? cappedEntries : cappedEntries.slice(0, entryLimit ?? 6)
+  // The qualifying-order card (backend isStartingOrder) always shows the whole lineup, in columns
+  const displayEntries = game?.isStartingOrder ? allEntries : isSoloSlate ? cappedEntries : cappedEntries.slice(0, entryLimit ?? 6)
 
   const hasEntries = displayEntries.length > 0
   const title = racingCardTitle(game, renderLeague)

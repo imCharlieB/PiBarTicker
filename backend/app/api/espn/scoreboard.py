@@ -922,13 +922,13 @@ def get_scoreboard(
                 # veto an upcoming ("pre") event's state on that basis. Not gated on ESPN's
                 # current state (unlike the old "in"-only check) because ESPN sometimes never
                 # flips a finished race off "pre" at all if it never reported "in" either.
-                if cf_race_finished and cf_feed_is_race_specific:
+                if cf_race_finished and cf_feed_is_race_specific and game.get("state") != "standings":
                     game["state"] = "post"
                     game["isLive"] = False
                     game["isCompleted"] = True
 
                 # Override ESPN's stale state/title with cf.nascar.com authoritative data
-                if cf_race_active:
+                if cf_race_active and game.get("state") != "standings":
                     game["state"] = "in"
                     game["isLive"] = True
                     cf_run_name = str(nascar_live_data.get("run_name") or "").strip()  # type: ignore[union-attr]
@@ -1127,6 +1127,24 @@ def get_scoreboard(
                     game["playoffBadge"] = nascar_playoff_badge
                 # raceDetails only matters for the upcoming-card layout (pre-race, no circuit
                 # image) — scoped to that state so it's never a dead field on live/post games.
+                # ESPN's NASCAR event can be a lone practice/qualifying session ("in"/"post", a handful of
+                # entries) while the actual race is still ahead. cf.nascar.com's schedule says whether the
+                # race has started: if not, show the upcoming-race card instead of a practice results card.
+                if nascar_race_details and str(game.get("state") or "").lower() in ("in", "post"):
+                    _race_slot = next((x for x in (nascar_race_details.get("schedule") or []) if x.get("label") == "Race"), None)
+                    try:
+                        _race_start = datetime.fromisoformat(str((_race_slot or {}).get("startTimeUtc") or ""))
+                        if _race_start.tzinfo is None:
+                            _race_start = _race_start.replace(tzinfo=timezone.utc)
+                    except Exception:
+                        _race_start = None
+                    _detail = f"{(game.get('status') or {}).get('shortDetail') or ''} {game.get('title') or ''}".lower()
+                    if _race_start and _race_start > datetime.now(timezone.utc) and any(w in _detail for w in ("practice", "qualif")):
+                        game["state"] = "pre"
+                        game["isLive"] = False
+                        game["isCompleted"] = False
+                        if "practice" in _detail:
+                            game["racingEntries"] = []
                 if nascar_race_details and str(game.get("state") or "").lower() == "pre":
                     game["raceDetails"] = nascar_race_details
 
@@ -1461,6 +1479,7 @@ def get_scoreboard(
             ):
                 _order = {k: v for k, v in _g.items() if k != "raceDetails"}
                 _order["id"] = f"{_g.get('id')}-order"
+                _order["isStartingOrder"] = True
                 _order["gameId"] = f"{_g.get('gameId') or _g.get('id')}-order"
                 _with_order.append(_order)
         normalized_games = _with_order

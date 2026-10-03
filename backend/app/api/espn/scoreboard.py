@@ -1133,7 +1133,7 @@ def get_scoreboard(
                 # ESPN's NASCAR event can be a lone practice/qualifying session ("in"/"post", a handful of
                 # entries) while the actual race is still ahead. cf.nascar.com's schedule says whether the
                 # race has started: if not, show the upcoming-race card instead of a practice results card.
-                if nascar_race_details and str(game.get("state") or "").lower() in ("in", "post"):
+                if nascar_race_details and str(game.get("state") or "").lower() in ("in", "post", "pre"):
                     _race_slot = next((x for x in (nascar_race_details.get("schedule") or []) if x.get("label") == "Race"), None)
                     try:
                         _race_start = datetime.fromisoformat(str((_race_slot or {}).get("startTimeUtc") or ""))
@@ -1142,14 +1142,53 @@ def get_scoreboard(
                     except Exception:
                         _race_start = None
                     _detail = f"{(game.get('status') or {}).get('shortDetail') or ''} {game.get('title') or ''}".lower()
-                    if _race_start and _race_start > datetime.now(timezone.utc) and any(w in _detail for w in ("practice", "qualif")):
+                    if _race_start and _race_start > datetime.now(timezone.utc) and (str(game.get("state") or "").lower() == "pre" or any(w in _detail for w in ("practice", "qualif"))):
                         game["state"] = "pre"
                         game["isLive"] = False
                         game["isCompleted"] = False
                         if "practice" in _detail:
                             game["racingEntries"] = []
-                        # Qualifying done but ESPN still sends practice: build the starting order from
-                        # nascar.com's weekend feed (short cache — it updates through qualifying).
+                        # Qualifying order: nascar.com's live feed carries it while/after the qualifying session
+                        # (running_position = fastest-first, best_lap_speed > 0 = has a time).
+                        if not game.get("racingEntries") and nascar_race_id:
+                            try:
+                                _qf = _http_client.get_json(
+                                    f"https://cf.nascar.com/live/feeds/series_{expected_series_id}/{nascar_race_id}/live_feed.json",
+                                    use_cache=True,
+                                    cache_ttl_seconds=15.0,
+                                )
+                                if (
+                                    isinstance(_qf, dict)
+                                    and "qualif" in str(_qf.get("run_name") or "").lower()
+                                    and int(_qf.get("race_id") or 0) == nascar_race_id
+                                ):
+                                    _mfr_full = {"chv": "Chevrolet", "tyt": "Toyota", "frd": "Ford"}
+                                    _qv = sorted(
+                                        [v for v in (_qf.get("vehicles") or []) if isinstance(v, dict) and (v.get("best_lap_speed") or 0) > 0],
+                                        key=lambda v: v.get("running_position") or 999,
+                                    )
+                                    _by_name2 = {}
+                                    for _d in (nascar_drivers_meta.teams.values() if nascar_drivers_meta else []):
+                                        _by_name2[_clean_cf_name(_d.display_name).lower()] = _d
+                                    _built2 = []
+                                    for _i, _v in enumerate(_qv):
+                                        _nm = _clean_cf_name((_v.get("driver") or {}).get("full_name"))
+                                        _drv = _by_name2.get(_nm.lower())
+                                        _built2.append({
+                                            "id": str((_v.get("driver") or {}).get("driver_id") or ""),
+                                            "position": _i + 1,
+                                            "name": _nm, "shortName": _nm, "score": "", "stats": [],
+                                            "headshot": (_drv.logos.get("headshot") if _drv else "") or "",
+                                            "flag": {"href": "", "alt": ""}, "team": "", "teamId": "", "teamColor": "",
+                                            "carBadge": (_drv.logos.get("badge") if _drv else "") or "",
+                                            "carNumber": str(_v.get("vehicle_number") or ""),
+                                            "manufacturer": _mfr_full.get(str(_v.get("vehicle_manufacturer") or "").lower(), str(_v.get("vehicle_manufacturer") or "")),
+                                        })
+                                    if _built2:
+                                        game["racingEntries"] = _built2
+                            except Exception:
+                                pass
+                        # Fallback: nascar.com's weekend feed (short cache — it updates through qualifying).
                         if not game.get("racingEntries") and nascar_race_id:
                             try:
                                 _wk = _http_client.get_json(

@@ -782,7 +782,7 @@ function StartingGridCard({ game, title, seriesName, displayEntries }) {
     <div className="card gb-card" style={{ width: `${width}cqh` }}>
       <div className="gb-hdr">
         <h3>Starting Grid</h3>
-        <span>{[seriesName, title].filter(Boolean).join(' · ')}</span>
+        <span>{[seriesName, game?.raceDetails?.raceName].filter(Boolean).join(' · ') || title}</span>
       </div>
       {displayEntries.map((entry, i) => {
         const lane = i % 2

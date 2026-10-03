@@ -1016,8 +1016,8 @@
    Space Grotesk (matches the approved mockup) at standings-card type sizes. Series color field
    with plain gradients (no color-mix — older Pi Chromium drops the declaration). */
 .ticker-runtime-shell .up-card { padding: 4.4cqh 5cqh; gap: 4cqh; border: 0; font-family: 'Space Grotesk', 'Archivo', system-ui, sans-serif; text-transform: uppercase; }
-.ticker-runtime-shell .up-nas { width: 290cqh; background: linear-gradient(160deg, #ffd23a 0%, #f2a900 55%, #c97c00 100%); color: #15171d; }
-.ticker-runtime-shell .up-f1  { width: 470cqh; background: linear-gradient(160deg, #ff3b2e 0%, #c70f06 55%, #7d0703 100%); color: #fff; }
+.ticker-runtime-shell .up-nas { width: 290cqh; --ac: #F2B705; --acr: 242,183,5; color: #fff; background: radial-gradient(ellipse 75% 130% at 0% 0%, rgba(242,183,5,.34) 0%, rgba(242,183,5,.10) 45%, transparent 75%), #101319; }
+.ticker-runtime-shell .up-f1  { width: 470cqh; --ac: #ff2a20; --acr: 255,42,32; color: #fff; background: radial-gradient(ellipse 75% 130% at 0% 0%, rgba(255,42,32,.36) 0%, rgba(255,42,32,.10) 45%, transparent 75%), #101319; }
 .ticker-runtime-shell .up-f1.up-nomap { width: 300cqh; }
 .ticker-runtime-shell .up-main { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .ticker-runtime-shell .up-ser { font-size: 5.4cqh; font-weight: 700; letter-spacing: .2em; opacity: .8; }
@@ -1027,15 +1027,15 @@
 .ticker-runtime-shell .up-stats { font-size: 6.2cqh; font-weight: 700; letter-spacing: .05em; margin-top: 1.4cqh; opacity: .9; }
 .ticker-runtime-shell .up-stats i { font-style: normal; opacity: .55; margin: 0 1.4cqh; }
 .ticker-runtime-shell .up-dw { position: absolute; right: 0; top: 0; display: flex; align-items: center; gap: 2.6cqh; text-transform: none; }
-.ticker-runtime-shell .up-dw img { flex: 0 0 auto; width: 20cqh; height: 20cqh; border-radius: 50%; object-fit: cover; object-position: top; border: 0.5cqh solid currentColor; background: #0b0d12; }
+.ticker-runtime-shell .up-dw img { flex: 0 0 auto; width: 20cqh; height: 20cqh; border-radius: 50%; object-fit: cover; object-position: top; border: 0.5cqh solid var(--ac); background: #0b0d12; }
 .ticker-runtime-shell .up-dw .k { font-size: 4.4cqh; font-weight: 700; letter-spacing: .14em; opacity: .8; text-transform: uppercase; line-height: 1.1; }
 .ticker-runtime-shell .up-dw .nm { font-size: 7.4cqh; font-weight: 700; line-height: 1.1; }
 .ticker-runtime-shell .up-dw .nm small { font-size: 5cqh; font-weight: 700; opacity: .7; margin-left: 1cqh; }
 .ticker-runtime-shell .up-body { flex: 1; min-height: 0; display: flex; gap: 4cqh; align-items: flex-start; padding-top: 9cqh; }
 .ticker-runtime-shell .up-tl { flex: 1; min-width: 0; position: relative; display: flex; align-items: flex-start; }
-.ticker-runtime-shell .up-tl::before { content: ''; position: absolute; left: 0; right: 0; top: 2.75cqh; height: 0.9cqh; background: currentColor; opacity: .55; border-radius: 1cqh; }
+.ticker-runtime-shell .up-tl::before { content: ''; position: absolute; left: 0; right: 0; top: 2.75cqh; height: 0.9cqh; background: var(--ac); opacity: .6; border-radius: 1cqh; }
 .ticker-runtime-shell .up-st { position: relative; padding-top: 6.4cqh; flex: 1; }
-.ticker-runtime-shell .up-st::before { content: ''; position: absolute; top: 0; left: 0; width: 6.4cqh; height: 6.4cqh; margin-top: -0.1cqh; border-radius: 50%; background: currentColor; opacity: .55; }
+.ticker-runtime-shell .up-st::before { content: ''; position: absolute; top: 0; left: 0; width: 6.4cqh; height: 6.4cqh; margin-top: -0.1cqh; border-radius: 50%; background: var(--ac); opacity: .6; }
 .ticker-runtime-shell .up-st .d { font-size: 3.6cqh; font-weight: 700; letter-spacing: .05em; white-space: nowrap; opacity: .85; }
 .ticker-runtime-shell .up-st .t { font-size: 7.4cqh; font-weight: 700; line-height: 1; margin: 0.6cqh 0; }
 .ticker-runtime-shell .up-st .t small { font-size: 3.6cqh; font-style: normal; font-weight: 700; letter-spacing: .04em; margin-left: 0.8cqh; opacity: .85; }
@@ -1044,12 +1044,12 @@
 .ticker-runtime-shell .up-st.med { flex: 1.5; }
 .ticker-runtime-shell .up-st.med .t { font-size: 8.6cqh; }
 .ticker-runtime-shell .up-st.next { flex: 2.2; }
-.ticker-runtime-shell .up-st.next::before { opacity: 1; width: 7.4cqh; height: 7.4cqh; margin-top: -.6cqh; box-shadow: 0 0 0 1.2cqh rgba(255,255,255,.45); }
+.ticker-runtime-shell .up-st.next::before { opacity: 1; width: 7.4cqh; height: 7.4cqh; margin-top: -.6cqh; box-shadow: 0 0 0 1.2cqh rgba(var(--acr),.35), 0 0 3cqh rgba(var(--acr),.8); }
 .ticker-runtime-shell .up-st.next .d { font-size: 5.6cqh; opacity: 1; letter-spacing: .04em; }
-.ticker-runtime-shell .up-st.next .t { font-size: 19cqh; letter-spacing: -.02em; margin: 1cqh 0 1.4cqh; }
+.ticker-runtime-shell .up-st.next .t { font-size: 19cqh; letter-spacing: -.02em; margin: 1cqh 0 1.4cqh; text-shadow: 0 0 3cqh rgba(var(--acr),.55); }
 .ticker-runtime-shell .up-st.next .t small { font-size: 5.6cqh; }
 .ticker-runtime-shell .up-st.next .n { font-size: 4.8cqh; opacity: 1; }
-.ticker-runtime-shell .up-tv { flex: 0 0 auto; align-self: flex-end; display: inline-flex; align-items: center; gap: 2cqh; background: #101319; padding: 1.8cqh 3cqh; border-radius: 1.8cqh; }
+.ticker-runtime-shell .up-tv { flex: 0 0 auto; align-self: flex-end; display: inline-flex; align-items: center; gap: 2cqh; }
 .ticker-runtime-shell .up-tv img { height: 11cqh; width: auto; max-width: none; }
 .ticker-runtime-shell .up-map { flex: 0 0 176cqh; height: 100%; }
 .ticker-runtime-shell .up-map img { width: 100%; height: 100%; object-fit: contain; opacity: .9; }

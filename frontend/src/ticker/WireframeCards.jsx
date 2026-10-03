@@ -777,20 +777,22 @@ function StartingGridCard({ game, title, seriesName, displayEntries }) {
   const toUrl = (p) => (p ? (p.startsWith('http') ? p : `/logos/${p}`) : null)
   // One name size for everyone; the STRIP grows with the surname instead. Each column is as wide as
   // its wider strip, so the two lanes stay staggered and nothing overlaps the next driver.
-  const STAG = 40, PAD = 3, GAP = 3, POS_W = 17, PHOTO_W = 30, CHAR_W = 5.3
+  const STAG = 40, PAD = 3, GAP = 4, POS_W = 17, PHOTO_W = 30, CHAR_W = 5.3
   const surnameOf = (e) => {
     const parts = String(e.shortName || e.name || 'Driver').split(' ')
     return parts.length > 1 ? parts.slice(1).join(' ') : parts[0]
   }
   const stripW = displayEntries.map((e) => Math.max(82, POS_W + 4 + surnameOf(e).length * CHAR_W + PHOTO_W))
-  const colX = []
-  let acc = PAD
-  const cols = Math.ceil(displayEntries.length / 2)
-  for (let c = 0; c < cols; c++) {
-    colX.push(acc)
-    acc += Math.max(stripW[c * 2] || 0, stripW[c * 2 + 1] || 0) + GAP
-  }
-  const width = acc + STAG + 1
+  // Each lane packs on its own with the same fixed gap, so spacing between neighbours never varies;
+  // the bottom lane starts half a step back to keep the staggered grid formation.
+  const stripX = []
+  const laneEnd = [PAD, PAD + STAG]
+  displayEntries.forEach((_, i) => {
+    const lane = i % 2
+    stripX[i] = laneEnd[lane]
+    laneEnd[lane] += stripW[i] + GAP
+  })
+  const width = Math.max(laneEnd[0], laneEnd[1]) + 1
   return (
     <div className="card gb-card" style={{ width: `${width}cqh` }}>
       <div className="gb-hdr">
@@ -799,7 +801,6 @@ function StartingGridCard({ game, title, seriesName, displayEntries }) {
       </div>
       {displayEntries.map((entry, i) => {
         const lane = i % 2
-        const col = Math.floor(i / 2)
         const mfr = String(entry.manufacturer || '').toUpperCase()
         const color = MANUFACTURER_COLORS[mfr] || entryColor(entry)
         const name = entry.shortName || entry.name || 'Driver'
@@ -813,7 +814,7 @@ function StartingGridCard({ game, title, seriesName, displayEntries }) {
           <div
             key={i}
             className={`gb-strip ${round ? 'gb-round' : ''}`}
-            style={{ ...standingsColorVars(color), '--gb-w': `${stripW[i]}cqh`, zIndex: displayEntries.length - i, left: `${colX[col] + (lane ? STAG : 0)}cqh`, top: lane ? '56cqh' : '17cqh' }}
+            style={{ ...standingsColorVars(color), '--gb-w': `${stripW[i]}cqh`, zIndex: displayEntries.length - i, left: `${stripX[i]}cqh`, top: lane ? '56cqh' : '17cqh' }}
           >
             <div className="gb-pos"><em>{entry.position ?? i + 1}</em></div>
             <div className="gb-body">

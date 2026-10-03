@@ -775,9 +775,22 @@ function UpcomingRaceCard({ game, title, seriesName, flags }) {
 function StartingGridCard({ game, title, seriesName, displayEntries }) {
   const isF1 = String(game?.leagueId || '').toLowerCase() === 'f1'
   const toUrl = (p) => (p ? (p.startsWith('http') ? p : `/logos/${p}`) : null)
-  const STEP = 84, STAG = 40, PAD = 3
+  // One name size for everyone; the STRIP grows with the surname instead. Each column is as wide as
+  // its wider strip, so the two lanes stay staggered and nothing overlaps the next driver.
+  const STAG = 40, PAD = 3, GAP = 3, POS_W = 17, PHOTO_W = 30, CHAR_W = 5.3
+  const surnameOf = (e) => {
+    const parts = String(e.shortName || e.name || 'Driver').split(' ')
+    return parts.length > 1 ? parts.slice(1).join(' ') : parts[0]
+  }
+  const stripW = displayEntries.map((e) => Math.max(66, POS_W + 4 + surnameOf(e).length * CHAR_W + PHOTO_W))
+  const colX = []
+  let acc = PAD
   const cols = Math.ceil(displayEntries.length / 2)
-  const width = PAD + cols * STEP + STAG + 4
+  for (let c = 0; c < cols; c++) {
+    colX.push(acc)
+    acc += Math.max(stripW[c * 2] || 0, stripW[c * 2 + 1] || 0) + GAP
+  }
+  const width = acc + STAG + 1
   return (
     <div className="card gb-card" style={{ width: `${width}cqh` }}>
       <div className="gb-hdr">
@@ -800,12 +813,12 @@ function StartingGridCard({ game, title, seriesName, displayEntries }) {
           <div
             key={i}
             className={`gb-strip ${round ? 'gb-round' : ''}`}
-            style={{ ...standingsColorVars(color), '--gb-w': `${STEP - 4}cqh`, zIndex: displayEntries.length - i, left: `${PAD + col * STEP + (lane ? STAG : 0)}cqh`, top: lane ? '56cqh' : '17cqh' }}
+            style={{ ...standingsColorVars(color), '--gb-w': `${stripW[i]}cqh`, zIndex: displayEntries.length - i, left: `${colX[col] + (lane ? STAG : 0)}cqh`, top: lane ? '56cqh' : '17cqh' }}
           >
             <div className="gb-pos"><em>{entry.position ?? i + 1}</em></div>
             <div className="gb-body">
               <div className="gb-txt">
-                <b style={{ fontSize: `${surname.length <= 5 ? 8.2 : surname.length <= 7 ? 7 : surname.length <= 9 ? 5.8 : surname.length <= 11 ? 4.8 : 4.2}cqh` }}>{surname}</b>
+                <b>{surname}</b>
                 {car ? <small>{car}</small> : null}
               </div>
               {hs ? (

@@ -1078,3 +1078,4 @@
 .ticker-runtime-shell .gb-txt small { font-size: 3.6cqh; }
 .ticker-runtime-shell .gb-strip:not(.gb-round) .gb-img { right: -4cqh; height: 128%; }
 .ticker-runtime-shell .gb-clip { right: -3cqh; }
+.ticker-runtime-shell .gb-txt b { font-size: 7cqh; }

@@ -769,6 +769,54 @@ function UpcomingRaceCard({ game, title, seriesName, flags }) {
   )
 }
 
+// ── Starting grid (qualifying order) — 2-wide staggered formation, every car ───────────────────
+// Odd positions run in the top lane, even in the bottom lane shifted back half a step, like a real
+// grid. Sizes are in cqh (board height) so it scales with the display like every other card.
+function StartingGridCard({ game, title, seriesName, displayEntries }) {
+  const isF1 = String(game?.leagueId || '').toLowerCase() === 'f1'
+  const toUrl = (p) => (p ? (p.startsWith('http') ? p : `/logos/${p}`) : null)
+  // F1 surnames are longer and its headshots are round crops, so its strips are wider
+  const STEP = isF1 ? 88 : 72, STAG = isF1 ? 40 : 34, PAD = 3
+  const cols = Math.ceil(displayEntries.length / 2)
+  const width = PAD + cols * STEP + STAG + 4
+  return (
+    <div className="card gb-card" style={{ width: `${width}cqh` }}>
+      <div className="gb-hdr">
+        <h3>Starting Grid</h3>
+        <span>{[seriesName, title].filter(Boolean).join(' · ')}</span>
+      </div>
+      {displayEntries.map((entry, i) => {
+        const lane = i % 2
+        const col = Math.floor(i / 2)
+        const mfr = String(entry.manufacturer || '').toUpperCase()
+        const color = MANUFACTURER_COLORS[mfr] || entryColor(entry)
+        const name = entry.shortName || entry.name || 'Driver'
+        const parts = name.split(' ')
+        const surname = parts.length > 1 ? parts.slice(1).join(' ') : parts[0]
+        const first = parts.length > 1 ? parts[0] : ''
+        const car = entry.carNumber ? `#${entry.carNumber}` : ''
+        const hs = toUrl(entry.headshot)
+        return (
+          <div
+            key={i}
+            className={`gb-strip ${isF1 ? 'gb-round' : ''}`}
+            style={{ ...standingsColorVars(color), '--gb-w': `${STEP - 4}cqh`, left: `${PAD + col * STEP + (lane ? STAG : 0)}cqh`, top: lane ? '56cqh' : '17cqh' }}
+          >
+            <div className="gb-pos"><em>{entry.position ?? i + 1}</em></div>
+            <div className="gb-body">
+              <div className="gb-txt">
+                <b style={surname.length > 9 ? { fontSize: '5cqh' } : undefined}>{surname}</b>
+                <small>{[first, car].filter(Boolean).join(' · ')}</small>
+              </div>
+              {hs ? <img className="gb-img" src={hs} alt="" onError={(e) => { e.currentTarget.remove() }} /> : null}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // ── BOARD (racing / golf) — replaces RacingCard ────────────────────────────
 
 export function BoardCard({ game, isSoloSlate, renderLeague }) {
@@ -870,6 +918,10 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
         </div>
       </div>
     )
+  }
+
+  if (game?.isStartingOrder && hasEntries) {
+    return <StartingGridCard game={game} title={title} seriesName={seriesName} displayEntries={displayEntries} />
   }
 
   // Upcoming race (NASCAR / F1): session timeline with the next session as the hero. Shown for the

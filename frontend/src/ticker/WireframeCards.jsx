@@ -775,7 +775,7 @@ function UpcomingRaceCard({ game, title, seriesName, flags }) {
 function StartingGridCard({ game, title, seriesName, displayEntries }) {
   const isF1 = String(game?.leagueId || '').toLowerCase() === 'f1'
   const toUrl = (p) => (p ? (p.startsWith('http') ? p : `/logos/${p}`) : null)
-  const STEP = 72, STAG = 34, PAD = 3
+  const STEP = 84, STAG = 40, PAD = 3
   const cols = Math.ceil(displayEntries.length / 2)
   const width = PAD + cols * STEP + STAG + 4
   return (
@@ -792,7 +792,6 @@ function StartingGridCard({ game, title, seriesName, displayEntries }) {
         const name = entry.shortName || entry.name || 'Driver'
         const parts = name.split(' ')
         const surname = parts.length > 1 ? parts.slice(1).join(' ') : parts[0]
-        const first = parts.length > 1 ? parts[0] : ''
         const car = entry.carNumber ? `#${entry.carNumber}` : ''
         // F1: full-body transparent render (cutout, like the NASCAR photos); fall back to the round headshot
         const hs = toUrl(isF1 ? (entry.render || entry.headshot) : entry.headshot)
@@ -801,15 +800,21 @@ function StartingGridCard({ game, title, seriesName, displayEntries }) {
           <div
             key={i}
             className={`gb-strip ${round ? 'gb-round' : ''}`}
-            style={{ ...standingsColorVars(color), '--gb-w': `${STEP - 4}cqh`, left: `${PAD + col * STEP + (lane ? STAG : 0)}cqh`, top: lane ? '56cqh' : '17cqh' }}
+            style={{ ...standingsColorVars(color), '--gb-w': `${STEP - 4}cqh`, zIndex: displayEntries.length - i, left: `${PAD + col * STEP + (lane ? STAG : 0)}cqh`, top: lane ? '56cqh' : '17cqh' }}
           >
             <div className="gb-pos"><em>{entry.position ?? i + 1}</em></div>
             <div className="gb-body">
               <div className="gb-txt">
-                <b style={surname.length > 9 ? { fontSize: '5cqh' } : undefined}>{surname}</b>
-                <small>{[first, car].filter(Boolean).join(' · ')}</small>
+                <b style={{ fontSize: `${surname.length <= 5 ? 8.2 : surname.length <= 7 ? 7 : surname.length <= 9 ? 5.8 : surname.length <= 11 ? 4.8 : 4.2}cqh` }}>{surname}</b>
+                {car ? <small>{car}</small> : null}
               </div>
-              {hs ? <img className="gb-img" src={hs} alt="" onError={(e) => { e.currentTarget.remove() }} /> : null}
+              {hs ? (
+                round
+                  ? <img className="gb-img" src={hs} alt="" onError={(e) => { e.currentTarget.remove() }} />
+                  : isF1
+                    ? <span className="gb-clip"><img src={hs} alt="" onError={(e) => { e.currentTarget.remove() }} /></span>
+                    : <img className="gb-img" src={hs} alt="" onError={(e) => { e.currentTarget.remove() }} />
+              ) : null}
             </div>
           </div>
         )

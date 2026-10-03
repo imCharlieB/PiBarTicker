@@ -1073,3 +1073,8 @@
 .ticker-runtime-shell .gb-strip:not(.gb-round) .gb-img { height: 138%; right: -1cqh; }
 .ticker-runtime-shell .gb-strip:not(.gb-round) .gb-img { right: -6cqh; height: 130%; }
 .ticker-runtime-shell .gb-txt b { font-size: 5.6cqh; }
+.ticker-runtime-shell .gb-clip { position: absolute; right: -2cqh; bottom: 0; height: 126%; width: 31cqh; overflow: hidden; transform: skewX(9deg); z-index: 1; }
+.ticker-runtime-shell .gb-clip img { display: block; width: 100%; height: auto; filter: drop-shadow(0 0.6cqh 1cqh rgba(0,0,0,.6)); }
+.ticker-runtime-shell .gb-txt small { font-size: 3.6cqh; }
+.ticker-runtime-shell .gb-strip:not(.gb-round) .gb-img { right: -4cqh; height: 128%; }
+.ticker-runtime-shell .gb-clip { right: -3cqh; }

@@ -594,7 +594,7 @@ function TickerRuntime({
           <SensorCornerWidgets haSensors={haSensors} sensorValues={sensorValues} />
         </section>
       )}
-      <LowerThird clockFormat={config?.theme?.clockFormat ?? '12h'} haSlotActive={haSlotActive} leagueName={renderLeague} leagueLogo={brandLogoUrl} />
+      <LowerThird clockFormat={config?.theme?.clockFormat ?? '12h'} haSlotActive={haSlotActive} leagueName={typeof renderLeague === 'string' ? renderLeague : (renderLeague?.name || renderLeague?.id || '')} leagueLogo={brandLogoUrl} />
     </main>
   )
 }

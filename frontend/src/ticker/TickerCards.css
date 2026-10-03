@@ -1020,7 +1020,7 @@
 .ticker-runtime-shell .up-main { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .ticker-runtime-shell .up-ser { font-size: 6.6cqh; font-weight: 700; letter-spacing: .3em; opacity: .8; }
 .ticker-runtime-shell .up-head.has-dw { padding-right: 98cqh; }
-.ticker-runtime-shell .up-title { margin: 1cqh 0 0; font-size: 17cqh; line-height: 1; font-weight: 700; letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ticker-runtime-shell .up-title { margin: 1cqh 0 0; font-size: calc(var(--ts-base, 17cqh) * var(--ts-scale, 1)); line-height: 1; font-weight: 700; letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ticker-runtime-shell .up-stats { font-size: 6.8cqh; font-weight: 700; letter-spacing: .08em; margin-top: 1.4cqh; opacity: .9; }
 .ticker-runtime-shell .up-stats i { font-style: normal; opacity: .55; margin: 0 1.6cqh; }
 .ticker-runtime-shell .up-dw { position: absolute; right: 0; top: 0; display: flex; align-items: center; gap: 3cqh; text-transform: none; }
@@ -1051,4 +1051,4 @@
 .ticker-runtime-shell .up-f1 .up-tv img { filter: brightness(0) invert(1); }
 .ticker-runtime-shell .up-map { flex: 0 0 176cqh; height: 100%; }
 .ticker-runtime-shell .up-map img { width: 100%; height: 100%; object-fit: contain; opacity: .9; }
-.ticker-runtime-shell .up-f1 .up-title { font-size: 11.5cqh; }
+.ticker-runtime-shell .up-f1 .up-title { --ts-base: 11.5cqh; }

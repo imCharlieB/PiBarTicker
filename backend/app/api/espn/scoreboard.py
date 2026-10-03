@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Query
 from ...core.espn_normalizer import normalize_scoreboard_events
 from ...core.espn_registry import resolve_registry_entry
 from ...core.espn_scoreboard import EspnScoreboardClient, resolve_calendar_weeks
-from ...core.f1_circuit_stats import f1_circuit_stats
+from ...core.f1_circuit_stats import f1_circuit_stats, f1_stats_from_length
 import json
 import re
 
@@ -690,10 +690,20 @@ def get_scoreboard(
                                     ]
                                     _same_name = [r for r in _same_track if r.get("race_name") == _best_race.get("race_name")]
                                     _pick_from = _same_name or _same_track
-                                    if _pick_from and nascar_drivers_meta:
+                                    if _pick_from:
                                         _prev_win = max(_pick_from, key=lambda r: str(r.get("race_date") or ""))
                                         _win_id = str(_prev_win.get("winner_driver_id") or "").strip()
-                                        for _drv in nascar_drivers_meta.teams.values():
+                                        # This series' roster first, then the others — a Cup regular who won
+                                        # a Truck/O'Reilly race isn't on that series' roster.
+                                        _metas = [nascar_drivers_meta]
+                                        for _other in ("nascar-cup", "nascar-xfinity", "nascar-trucks"):
+                                            if _other != nascar_cache_id:
+                                                try:
+                                                    _metas.append(store.load_league_meta(_other))
+                                                except Exception:
+                                                    pass
+                                        _all_drivers = [d for m in _metas if m for d in m.teams.values()]
+                                        for _drv in _all_drivers:
                                             if str(_drv.remote_urls.get("nascar_driver_id") or "").strip() == _win_id:
                                                 _hs = str(_drv.logos.get("headshot") or "")
                                                 # Prefer the round-crop "_headshot" variant over the transparent cutout
@@ -706,6 +716,21 @@ def get_scoreboard(
                                                     "headshot": f"/logos/{_hs_round}" if _hs_round else "",
                                                 }
                                                 break
+                                # Winner not on any cached roster (e.g. a driver who has since moved up or
+                                # left) — fall back to nascar.com's all-time driver list for the name only.
+                                if _defending is None and _pick_from:
+                                    _drivers_all = _http_client.get_json(
+                                        "https://cf.nascar.com/cacher/drivers.json",
+                                        use_cache=True,
+                                        cache_ttl_seconds=604800.0,
+                                    )
+                                    _rows = (_drivers_all or {}).get("response") if isinstance(_drivers_all, dict) else _drivers_all
+                                    for _row in _rows or []:
+                                        if isinstance(_row, dict) and str(_row.get("Nascar_Driver_ID") or "").strip() == _win_id:
+                                            _nm = str(_row.get("Full_Name") or "").strip()
+                                            if _nm:
+                                                _defending = {"name": _nm, "year": _season_year - 1, "headshot": ""}
+                                            break
                             except Exception:
                                 _defending = None
 
@@ -1215,7 +1240,26 @@ def get_scoreboard(
                 # F1 upcoming-card details: laps / distance / track length from a static table
                 # (ESPN has none), plus last season's winner at this same circuit.
                 if entry.league_id == "f1" and game.get("circuitImage") and str(game.get("state") or "").lower() == "pre":
-                    _f1_details = dict(f1_circuit_stats(game["circuitImage"]) or {})
+                    # Track length comes from ESPN's circuit record (e.g. "5.543 km"); race laps follow the
+                    # F1 rule (first full lap past 305 km, 260 km at Monaco). The static per-circuit table
+                    # is only the fallback when ESPN has no length for the circuit.
+                    _f1_details: dict = {}
+                    _cid = str(game.get("circuitId") or "").strip()
+                    if _cid:
+                        try:
+                            _circ = _http_client.get_json(
+                                f"https://sports.core.api.espn.com/v2/sports/racing/leagues/f1/circuits/{_cid}",
+                                use_cache=True,
+                                cache_ttl_seconds=604800.0,
+                            )
+                            _f1_details = f1_stats_from_length(
+                                (_circ or {}).get("length"),
+                                monaco="monaco" in str((_circ or {}).get("fullName") or "").lower(),
+                            ) or {}
+                        except Exception:
+                            _f1_details = {}
+                    if not _f1_details:
+                        _f1_details = dict(f1_circuit_stats(game["circuitImage"]) or {})
                     try:
                         _season = datetime.now(timezone.utc).year
                         _prev = _http_client.get_json(

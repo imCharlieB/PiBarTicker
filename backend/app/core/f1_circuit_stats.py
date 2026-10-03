@@ -1,4 +1,7 @@
-"""Static per-circuit race facts for F1 — ESPN's F1 feed has no lap count or track length.
+"""F1 race facts (laps, distance, track length) — ESPN's F1 scoreboard has none of them.
+
+Primary path: `f1_stats_from_length` derives everything from the circuit length ESPN's core circuit
+record does provide. Fallback: a static per-circuit table, used only when ESPN has no length.
 
 Keyed by the cached circuit-map filename stem, lowercased ("Bahrain_Circuit.png" -> "bahrain"),
 which is what the scoreboard already matches an event to. Values are the standard published race
@@ -7,6 +10,9 @@ Review when the calendar changes (new circuits, layout changes).
 """
 
 from __future__ import annotations
+
+import math
+import re
 
 # stem -> (race laps, track miles, race miles)
 _F1_CIRCUIT_STATS: dict[str, tuple[int, float, float]] = {
@@ -47,3 +53,26 @@ def f1_circuit_stats(circuit_image: str) -> dict | None:
         return None
     laps, track_mi, race_mi = hit
     return {"scheduledLaps": laps, "trackMiles": track_mi, "scheduledDistance": race_mi}
+
+
+_KM_PER_MILE = 1.609344
+
+
+def f1_stats_from_length(length: object, *, monaco: bool = False) -> dict | None:
+    """Race facts from a circuit length string like '5.543 km' or '3.363 mi'.
+
+    F1 race distance = the fewest whole laps that exceed 305 km (260 km at Monaco)."""
+    m = re.search(r"([\d.]+)\s*(km|mi)", str(length or ""), re.IGNORECASE)
+    if not m:
+        return None
+    value = float(m.group(1))
+    km = value if m.group(2).lower() == "km" else value * _KM_PER_MILE
+    if km <= 0:
+        return None
+    laps = math.ceil((260.0 if monaco else 305.0) / km)
+    track_mi = km / _KM_PER_MILE
+    return {
+        "scheduledLaps": laps,
+        "trackMiles": round(track_mi, 2),
+        "scheduledDistance": round(laps * track_mi, 1),
+    }

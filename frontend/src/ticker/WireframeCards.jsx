@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect } from 'react'
+import { Fragment, useState, useEffect, useLayoutEffect, useRef } from 'react'
 import {
   densityFlags,
   formatRuntimeStatus,
@@ -698,6 +698,23 @@ function UpcomingRaceCard({ game, title, seriesName, flags }) {
   }, [])
   const stops = sessionStops(game, now)
   const dw = rd.defendingWinner
+  // Shrink the race name to fit its line (sponsor-laden ESPN titles can be long); CSS ellipsis is the last resort.
+  const titleRef = useRef(null)
+  const raceTitle = rd.raceName || title
+  const hasDw = Boolean(dw?.name)
+  useLayoutEffect(() => {
+    const el = titleRef.current
+    if (!el) return undefined
+    const fit = () => {
+      el.style.setProperty('--ts-scale', '1')
+      const over = el.scrollWidth - el.clientWidth
+      if (over > 0) el.style.setProperty('--ts-scale', String(Math.max(0.5, (el.clientWidth / el.scrollWidth) * 0.98)))
+    }
+    fit()
+    let cancelled = false
+    document.fonts?.ready?.then(() => { if (!cancelled) fit() })
+    return () => { cancelled = true }
+  }, [raceTitle, hasDw])
   const track = String(rd.trackName || '').replace(TRACK_SUFFIX, '').trim()
   const stats = [
     rd.scheduledLaps ? <span key="l"><b>{rd.scheduledLaps}</b> LAPS</span> : null,
@@ -716,7 +733,7 @@ function UpcomingRaceCard({ game, title, seriesName, flags }) {
         ) : null}
         <div className={`up-head ${dw?.name ? 'has-dw' : ''}`}>
           <div className="up-ser">{[seriesName, track].filter(Boolean).join(' · ')}</div>
-          <h3 className="up-title">{rd.raceName || title}</h3>
+          <h3 className="up-title" ref={titleRef}>{raceTitle}</h3>
           {stats.length ? (
             <div className="up-stats">
               {stats.map((el, i) => <Fragment key={i}>{i ? <i>·</i> : null}{el}</Fragment>)}

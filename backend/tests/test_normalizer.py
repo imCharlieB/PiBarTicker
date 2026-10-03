@@ -697,3 +697,12 @@ def test_f1_circuit_stats_known_and_unknown():
     stats = f1_circuit_stats("/logos/f1/circuits/Bahrain_Circuit.png")
     assert stats["scheduledLaps"] == 57
     assert f1_circuit_stats("/logos/f1/circuits/Nowhere_Circuit.png") is None
+
+
+def test_f1_stats_from_length_matches_known_circuits():
+    from app.core.f1_circuit_stats import f1_stats_from_length
+    bahrain = f1_stats_from_length("5.412 km")
+    assert bahrain["scheduledLaps"] == 57
+    assert bahrain["scheduledDistance"] == 191.7
+    assert f1_stats_from_length("3.337 km", monaco=True)["scheduledLaps"] == 78
+    assert f1_stats_from_length("") is None

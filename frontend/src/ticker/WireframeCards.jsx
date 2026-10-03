@@ -877,7 +877,7 @@ function PodiumCard({ game, title, entries }) {
       </div>
       <div className="pd-row">
         {order.map((d) => (
-          <div key={d.pos} className={`pd-col pd-p${d.pos}`} style={standingsColorVars(d.color)}>
+          <div key={d.pos} className={`pd-col pd-p${d.pos} ${isF1 ? 'pd-f1' : 'pd-nas'}`} style={standingsColorVars(d.color)}>
             <div className="pd-top">
               <div className="pd-wash" />
               {d.car ? <span className="pd-car">{d.car}</span> : null}
@@ -906,13 +906,7 @@ function PodiumCard({ game, title, entries }) {
                   {d.started ? <span><em>STARTED</em><b>P{d.started}</b></span> : null}
                 </div>
               </>
-            ) : (
-              <div className="pd-nstats">
-                {d.pos === 1 && margin ? <span><em>MARGIN</em><b>{margin}</b></span> : null}
-                {d.pos === 1 && d.led ? <span><em>LED</em><b>{d.led} LAPS</b></span> : null}
-                {d.started ? <span><em>STARTED</em><b>P{d.started}</b></span> : null}
-              </div>
-            )}
+            ) : null}
           </div>
         ))}
       </div>

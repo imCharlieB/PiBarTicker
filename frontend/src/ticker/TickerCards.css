@@ -1132,3 +1132,7 @@
 .ticker-runtime-shell .pd-nstats em { font-style: normal; font-size: 2.4cqh; font-weight: 800; letter-spacing: .14em; color: #8a93a1; }
 .ticker-runtime-shell .pd-nstats b { font-size: 3.8cqh; font-weight: 900; color: #fff; }
 .ticker-runtime-shell .pd-hdr { z-index: 8; }
+
+/* podium final: NASCAR has no stats box (the name bar closes the card); F1 gets a bigger team logo */
+.ticker-runtime-shell .pd-nas .pd-bar { border-radius: 0 0 1.8cqh 1.8cqh; padding-bottom: 1.6cqh; }
+.ticker-runtime-shell .pd-f1 .pd-brand { max-width: 19cqh; max-height: 15cqh; }

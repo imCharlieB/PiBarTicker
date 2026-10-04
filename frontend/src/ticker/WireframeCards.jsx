@@ -873,8 +873,10 @@ function PodiumCard({ game, title, entries }) {
     <div className="card pd-card">
       <div className="pd-hdr">
         <div className="pd-title">{title}</div>
-        <div className="pd-rr">RACE RESULT</div>
-        {summary.length ? <div className="pd-hsum">{summary.map((t, i) => <span key={i}>{i ? ' · ' : ''}{t}</span>)}</div> : null}
+      </div>
+      <div className="pd-hsum">
+        <span className="pd-rl">RACE RESULT</span>
+        {summary.map((t, i) => <span key={i}>{t}</span>)}
       </div>
       <div className="pd-row">
         {order.map((d) => (

@@ -1240,3 +1240,13 @@
 /* podium: plain "RACE RESULT" text under the title (no box) */
 .ticker-runtime-shell .pd-rr { font-weight: 900; font-size: 4.6cqh; letter-spacing: .14em; color: #fff; margin-top: 0.8cqh; }
 .ticker-runtime-shell .pd-res { display: none; }
+
+/* podium final layout (approved on the mockup): title top-left, RACE RESULT + summary top-right, smaller NASCAR cutouts, no empty F1 row */
+.ticker-runtime-shell .pd-hdr { left: 4cqh; top: 3cqh; max-width: 86cqh; }
+.ticker-runtime-shell .pd-title { font-size: 4.6cqh; font-weight: 900; line-height: 1.05; color: #fff; white-space: normal; max-width: 86cqh; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.ticker-runtime-shell .pd-hsum { position: absolute; right: 4cqh; top: 3.4cqh; z-index: 8; text-align: right; display: block; flex-direction: initial; font-size: 3.2cqh; font-weight: 800; letter-spacing: .06em; color: #cfd6e2; line-height: 1.25; }
+.ticker-runtime-shell .pd-hsum span { display: block; white-space: nowrap; }
+.ticker-runtime-shell .pd-rl { font-weight: 900; font-size: 5cqh; letter-spacing: .14em; color: #fff; }
+.ticker-runtime-shell .pd-stats:empty { display: none; }
+.ticker-runtime-shell .pd-nas .pd-cut { height: 112%; bottom: -2cqh; }
+.ticker-runtime-shell .pd-nas.pd-p1 .pd-cut { height: 118%; bottom: -2cqh; }

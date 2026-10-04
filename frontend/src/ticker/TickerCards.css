@@ -1231,3 +1231,8 @@
 .ticker-runtime-shell .pd-col.pd-p1 { height: 100%; }
 .ticker-runtime-shell .pd-res-sum { font-size: 3.6cqh; color: #cfd6e2; }
 .ticker-runtime-shell .pd-title { font-size: 4.6cqh; max-width: 72cqh; }
+
+/* summary (time / cautions / caution laps / lead changes): a line under the title on the left, above 2nd place's head */
+.ticker-runtime-shell .pd-hdr { max-width: 74cqh; }
+.ticker-runtime-shell .pd-hsum { margin-top: 0.8cqh; font-size: 3.2cqh; font-weight: 800; letter-spacing: .06em; color: #cfd6e2; line-height: 1.25; }
+.ticker-runtime-shell .pd-hsum span { white-space: nowrap; }

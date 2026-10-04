@@ -871,13 +871,13 @@ function PodiumCard({ game, title, entries }) {
   const order = [top[1], top[0], top[2]].filter(Boolean)
   return (
     <div className="card pd-card">
-      <div className="pd-hdr">
-        <div className="pd-title">{title}</div>
-        {summary.length ? <div className="pd-hsum">{summary.map((t, i) => <span key={i}>{i ? ' · ' : ''}{t}</span>)}</div> : null}
+      <div className="pd-lead">
+        <FlagGraphic kind="checkered" />
+        <span className="pd-big">RACE<br />RESULT</span>
+        <span className="pd-pill">FINAL</span>
+        <span className="pd-lt">{title}</span>
+        {summary.length ? <span className="pd-hsum">{summary.map((t, i) => <span key={i}>{t}</span>)}</span> : null}
       </div>
-      <div className="pd-res">
-        <span className="pd-res-lbl"><FlagGraphic kind="checkered" />RACE RESULT</span>
-              </div>
       <div className="pd-row">
         {order.map((d) => (
           <div key={d.pos} className={`pd-col pd-p${d.pos} ${isF1 ? 'pd-f1' : 'pd-nas'}`} style={standingsColorVars(d.color)}>
@@ -904,10 +904,12 @@ function PodiumCard({ game, title, entries }) {
                   <span className="pd-pos">{d.pos}</span>
                   {d.carImg ? <img className="pd-carimg" src={d.carImg} alt="" onError={(e) => { e.currentTarget.remove() }} /> : null}
                 </div>
-                <div className="pd-stats">
-                  {d.pos === 1 && margin ? <span><em>MARGIN</em><b>{margin}</b></span> : null}
-                  {d.started ? <span><em>STARTED</em><b>P{d.started}</b></span> : null}
-                </div>
+                {(d.pos === 1 && margin) || d.started ? (
+                  <div className="pd-stats">
+                    {d.pos === 1 && margin ? <span><em>MARGIN</em><b>{margin}</b></span> : null}
+                    {d.started ? <span><em>STARTED</em><b>P{d.started}</b></span> : null}
+                  </div>
+                ) : null}
               </>
             ) : null}
           </div>
@@ -1083,11 +1085,16 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
     const leader = shape(displayEntries[0], 0)
     const fieldRows = displayEntries.slice(1, 5).map((e, i) => shape(e, i + 1))
     const eyebrow = isTeams ? 'CHAMPIONSHIP LEADER' : 'POINTS LEADER'
-    const subLabel = isTeams ? "CONSTRUCTORS' STANDINGS" : isF1 ? "DRIVERS' STANDINGS" : 'STANDINGS'
 
     return (
       <div className={`card d-board d-standings ${isF1 ? (isTeams ? 'st-f1 st-teams' : 'st-f1') : ''}`}>
         <div className="st-inner">
+          <div className="st-tag">
+            <svg className="st-trophy" viewBox="0 0 24 24" aria-hidden="true"><path fill="#F2C94C" d="M5 4h14a1 1 0 0 1 1 1v1h1a2 2 0 0 1 2 2v1a4 4 0 0 1-4 4h-.2a6 6 0 0 1-4.3 3.4V19h2.2a1 1 0 0 1 1 1v1H6.3v-1a1 1 0 0 1 1-1h2.2v-2.6A6 6 0 0 1 5.2 13H5a4 4 0 0 1-4-4V8a2 2 0 0 1 2-2h1V5a1 1 0 0 1 1-1Zm-1 4H3v1a2 2 0 0 0 2 2h.1A8 8 0 0 1 5 9Zm16 0h-1a8 8 0 0 1-.1 2H20a2 2 0 0 0 2-2Z" /></svg>
+            <span className="st-big">{isTeams ? <>CONSTRUCTORS'<br />STANDINGS</> : <>{isF1 ? "DRIVERS'" : 'DRIVER'}<br />STANDINGS</>}</span>
+            <span className="st-ttl">{title}</span>
+            <span className="st-after">{game?.standingsRound ? `AFTER ROUND ${game.standingsRound}` : (game?.isPlayoffs ? 'PLAYOFFS' : 'SEASON')}</span>
+          </div>
           <div className="st-lead" style={standingsColorVars(leader.color)}>
             <div className="st-lead-panel st-streaks"><div className="st-halo" /></div>
             <div className="st-lead-floor" />
@@ -1105,13 +1112,6 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
             </div>
           </div>
           <div className="st-field">
-            <div className="st-head">
-              <div>
-                <div className="st-title">{title}</div>
-                <div className="st-sub">{subLabel}</div>
-              </div>
-              {game?.isPlayoffs ? <span className="chip chip-standings">PLAYOFFS</span> : null}
-            </div>
             <div className="st-cards">
               {fieldRows.map((r, i) => (
                 <div key={i} className="st-fc" style={standingsColorVars(r.color)}>

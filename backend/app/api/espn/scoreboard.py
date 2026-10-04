@@ -947,7 +947,7 @@ def get_scoreboard(
                         normalized_games.append({
                             "id": "f1-standings-drivers", "gameId": "f1-standings-drivers", "sport": "racing", "league": entry.league,
                             "leagueId": "f1", "state": "standings", "isLive": False, "isCompleted": False,
-                            "title": "Formula 1", "standingsKind": "drivers", "racingEntries": _drows,
+                            "title": "Formula 1", "standingsKind": "drivers", "standingsRound": str((_dl[0] if _dl else {}).get("round") or ""), "racingEntries": _drows,
                         })
                     _trows = []
                     for _x in ((_cl[0] if _cl else {}).get("ConstructorStandings") or [])[:8]:
@@ -967,7 +967,7 @@ def get_scoreboard(
                         normalized_games.append({
                             "id": "f1-standings-teams", "gameId": "f1-standings-teams", "sport": "racing", "league": entry.league,
                             "leagueId": "f1", "state": "standings", "isLive": False, "isCompleted": False,
-                            "title": "Formula 1", "standingsKind": "teams", "racingEntries": _trows,
+                            "title": "Formula 1", "standingsKind": "teams", "standingsRound": str((_cl[0] if _cl else {}).get("round") or ""), "racingEntries": _trows,
                         })
                 except Exception:
                     pass

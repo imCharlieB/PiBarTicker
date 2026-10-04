@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException
 
 from ...core.logos.cache_service import LogoCacheService
 from ...core.logos.f1_cache_service import F1CacheService
+from ...core.logos.indycar_cache_service import IndycarCacheService
 from ...core.logos.mma_cache_service import MmaCacheService
 from ...core.logos.nascar_cache_service import NascarCacheService
 from ...core.logos.logo_store import LogoStore
@@ -150,6 +151,18 @@ def sync_f1_data(year: int = 2026) -> dict:
         return service.sync_all(year=year)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"F1 sync failed: {exc}") from exc
+    finally:
+        service.close()
+
+
+@router.post("/cache/irl/sync")
+def sync_indycar_data() -> dict:
+    """Sync IndyCar driver art, team and engine logos from indycar.com (ESPN has no IndyCar roster)."""
+    service = IndycarCacheService()
+    try:
+        return service.sync_all()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"IndyCar sync failed: {exc}") from exc
     finally:
         service.close()
 

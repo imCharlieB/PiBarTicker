@@ -509,12 +509,36 @@ export default function LeagueDetail({
           </p>
         </div>
         <div className="ld-explorer-actions">
-          {!isNascarLeague && !isF1League && (
+          {!isNascarLeague && !isF1League && selectedTickerLeague.id !== 'irl' && (
             <button type="button" className="ld-explorer-btn"
               onClick={syncTeamsAndLogos}
               disabled={selectedLeagueLoadState.loading}
             >
               {selectedLeagueLoadState.loading ? 'Syncing...' : isNonRacingIndividualLeague ? 'Sync Players & Headshots' : 'Sync Teams & Logos'}
+            </button>
+          )}
+          {selectedTickerLeague.id === 'irl' && (
+            <button type="button" className="ld-explorer-btn"
+              disabled={!!logoSyncingLeagues.irl}
+              onClick={async () => {
+                setLogoSyncingLeagues((prev) => ({ ...prev, irl: 'Syncing IndyCar drivers…' }))
+                setNotice('Downloading IndyCar driver art from indycar.com…')
+                try {
+                  const res = await fetch('/api/v1/logos/cache/irl/sync', { method: 'POST' })
+                  const data = await res.json()
+                  if (!res.ok) throw new Error(data?.detail || `HTTP ${res.status}`)
+                  const n = data?.drivers?.drivers_synced ?? 0
+                  const missing = data?.drivers?.without_photo ?? []
+                  setNotice(`IndyCar sync complete — ${n} drivers cached.${missing.length ? ` ${missing.length} without a photo: ${missing.join(', ')}` : ''}`)
+                  loadLeagueLogoMeta('irl-drivers')
+                } catch (e) {
+                  setNotice(`IndyCar sync failed: ${e.message}`)
+                } finally {
+                  setLogoSyncingLeagues((prev) => { const copy = { ...prev }; delete copy.irl; return copy })
+                }
+              }}
+            >
+              {logoSyncingLeagues.irl ? 'Syncing...' : 'Sync IndyCar Drivers & Assets'}
             </button>
           )}
           {selectedTickerLeague.id === 'f1' && (

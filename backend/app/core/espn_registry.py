@@ -37,12 +37,11 @@ _REGISTRY: dict[str, EspnLeagueRegistryEntry] = {
     "nwsl": EspnLeagueRegistryEntry("nwsl", "soccer", "usa.nwsl"),
     "epl": EspnLeagueRegistryEntry("epl", "soccer", "eng.1"),
     "nascar-premier": EspnLeagueRegistryEntry("nascar-premier", "racing", "nascar-premier", has_news=False),
-    "nascar-cup": EspnLeagueRegistryEntry("nascar-cup", "racing", "nascar-cup", has_news=False),
-    "nascar-xfinity": EspnLeagueRegistryEntry("nascar-xfinity", "racing", "nascar-xfinity", has_news=False),
-    "nascar-trucks": EspnLeagueRegistryEntry("nascar-trucks", "racing", "nascar-trucks", has_news=False),
     "nascar-truck": EspnLeagueRegistryEntry("nascar-truck", "racing", "nascar-truck", has_news=False),
     "f1": EspnLeagueRegistryEntry("f1", "racing", "f1"),
-    "indycar": EspnLeagueRegistryEntry("indycar", "racing", "indycar", has_news=False),
+    # ESPN's real IndyCar slug is "irl" ("indycar" 400s). NASCAR ids here are the ones ESPN actually serves;
+    # nascar-cup/-xfinity/-trucks are only local cache names, never ESPN slugs.
+    "irl": EspnLeagueRegistryEntry("irl", "racing", "irl", has_news=False),
     "ufc": EspnLeagueRegistryEntry("ufc", "mma", "ufc"),
     "pfl": EspnLeagueRegistryEntry("pfl", "mma", "pfl"),
     "pga": EspnLeagueRegistryEntry("pga", "golf", "pga"),

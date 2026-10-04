@@ -1316,6 +1316,14 @@ def get_scoreboard(
                             game["lapsToGo"] = int(laps_go)
                         except (TypeError, ValueError):
                             pass
+                    _laps_total = nascar_live_data.get("laps_in_race")
+                    if _laps_total is None and nascar_race_details:
+                        _laps_total = nascar_race_details.get("scheduledLaps")
+                    try:
+                        if _laps_total:
+                            game["totalLaps"] = int(_laps_total)
+                    except (TypeError, ValueError):
+                        pass
                     if isinstance(flag_raw, int):
                         game["flagState"] = _FLAG_INT_MAP.get(flag_raw, "")
                     elif isinstance(flag_raw, str):
@@ -1406,7 +1414,7 @@ def get_scoreboard(
 
                 # F1 upcoming-card details: laps / distance / track length from a static table
                 # (ESPN has none), plus last season's winner at this same circuit.
-                if entry.league_id == "f1" and game.get("circuitImage") and str(game.get("state") or "").lower() == "pre":
+                if entry.league_id == "f1" and game.get("circuitImage") and str(game.get("state") or "").lower() in ("pre", "in"):
                     # Track length comes from ESPN's circuit record (e.g. "5.543 km"); race laps follow the
                     # F1 rule (first full lap past 305 km, 260 km at Monaco). The static per-circuit table
                     # is only the fallback when ESPN has no length for the circuit.
@@ -1466,7 +1474,10 @@ def get_scoreboard(
                                     break
                     except Exception:
                         pass
-                    game["raceDetails"] = _f1_details
+                    if str(game.get("state") or "").lower() == "pre":
+                        game["raceDetails"] = _f1_details
+                    elif _f1_details.get("scheduledLaps"):
+                        game["totalLaps"] = _f1_details["scheduledLaps"]
         except Exception:
             pass
 

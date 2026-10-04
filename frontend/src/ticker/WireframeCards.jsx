@@ -914,6 +914,102 @@ function PodiumCard({ game, title, entries }) {
   )
 }
 
+// ── Race flag graphic (waving flag on a pole) ──────────────────────────────────────────────────
+const FLAG_COLORS = { green: '#22c55e', yellow: '#facc15', red: '#ef2b2b', white: '#f4f6fa', checkered: '#ffffff' }
+const FLAG_LABELS = { green: 'GREEN FLAG', yellow: 'CAUTION', red: 'RED FLAG', white: 'WHITE FLAG', checkered: 'CHECKERED' }
+const FLAG_PATH = 'M9 5 C18 0 24 10 33 5 S46 1 49 6 L49 27 C42 32 36 22 29 27 S17 32 9 27 Z'
+
+function FlagGraphic({ kind, className }) {
+  const id = `fg-${kind}`
+  const cells = []
+  if (kind === 'checkered') {
+    for (let r = 0; r < 5; r++) for (let c = 0; c < 6; c++) if ((r + c) % 2 === 0) cells.push(<rect key={`${r}-${c}`} x={9 + c * 8} y={r * 8} width="8" height="8" fill="#0b0d12" />)
+  }
+  return (
+    <svg className={`fg ${className || ''}`} viewBox="0 0 52 40" aria-hidden="true">
+      <defs>
+        <clipPath id={`${id}-clip`}><path d={FLAG_PATH} /></clipPath>
+        <linearGradient id={`${id}-sh`} x1="0" x2="1">
+          <stop offset="0" stopColor="#fff" stopOpacity=".28" /><stop offset=".5" stopColor="#000" stopOpacity="0" /><stop offset="1" stopColor="#000" stopOpacity=".28" />
+        </linearGradient>
+      </defs>
+      <rect x="5" y="1" width="3.4" height="38" rx="1.4" fill="#c9ced6" />
+      <path d={FLAG_PATH} fill={FLAG_COLORS[kind] || FLAG_COLORS.green} />
+      {cells.length ? <g clipPath={`url(#${id}-clip)`}>{cells}</g> : null}
+      <path d={FLAG_PATH} fill={`url(#${id}-sh)`} />
+    </svg>
+  )
+}
+
+// ── Live race (NASCAR + F1): lap column + slanted strips for the whole running order ───────────
+function LiveRaceCard({ game, title, seriesName, entries }) {
+  const isF1 = String(game?.leagueId || '').toLowerCase() === 'f1'
+  const toUrl = (p) => (p ? (p.startsWith('http') ? p : `/logos/${p}`) : null)
+  const rawFlag = String(game?.flagState || '').toLowerCase()
+  const flag = rawFlag === 'caution' ? 'yellow' : (FLAG_COLORS[rawFlag] ? rawFlag : 'green')
+  const lapNow = Number(game?.lapNumber) > 0 ? Number(game.lapNumber) : (Number(game?.status?.period) > 0 ? Number(game.status.period) : null)
+  const lapTotal = Number(game?.totalLaps) > 0 ? Number(game.totalLaps) : (lapNow && Number(game?.lapsToGo) >= 0 ? lapNow + Number(game.lapsToGo) : null)
+  const pct = lapNow && lapTotal ? Math.min(100, Math.round((lapNow / lapTotal) * 100)) : 0
+  const accent = isF1 ? '255,42,32' : '242,183,5'
+  const PER_COL = 5
+  const rows = entries.map((e, i) => {
+    const mfr = String(e.manufacturer || '').toUpperCase()
+    const full = e.shortName || e.name || 'Driver'
+    const parts = String(e.name || full).split(' ')
+    const surname = parts.length > 1 ? parts.slice(1).join(' ') : parts[0]
+    const gap = i === 0 ? 'LEAD' : (racingEntrySummary(e) || String(e.score || ''))
+    return {
+      pos: e.position ?? i + 1,
+      name: surname,
+      gap,
+      color: MANUFACTURER_COLORS[mfr] || entryColor(e),
+      img: toUrl(isF1 ? (e.render || e.headshot) : e.headshot),
+      car: e.carNumber ? String(e.carNumber) : surname.slice(0, 3).toUpperCase(),
+    }
+  })
+  const cols = []
+  for (let i = 0; i < rows.length; i += PER_COL) cols.push(rows.slice(i, i + PER_COL))
+  // Column width + front column are in cqh, so the card grows with the field like the other cards
+  const width = 76 + cols.length * 68.4 + 8
+  return (
+    <div className={`card lv-card ${isF1 ? 'lv-f1' : 'lv-nas'}`} style={{ width: `${width}cqh`, '--acc': accent }}>
+      <div className="lv-front">
+        <div className="lv-ttl">
+          <span className="lv-k">{seriesName}</span>
+          <h3>{title}</h3>
+        </div>
+        <div className="lv-big">{lapNow ?? '—'}{lapTotal ? <small>/ {lapTotal}</small> : null}</div>
+        <div className="lv-prog"><div style={{ width: `${pct}%` }} /></div>
+        <div className="lv-fl"><FlagGraphic kind={flag} />{FLAG_LABELS[flag]}</div>
+      </div>
+      <div className="lv-body">
+        <div className="lv-top">
+          <span className={`lv-chip lv-chip-${flag}`}><FlagGraphic kind={flag} /><b>{flag === 'yellow' ? 'CAUTION' : flag.toUpperCase()}</b></span>
+          {lapNow ? <span className="lv-lap">LAP {lapNow}{lapTotal ? <i> / {lapTotal}</i> : null}</span> : null}
+        </div>
+        <div className="lv-cols">
+          {cols.map((col, ci) => (
+            <div key={ci} className="lv-col">
+              {col.map((r) => (
+                <div key={r.pos} className={`lv-row ${r.pos === 1 ? 'lead' : ''}`} style={standingsColorVars(r.color)}>
+                  <div className="lv-pos"><em>{r.pos}</em></div>
+                  <div className="lv-bd">
+                    {r.img
+                      ? <span className="lv-ph"><img src={r.img} alt="" onError={(e) => { e.currentTarget.remove() }} /></span>
+                      : <span className="lv-ph lv-nop"><i>{r.car}</i></span>}
+                    <b>{r.name}</b>
+                    <i className="lv-gap">{r.gap}</i>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── BOARD (racing / golf) — replaces RacingCard ────────────────────────────
 
 export function BoardCard({ game, isSoloSlate, renderLeague }) {
@@ -1039,6 +1135,11 @@ export function BoardCard({ game, isSoloSlate, renderLeague }) {
 
   if (game?.isStartingOrder && hasEntries) {
     return <StartingGridCard game={game} title={title} seriesName={seriesName} displayEntries={displayEntries} />
+  }
+
+  // Live race (NASCAR / F1): lap column + the whole running order in strips
+  if (state === 'in' && !isGolf && /nascar|^f1$/.test(String(game?.leagueId || '').toLowerCase()) && allEntries.length) {
+    return <LiveRaceCard game={game} title={title} seriesName={seriesName} entries={allEntries} />
   }
 
   // Upcoming race (NASCAR / F1): session timeline with the next session as the hero. Shown for the

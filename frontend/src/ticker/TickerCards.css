@@ -1159,3 +1159,53 @@
 .ticker-runtime-shell .pd-hdr { max-width: 74cqh; }
 .ticker-runtime-shell .pd-title { font-size: 4.6cqh; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .ticker-runtime-shell .pd-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* -- Live race card (NASCAR + F1): lap column + slanted strips, whole field in columns -- */
+.ticker-runtime-shell .lv-card { display: flex; border: 0; padding: 3.4cqh 3.4cqh 3cqh; background: linear-gradient(135deg, #14171e, #07080b); font-family: 'Archivo', system-ui, sans-serif; }
+.ticker-runtime-shell .lv-front { flex: 0 0 68cqh; display: flex; flex-direction: column; justify-content: flex-start; padding-right: 4cqh; min-width: 0; }
+.ticker-runtime-shell .lv-ttl { margin-bottom: 3cqh; }
+.ticker-runtime-shell .lv-k { display: block; font-size: 3.2cqh; font-weight: 900; letter-spacing: .18em; color: rgb(var(--acc)); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ticker-runtime-shell .lv-front h3 { margin: 0.8cqh 0 0; font-size: 9.2cqh; font-weight: 900; line-height: 1; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ticker-runtime-shell .lv-big { white-space: nowrap; font-weight: 900; font-style: italic; font-size: 36cqh; line-height: .95; color: #fff; text-shadow: 0 0 4cqh rgba(var(--acc), .6); }
+.ticker-runtime-shell .lv-big small { font-size: 11cqh; opacity: .5; margin-left: 2cqh; font-style: normal; }
+.ticker-runtime-shell .lv-prog { height: 2.2cqh; border-radius: 1.1cqh; background: #1b2029; margin: 1.4cqh 0 2cqh; }
+.ticker-runtime-shell .lv-prog div { height: 100%; border-radius: 1.1cqh; background: rgb(var(--acc)); box-shadow: 0 0 2cqh rgba(var(--acc), .8); }
+.ticker-runtime-shell .lv-fl { display: flex; align-items: center; gap: 2cqh; font-weight: 900; font-size: 4cqh; letter-spacing: .14em; color: #e8ecf3; }
+.ticker-runtime-shell .fg { display: block; width: auto; flex: 0 0 auto; height: 8cqh; filter: drop-shadow(0 0.4cqh 0.8cqh rgba(0,0,0,.5)); }
+.ticker-runtime-shell .lv-body { display: flex; flex-direction: column; gap: 1.4cqh; min-width: 0; flex: 1; }
+.ticker-runtime-shell .lv-top { display: flex; align-items: center; justify-content: flex-end; gap: 2cqh; height: 7cqh; }
+.ticker-runtime-shell .lv-chip { display: inline-flex; align-items: center; gap: 1.4cqh; border-radius: 1cqh; padding: 0.6cqh 2cqh 0.6cqh 1.2cqh; background: rgba(255,255,255,.08); border: 0.3cqh solid rgba(255,255,255,.3); }
+.ticker-runtime-shell .lv-chip .fg { height: 6cqh; }
+.ticker-runtime-shell .lv-chip b { font-weight: 900; font-size: 3.6cqh; letter-spacing: .12em; color: #fff; }
+.ticker-runtime-shell .lv-chip-green { background: rgba(124,242,155,.12); border-color: rgba(124,242,155,.5); }
+.ticker-runtime-shell .lv-chip-green b { color: #7CF29B; }
+.ticker-runtime-shell .lv-chip-yellow { background: rgba(250,204,21,.14); border-color: rgba(250,204,21,.6); }
+.ticker-runtime-shell .lv-chip-yellow b { color: #facc15; }
+.ticker-runtime-shell .lv-chip-red { background: rgba(239,43,43,.16); border-color: rgba(239,43,43,.6); }
+.ticker-runtime-shell .lv-chip-red b { color: #ff6b6b; }
+.ticker-runtime-shell .lv-lap { font-weight: 900; font-size: 5.4cqh; font-style: italic; color: #fff; }
+.ticker-runtime-shell .lv-lap i { font-size: 3.4cqh; opacity: .6; font-style: normal; }
+.ticker-runtime-shell .lv-cols { flex: 1; display: flex; gap: 2.4cqh; min-height: 0; }
+.ticker-runtime-shell .lv-col { display: flex; flex-direction: column; gap: 1.2cqh; flex: 0 0 66cqh; }
+.ticker-runtime-shell .lv-row { flex: 1; display: flex; transform: skewX(-9deg); min-height: 0; }
+.ticker-runtime-shell .lv-pos { flex: 0 0 11cqh; background: linear-gradient(180deg, var(--rc), rgba(var(--rc-rgb), .7)); display: flex; align-items: center; justify-content: center; border-radius: 0.8cqh 0 0 0.8cqh; }
+.ticker-runtime-shell .lv-pos em { font-style: italic; font-weight: 900; font-size: 6.6cqh; color: #0b0d12; transform: skewX(9deg); }
+.ticker-runtime-shell .lv-bd { flex: 1; min-width: 0; display: flex; align-items: center; gap: 1.8cqh; padding: 0 2cqh; background: #161a22; border: 0.3cqh solid rgba(var(--rc-rgb), .5); border-left: 0; border-radius: 0 0.8cqh 0.8cqh 0; }
+.ticker-runtime-shell .lv-row.lead .lv-bd { background: linear-gradient(90deg, rgba(var(--rc-rgb), .4), #161a22); }
+.ticker-runtime-shell .lv-ph { flex: 0 0 auto; width: 10.6cqh; height: 10.6cqh; border-radius: 50%; overflow: hidden; position: relative; border: 0.4cqh solid var(--rc); transform: skewX(9deg); }
+.ticker-runtime-shell .lv-ph img { position: absolute; left: 50%; transform: translateX(-50%); top: 4%; height: 150%; width: auto; max-width: none; }
+.ticker-runtime-shell .lv-f1 .lv-ph img { height: auto; width: 98%; }
+.ticker-runtime-shell .lv-nop { display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 50% 30%, rgba(var(--rc-rgb), .5), #0b0d12 85%); }
+.ticker-runtime-shell .lv-nop i { font-style: normal; font-weight: 900; font-size: 3.6cqh; color: rgba(255,255,255,.88); }
+.ticker-runtime-shell .lv-bd b { flex: 1; min-width: 0; font-size: 4.8cqh; font-weight: 900; text-transform: uppercase; transform: skewX(9deg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; }
+.ticker-runtime-shell .lv-gap { font-style: normal; font-size: 4.6cqh; font-weight: 900; color: var(--rc); transform: skewX(9deg); white-space: nowrap; }
+
+/* live card fixes: wrap long names, keep lap total inside the front column, fixed row heights in every column */
+.ticker-runtime-shell .lv-front { flex: 0 0 72cqh; overflow: hidden; }
+.ticker-runtime-shell .lv-front h3 { font-size: 7.2cqh; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.04; }
+.ticker-runtime-shell .lv-k { font-size: 2.8cqh; }
+.ticker-runtime-shell .lv-ttl { margin-bottom: 1.6cqh; }
+.ticker-runtime-shell .lv-big { font-size: 30cqh; }
+.ticker-runtime-shell .lv-big small { font-size: 9cqh; margin-left: 1.4cqh; }
+.ticker-runtime-shell .lv-col { display: grid; grid-template-rows: repeat(5, minmax(0, 1fr)); }
+.ticker-runtime-shell .lv-row { flex: none; }

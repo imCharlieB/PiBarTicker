@@ -1155,3 +1155,7 @@
 .ticker-runtime-shell .st-teams .st-car-lead { bottom: 28cqh; width: 78cqh; }
 .ticker-runtime-shell .st-f1 .st-rk img { max-width: 11cqh; max-height: 9cqh; }
 .ticker-runtime-shell .st-f1 .st-lead-row img { height: 7cqh; max-width: 9cqh; }
+/* podium: long series titles wrap to two lines inside the left third so they never run under the winner's head */
+.ticker-runtime-shell .pd-hdr { max-width: 74cqh; }
+.ticker-runtime-shell .pd-title { font-size: 4.6cqh; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ticker-runtime-shell .pd-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

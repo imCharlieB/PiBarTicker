@@ -873,11 +873,9 @@ function PodiumCard({ game, title, entries }) {
     <div className="card pd-card">
       <div className="pd-hdr">
         <div className="pd-title">{title}</div>
+        <div className="pd-rr">RACE RESULT</div>
         {summary.length ? <div className="pd-hsum">{summary.map((t, i) => <span key={i}>{i ? ' · ' : ''}{t}</span>)}</div> : null}
       </div>
-      <div className="pd-res">
-        <span className="pd-res-lbl"><FlagGraphic kind="checkered" />RACE RESULT</span>
-              </div>
       <div className="pd-row">
         {order.map((d) => (
           <div key={d.pos} className={`pd-col pd-p${d.pos} ${isF1 ? 'pd-f1' : 'pd-nas'}`} style={standingsColorVars(d.color)}>

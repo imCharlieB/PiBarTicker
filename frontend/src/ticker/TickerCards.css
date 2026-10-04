@@ -1236,3 +1236,7 @@
 .ticker-runtime-shell .pd-hdr { max-width: 74cqh; }
 .ticker-runtime-shell .pd-hsum { margin-top: 0.8cqh; font-size: 3.2cqh; font-weight: 800; letter-spacing: .06em; color: #cfd6e2; line-height: 1.25; }
 .ticker-runtime-shell .pd-hsum span { white-space: nowrap; }
+
+/* podium: plain "RACE RESULT" text under the title (no box) */
+.ticker-runtime-shell .pd-rr { font-weight: 900; font-size: 4.6cqh; letter-spacing: .14em; color: #fff; margin-top: 0.8cqh; }
+.ticker-runtime-shell .pd-res { display: none; }

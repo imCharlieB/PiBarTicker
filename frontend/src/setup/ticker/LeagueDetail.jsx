@@ -70,6 +70,7 @@ export default function LeagueDetail({
   const _ALL_NASCAR_CACHE_IDS = ['nascar-cup', 'nascar-xfinity', 'nascar-trucks']
 
   const isF1League = selectedTickerLeague.id === 'f1'
+  const isIndycarLeague = selectedTickerLeague.id === 'irl' || String(leagueApiParams.league || '').toLowerCase() === 'irl'
 
   useEffect(() => {
     if (isNascarLeague) {
@@ -509,7 +510,7 @@ export default function LeagueDetail({
           </p>
         </div>
         <div className="ld-explorer-actions">
-          {!isNascarLeague && !isF1League && selectedTickerLeague.id !== 'irl' && (
+          {!isNascarLeague && !isF1League && !isIndycarLeague && (
             <button type="button" className="ld-explorer-btn"
               onClick={syncTeamsAndLogos}
               disabled={selectedLeagueLoadState.loading}
@@ -517,11 +518,11 @@ export default function LeagueDetail({
               {selectedLeagueLoadState.loading ? 'Syncing...' : isNonRacingIndividualLeague ? 'Sync Players & Headshots' : 'Sync Teams & Logos'}
             </button>
           )}
-          {selectedTickerLeague.id === 'irl' && (
+          {isIndycarLeague && (
             <button type="button" className="ld-explorer-btn"
-              disabled={!!logoSyncingLeagues.irl}
+              disabled={!!logoSyncingLeagues[selectedTickerLeague.id]}
               onClick={async () => {
-                setLogoSyncingLeagues((prev) => ({ ...prev, irl: 'Syncing IndyCar drivers…' }))
+                setLogoSyncingLeagues((prev) => ({ ...prev, [selectedTickerLeague.id]: 'Syncing IndyCar drivers…' }))
                 setNotice('Downloading IndyCar driver art from indycar.com…')
                 try {
                   const res = await fetch('/api/v1/logos/cache/irl/sync', { method: 'POST' })
@@ -534,11 +535,11 @@ export default function LeagueDetail({
                 } catch (e) {
                   setNotice(`IndyCar sync failed: ${e.message}`)
                 } finally {
-                  setLogoSyncingLeagues((prev) => { const copy = { ...prev }; delete copy.irl; return copy })
+                  setLogoSyncingLeagues((prev) => { const copy = { ...prev }; delete copy[selectedTickerLeague.id]; return copy })
                 }
               }}
             >
-              {logoSyncingLeagues.irl ? 'Syncing...' : 'Sync IndyCar Drivers & Assets'}
+              {logoSyncingLeagues[selectedTickerLeague.id] ? 'Syncing...' : 'Sync IndyCar Drivers & Assets'}
             </button>
           )}
           {selectedTickerLeague.id === 'f1' && (

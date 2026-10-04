@@ -950,7 +950,7 @@ function LiveRaceCard({ game, title, seriesName, entries }) {
   const toUrl = (p) => (p ? (p.startsWith('http') ? p : `/logos/${p}`) : null)
   const rawFlag = String(game?.flagState || '').toLowerCase()
   const flag = rawFlag === 'caution' ? 'yellow' : (FLAG_COLORS[rawFlag] ? rawFlag : 'green')
-  const lapNow = Number(game?.lapNumber) > 0 ? Number(game.lapNumber) : (Number(game?.status?.period) > 0 ? Number(game.status.period) : null)
+  const lapNow = game?.lapNumber != null && Number.isFinite(Number(game.lapNumber)) && Number(game.lapNumber) >= 0 ? Number(game.lapNumber) : (Number(game?.status?.period) > 0 ? Number(game.status.period) : null)
   const lapTotal = Number(game?.totalLaps) > 0 ? Number(game.totalLaps) : (lapNow && Number(game?.lapsToGo) >= 0 ? lapNow + Number(game.lapsToGo) : null)
   const pct = lapNow && lapTotal ? Math.min(100, Math.round((lapNow / lapTotal) * 100)) : 0
   const accent = isF1 ? '255,42,32' : '242,183,5'
@@ -958,8 +958,11 @@ function LiveRaceCard({ game, title, seriesName, entries }) {
   const rows = entries.map((e, i) => {
     const mfr = String(e.manufacturer || '').toUpperCase()
     const full = e.shortName || e.name || 'Driver'
-    const parts = String(e.name || full).split(' ')
-    const surname = parts.length > 1 ? parts.slice(1).join(' ') : parts[0]
+    const parts = String(e.name || full).trim().split(/\s+/)
+    // last name: last word, plus a lowercase particle before it ("van Gisbergen"); middle names are dropped
+    let at = parts.length - 1
+    while (at > 1 && /^(van|von|de|da|di|del|der|le|la|st\.?)$/i.test(parts[at - 1])) at -= 1
+    const surname = parts.length > 1 ? parts.slice(at).join(' ') : parts[0]
     const gap = i === 0 ? 'LEAD' : (racingEntrySummary(e) || String(e.score || ''))
     return {
       pos: e.position ?? i + 1,
@@ -975,7 +978,7 @@ function LiveRaceCard({ game, title, seriesName, entries }) {
   // Column width + front column are in cqh, so the card grows with the field like the other cards
   const width = 76 + cols.length * 68.4 + 8
   return (
-    <div className={`card lv-card ${isF1 ? 'lv-f1' : 'lv-nas'}`} style={{ width: `${width}cqh`, '--acc': accent }}>
+    <div className={`card lv-card ${isF1 ? 'lv-f1' : 'lv-nas'}`} style={{ width: 'max-content', minWidth: `${width - 70}cqh`, '--acc': accent }}>
       <div className="lv-front">
         <div className="lv-ttl">
           <span className="lv-k">{seriesName}</span>
@@ -988,7 +991,7 @@ function LiveRaceCard({ game, title, seriesName, entries }) {
       <div className="lv-body">
         <div className="lv-top">
           <span className={`lv-chip lv-chip-${flag}`}><FlagGraphic kind={flag} /><b>{flag === 'yellow' ? 'CAUTION' : flag.toUpperCase()}</b></span>
-          {lapNow ? <span className="lv-lap">LAP {lapNow}{lapTotal ? <i> / {lapTotal}</i> : null}</span> : null}
+          {lapNow != null ? <span className="lv-lap">LAP {lapNow}{lapTotal ? <i> / {lapTotal}</i> : null}</span> : null}
         </div>
         <div className="lv-cols">
           {cols.map((col, ci) => (

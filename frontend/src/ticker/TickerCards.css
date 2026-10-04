@@ -1250,3 +1250,4 @@
 .ticker-runtime-shell .pd-stats:empty { display: none; }
 .ticker-runtime-shell .pd-nas .pd-cut { height: 112%; bottom: -2cqh; }
 .ticker-runtime-shell .pd-nas.pd-p1 .pd-cut { height: 118%; bottom: -2cqh; }
+.ticker-runtime-shell .lv-card { padding-right: 6cqh; }

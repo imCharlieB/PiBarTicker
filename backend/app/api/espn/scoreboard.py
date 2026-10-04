@@ -1625,6 +1625,10 @@ def get_scoreboard(
                     pass
             threading.Thread(target=_bg_mma_cache, daemon=True).start()
 
+    # While a race is live the standings cards sit out (they come back once it is over)
+    if entry.sport == "racing" and any(str(g.get("state") or "").lower() == "in" for g in normalized_games):
+        normalized_games = [g for g in normalized_games if str(g.get("state") or "").lower() != "standings"]
+
     # Racing weekends: once qualifying has set a starting order, the upcoming-race card owns the first
     # slot (it replaces the entry list) — keep the order itself on screen as a second card right behind
     # it until the race starts. Same game minus the race details, so it renders as the entry list.

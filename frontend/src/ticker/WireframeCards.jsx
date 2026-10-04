@@ -873,7 +873,10 @@ function PodiumCard({ game, title, entries }) {
     <div className="card pd-card">
       <div className="pd-hdr">
         <div className="pd-title">{title}</div>
-        <div className="pd-sub">RACE RESULT{summary.length ? ` · ${summary.join(' · ')}` : ''}</div>
+      </div>
+      <div className="pd-res">
+        <span className="pd-res-lbl"><FlagGraphic kind="checkered" />RACE RESULT</span>
+        {summary.length ? <span className="pd-res-sum">{summary[0]}</span> : null}
       </div>
       <div className="pd-row">
         {order.map((d) => (

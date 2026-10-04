@@ -1209,3 +1209,25 @@
 .ticker-runtime-shell .lv-big small { font-size: 9cqh; margin-left: 1.4cqh; }
 .ticker-runtime-shell .lv-col { display: grid; grid-template-rows: repeat(5, minmax(0, 1fr)); }
 .ticker-runtime-shell .lv-row { flex: none; }
+
+/* readability pass: card-type labels (RACE RESULT, DRIVERS' STANDINGS, LEADER eyebrows) were too small from across the room */
+.ticker-runtime-shell .pd-sub { font-size: 4.4cqh; font-weight: 900; letter-spacing: .14em; color: #e8ecf3; margin-top: 0.8cqh; }
+.ticker-runtime-shell .pd-title { font-size: 5cqh; }
+.ticker-runtime-shell .pd-row { top: 17cqh; }
+.ticker-runtime-shell .st-sub { font-size: 4.2cqh; font-weight: 900; letter-spacing: .14em; color: #e8ecf3; margin-top: 0.8cqh; }
+.ticker-runtime-shell .st-title { font-size: 6cqh; }
+.ticker-runtime-shell .st-eyebrow { font-size: 4cqh; }
+
+/* podium: RACE RESULT label moves top-right (the winner's head overlapped it top-left) */
+.ticker-runtime-shell .pd-res { position: absolute; right: 4cqh; top: 3cqh; z-index: 8; display: flex; flex-direction: column; align-items: flex-end; gap: 0.8cqh; }
+.ticker-runtime-shell .pd-res-lbl { display: inline-flex; align-items: center; gap: 1.6cqh; font-weight: 900; font-size: 5.4cqh; letter-spacing: .12em; color: #fff; background: rgba(255,255,255,.08); border: 0.3cqh solid rgba(255,255,255,.35); border-radius: 1cqh; padding: 0.6cqh 2.2cqh 0.6cqh 1.4cqh; }
+.ticker-runtime-shell .pd-res-lbl .fg { height: 6.4cqh; }
+.ticker-runtime-shell .pd-res-sum { font-size: 3cqh; font-weight: 800; letter-spacing: .1em; color: #9aa3b1; white-space: nowrap; }
+.ticker-runtime-shell .pd-row { top: 15cqh; }
+.ticker-runtime-shell .pd-title { font-size: 5cqh; }
+
+/* podium: 2nd/3rd cards sit lower so their heads clear the title block; summary is just the race time */
+.ticker-runtime-shell .pd-col { height: 76%; }
+.ticker-runtime-shell .pd-col.pd-p1 { height: 100%; }
+.ticker-runtime-shell .pd-res-sum { font-size: 3.6cqh; color: #cfd6e2; }
+.ticker-runtime-shell .pd-title { font-size: 4.6cqh; max-width: 72cqh; }

@@ -918,8 +918,8 @@ function PodiumCard({ game, title, entries }) {
 }
 
 // ── Race flag graphic (waving flag on a pole) ──────────────────────────────────────────────────
-const FLAG_COLORS = { green: '#22c55e', yellow: '#facc15', red: '#ef2b2b', white: '#f4f6fa', checkered: '#ffffff' }
-const FLAG_LABELS = { green: 'GREEN FLAG', yellow: 'CAUTION', red: 'RED FLAG', white: 'WHITE FLAG', checkered: 'CHECKERED' }
+const FLAG_COLORS = { green: '#22c55e', yellow: '#facc15', red: '#ef2b2b', white: '#f4f6fa', checkered: '#ffffff', pre: '#8a93a1' }
+const FLAG_LABELS = { green: 'GREEN FLAG', yellow: 'CAUTION', red: 'RED FLAG', white: 'WHITE FLAG', checkered: 'CHECKERED', pre: 'PRE-RACE' }
 const FLAG_PATH = 'M9 5 C18 0 24 10 33 5 S46 1 49 6 L49 27 C42 32 36 22 29 27 S17 32 9 27 Z'
 
 function FlagGraphic({ kind, className }) {
@@ -949,9 +949,11 @@ function LiveRaceCard({ game, title, seriesName, entries }) {
   const isF1 = String(game?.leagueId || '').toLowerCase() === 'f1'
   const toUrl = (p) => (p ? (p.startsWith('http') ? p : `/logos/${p}`) : null)
   const rawFlag = String(game?.flagState || '').toLowerCase()
-  const flag = rawFlag === 'caution' ? 'yellow' : (FLAG_COLORS[rawFlag] ? rawFlag : 'green')
+  const baseFlag = rawFlag === 'caution' ? 'yellow' : (FLAG_COLORS[rawFlag] ? rawFlag : 'green')
   const lapNow = game?.lapNumber != null && Number.isFinite(Number(game.lapNumber)) && Number(game.lapNumber) >= 0 ? Number(game.lapNumber) : (Number(game?.status?.period) > 0 ? Number(game.status.period) : null)
   const lapTotal = Number(game?.totalLaps) > 0 ? Number(game.totalLaps) : (lapNow && Number(game?.lapsToGo) >= 0 ? lapNow + Number(game.lapsToGo) : null)
+  // lap 0 = the race hasn't started (nascar.com reports flag code 8 then, which is not a caution)
+  const flag = lapNow === 0 ? 'pre' : baseFlag
   const pct = lapNow && lapTotal ? Math.min(100, Math.round((lapNow / lapTotal) * 100)) : 0
   const accent = isF1 ? '255,42,32' : '242,183,5'
   const PER_COL = 5
@@ -990,7 +992,7 @@ function LiveRaceCard({ game, title, seriesName, entries }) {
       </div>
       <div className="lv-body">
         <div className="lv-top">
-          <span className={`lv-chip lv-chip-${flag}`}><FlagGraphic kind={flag} /><b>{flag === 'yellow' ? 'CAUTION' : flag.toUpperCase()}</b></span>
+          <span className={`lv-chip lv-chip-${flag}`}><FlagGraphic kind={flag} /><b>{flag === 'yellow' ? 'CAUTION' : flag === 'pre' ? 'PRE-RACE' : flag.toUpperCase()}</b></span>
           {lapNow != null ? <span className="lv-lap">LAP {lapNow}{lapTotal ? <i> / {lapTotal}</i> : null}</span> : null}
         </div>
         <div className="lv-cols">

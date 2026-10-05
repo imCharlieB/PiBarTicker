@@ -1254,3 +1254,7 @@
 .ticker-runtime-shell .lv-chip-pre b { color: #cfd6e2; }
 .ticker-runtime-shell .lv-big small { font-size: 0.34em; }
 .ticker-runtime-shell .lv-front { overflow: visible; }
+/* live strips wide enough for the longest names plus a gap value (ALLMENDINGER +9.360s, VAN GISBERGEN +7.425s) */
+.ticker-runtime-shell .lv-col { flex: 0 0 82cqh; }
+.ticker-runtime-shell .lv-bd b { font-size: 4.4cqh; }
+.ticker-runtime-shell .lv-gap { font-size: 4cqh; }

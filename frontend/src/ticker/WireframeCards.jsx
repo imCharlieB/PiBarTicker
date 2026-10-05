@@ -978,7 +978,7 @@ function LiveRaceCard({ game, title, seriesName, entries }) {
   const cols = []
   for (let i = 0; i < rows.length; i += PER_COL) cols.push(rows.slice(i, i + PER_COL))
   // Column width + front column are in cqh, so the card grows with the field like the other cards
-  const width = 76 + cols.length * 68.4 + 8
+  const width = 76 + cols.length * 84.4 + 8
   return (
     <div className={`card lv-card ${isF1 ? 'lv-f1' : 'lv-nas'}`} style={{ width: 'max-content', minWidth: `${width - 70}cqh`, '--acc': accent }}>
       <div className="lv-front">

@@ -986,7 +986,7 @@ function LiveRaceCard({ game, title, seriesName, entries }) {
           <span className="lv-k">{seriesName}</span>
           <h3>{title}</h3>
         </div>
-        <div className="lv-big">{lapNow ?? '—'}{lapTotal ? <small>/ {lapTotal}</small> : null}</div>
+        <div className="lv-big" style={{ fontSize: `${String(lapNow ?? '—').length >= 3 ? 19 : (lapTotal && String(lapTotal).length >= 3 ? 26 : 30)}cqh` }}>{lapNow ?? '—'}{lapTotal ? <small>/ {lapTotal}</small> : null}</div>
         <div className="lv-prog"><div style={{ width: `${pct}%` }} /></div>
         <div className="lv-fl"><FlagGraphic kind={flag} />{FLAG_LABELS[flag]}</div>
       </div>

@@ -307,6 +307,10 @@
 .ticker-runtime-shell .slab-plate span { padding: 0.8cqh 2.6cqh; white-space: nowrap; }
 .ticker-runtime-shell .sp-rk  { background: #F2C94C; color: #14100a; }
 .ticker-runtime-shell .sp-rec { color: #e9eef6; }
+/* long labels (division place): label on top, record under it */
+.ticker-runtime-shell .slab-plate.stack { flex-direction: column; font-size: 4.5cqh; max-width: 100%; }
+.ticker-runtime-shell .slab-plate.stack span { text-align: center; }
+.ticker-runtime-shell .slab-plate.stack .sp-rec { border-top: 1px solid rgba(255,255,255,.22); padding-block: 0.4cqh; }
 /* spine: rank as plain glowing text above the logo (slot reserved on unranked teams so logos stay level) */
 .ticker-runtime-shell .spine-rank { height: 15.8cqh; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 0.5cqh; line-height: 1; }
 .ticker-runtime-shell .spine-rank small { font-size: 3.2cqh; font-weight: 800; letter-spacing: .28em; color: #F2C94C; white-space: nowrap; }
@@ -322,6 +326,7 @@
   position: absolute; top: 1.8cqh; z-index: 4; transform: skewX(-12deg); background: #0a0c10; color: #F2C94C;
   border-bottom: 0.8cqh solid #F2C94C; font-weight: 900; font-size: 5.8cqh; padding: 1cqh 3.7cqh;
 }
+.ticker-runtime-shell .marq-hang.long { font-size: 4.7cqh; padding: 1cqh 3.2cqh; }
 .ticker-runtime-shell .marq-a .marq-hang { left: 5.8cqh; }
 .ticker-runtime-shell .marq-h .marq-hang { right: 5.8cqh; }
 

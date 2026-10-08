@@ -264,7 +264,7 @@ export default function LeagueDetail({
 
             {/college/i.test(leagueApiParams.league || '') && (
               <div className="ld-seg-control">
-                <span className="ld-seg-label">AP ranking filter</span>
+                <span className="ld-seg-label">Ranking filter</span>
                 <div className="seg-pill">
                   {[[null,'All'],[10,'Top 10'],[25,'Top 25']].map(([val, label]) => (
                     <button key={label} type="button"
@@ -273,7 +273,7 @@ export default function LeagueDetail({
                     >{label}</button>
                   ))}
                 </div>
-                <small className="ld-seg-help">Show only games where at least one team is ranked in the AP Top 25.</small>
+                <small className="ld-seg-help">Show only games where at least one team is ranked in the Top 25 (College Football Playoff rankings once published, otherwise AP).</small>
               </div>
             )}
 
@@ -288,7 +288,7 @@ export default function LeagueDetail({
                     >{label}</button>
                   ))}
                 </div>
-                <small className="ld-seg-help">Ranking order requires an AP ranking filter to be set (falls back to start time otherwise).</small>
+                <small className="ld-seg-help">Ranking order requires a ranking filter to be set (falls back to start time otherwise).</small>
               </div>
             )}
 
@@ -319,19 +319,6 @@ export default function LeagueDetail({
                 <span className="toggle-slider" />
               </label>
             </div>
-            {/college/i.test(String(selectedTickerLeague.id || '')) && (
-              <div className="ld-toggle-row">
-                <div className="ld-toggle-left">
-                  <span className="ld-toggle-label">Show AP rank</span>
-                  <span className="ld-toggle-desc">Show each ranked team's AP rank on the game cards, plus a top-10 matchup tag.</span>
-                </div>
-                <label className="toggle-switch">
-                  <input type="checkbox" checked={Boolean(selectedTickerLeague.showStandings)}
-                    onChange={(e) => updateLeague(selectedTickerLeagueIndex, 'showStandings', e.target.checked)} />
-                  <span className="toggle-slider" />
-                </label>
-              </div>
-            )}
             {leagueHasNews && (
               <div className="ld-toggle-row">
                 <div className="ld-toggle-left">
@@ -348,7 +335,7 @@ export default function LeagueDetail({
             <div className="ld-toggle-row" style={{ alignItems: 'flex-start' }}>
               <div className="ld-toggle-left">
                 <span className="ld-toggle-label">Detail density</span>
-                <span className="ld-toggle-desc">{isRacingLeague ? 'Min: positions only. Balanced: adds laps, gaps, pit status. Maximal: also adds manufacturer and stage.' : 'Min: scores only. Balanced: adds records, clock, situation, TV. Maximal: also adds venue and odds.'}</span>
+                <span className="ld-toggle-desc">{isRacingLeague ? 'Min: positions only. Balanced: adds laps, gaps, pit status. Maximal: also adds manufacturer and stage.' : 'Min: scores only. Balanced: adds records, clock, situation, TV. Maximal: also adds venue, odds and standings (rank, division place).'}</span>
               </div>
               <div className="seg-pill" style={{ flexShrink: 0 }}>
                 {[['min','Minimal'],['bal','Balanced'],['max','Maximal']].map(([val, label]) => (

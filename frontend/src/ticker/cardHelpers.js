@@ -154,6 +154,7 @@ export function densityFlags(league) {
     tv: d !== 'min',
     venue: d === 'max',
     odds: d === 'max',
+    standings: d === 'max',
   }
 }
 
@@ -617,8 +618,14 @@ export function prepareDisplayGames(games, rawEventsById, displayLeague, leagueL
       useTeamCardColors,
       showLiveState: hasLiveMode,
       showStatRecords: flags.records,
-      showStandings: Boolean(displayLeague?.showStandings),
-      isMatchup: [game?.teams?.away?.rank, game?.teams?.home?.rank].every((r) => Number.isInteger(r) && r <= 10),
+      showStandings: flags.standings,
+      matchupText: (() => {
+        const a = game?.teams?.away
+        const h = game?.teams?.home
+        if ([a?.rank, h?.rank].every((r) => Number.isInteger(r) && r <= 10)) return 'TOP-10 MATCHUP'
+        if (a?.standing?.division && a.standing.division === h?.standing?.division) return 'DIVISION GAME'
+        return ''
+      })(),
       nextRace,
       baseballLiveData,
       baseballBattingSide,

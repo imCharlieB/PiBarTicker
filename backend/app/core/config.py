@@ -83,7 +83,7 @@ class LeagueConfig(AppBaseModel):
     entryLimit: int | None = None  # None = show all; used by racing to cap driver list
     rankingsFilter: int | None = None  # None = no filter; for college leagues, show only games with a top-N ranked team
     sortOrder: Literal["time", "rank"] = "time"  # display order; "rank" requires rankingsFilter to have any effect
-    showStandings: bool = False  # client-side: show AP rank / matchup tag on team cards (college leagues)
+    showStandings: bool = False  # DEPRECATED/unused — standings now follow density == "max"; kept so saved configs still load (extra=forbid)
 
 
 class SportsBoardConfig(AppBaseModel):

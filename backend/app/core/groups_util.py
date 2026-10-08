@@ -129,3 +129,82 @@ def build_team_group_memberships_from_standings(children: list[dict]) -> dict[st
 
     walk(children if isinstance(children, list) else [])
     return memberships
+
+
+def _division_label(name: str) -> str:
+    """'American League East' -> 'AL East', 'Atlantic Division' -> 'Atlantic'; 'AFC East' stays."""
+    label = re.sub(r"\s+Division$", "", str(name or "").strip())
+    label = re.sub(r"^American League\b", "AL", label)
+    label = re.sub(r"^National League\b", "NL", label)
+    return label
+
+
+def build_division_standings(children: list[dict]) -> dict[str, dict]:
+    """Build {team_id: {division, divisionLabel, place, seed, streak}} from ESPN /standings?level=3.
+
+    Entries inside a division come back ordered best-first, so place is the 1-based index.
+    """
+    out: dict[str, dict] = {}
+
+    def stat(entry: dict, name: str) -> str:
+        for item in entry.get("stats") or []:
+            if item.get("name") == name:
+                return str(item.get("displayValue") if item.get("displayValue") is not None else item.get("value") or "").strip()
+        return ""
+
+    def walk(nodes: list[dict], conference: str) -> None:
+        for node in nodes:
+            name = str(node.get("name") or "").strip()
+            entries = (node.get("standings") or {}).get("entries") or []
+            if isinstance(entries, list) and entries:
+                for index, entry in enumerate(entries):
+                    team_id = str((entry.get("team") or {}).get("id") or "").strip()
+                    if not team_id:
+                        continue
+                    seed = stat(entry, "playoffSeed")
+                    out[team_id] = {
+                        "division": name,
+                        "divisionLabel": _division_label(name),
+                        "conference": conference,
+                        "place": index + 1,
+                        "seed": int(seed) if seed.isdigit() else None,
+                        "streak": stat(entry, "streak"),
+                    }
+            nested = node.get("children") or []
+            if isinstance(nested, list) and nested:
+                walk(nested, name)
+
+    walk(children if isinstance(children, list) else [], "")
+    return out
+
+
+def pick_headline_poll(rankings: list[dict], top_n: int = 25) -> tuple[dict[str, int], str]:
+    """Pick the ranking to show on cards from ESPN's /rankings list: CFP committee when it exists, else AP,
+    else the first poll with ranked teams. Returns ({team_id: rank}, label) — label is "CFP", "AP", "COACHES" or "RANK".
+    """
+    def ranks_of(ranking: dict) -> dict[str, int]:
+        out: dict[str, int] = {}
+        for entry in ranking.get("ranks") or []:
+            current = entry.get("current")
+            team_id = str((entry.get("team") or {}).get("id") or "").strip()
+            if team_id and isinstance(current, int) and 0 < current <= top_n:
+                out[team_id] = current
+        return out
+
+    def label_of(ranking: dict) -> str:
+        text = _normalized(f"{ranking.get('name') or ''} {ranking.get('shortName') or ''}")
+        if "playoff" in text or "cfp" in re.findall("[a-z]+", text):
+            return "CFP"
+        if "ap" in re.findall("[a-z]+", text) or "associated press" in text:
+            return "AP"
+        if "coaches" in text:
+            return "COACHES"
+        return "RANK"
+
+    candidates = [(label_of(r), ranks_of(r)) for r in rankings or [] if isinstance(r, dict)]
+    candidates = [c for c in candidates if c[1]]
+    for wanted in ("CFP", "AP"):
+        for label, ranks in candidates:
+            if label == wanted:
+                return ranks, label
+    return (candidates[0][1], candidates[0][0]) if candidates else ({}, "")

@@ -239,6 +239,8 @@ function buildTickerScoreboardQuery(league, {
   const includedGroups = Array.isArray(league?.includedGroups) ? league.includedGroups : []
   if (includedGroups.length) query.set('included_groups', includedGroups.join(','))
 
+  if (league?.density === 'max') query.set('include_standings', 'true')
+
   const rankingsFilter = league?.rankingsFilter ?? null
   if (rankingsFilter) query.set('rankings_limit', String(rankingsFilter))
 

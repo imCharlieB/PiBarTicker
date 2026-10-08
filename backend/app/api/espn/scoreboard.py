@@ -12,7 +12,12 @@ from ...core.f1_circuit_stats import f1_circuit_stats, f1_stats_from_length
 import json
 import re
 
-from ...core.groups_util import build_team_group_memberships_from_groups, build_team_group_memberships_from_standings
+from ...core.groups_util import (
+    build_division_standings,
+    pick_headline_poll,
+    build_team_group_memberships_from_groups,
+    build_team_group_memberships_from_standings,
+)
 from ...core.logos.logo_store import LogoStore
 from ...core.paths import get_runtime_paths
 from ._utils import _groups_endpoint_url, _http_client, _normalized, _rankings_url, _site_standings_url
@@ -150,7 +155,7 @@ def _ranked_team_ids_from_ranking(ranking: dict, top_n: int) -> dict[str, int]:
 
 
 def _fetch_ap_ranked_team_ids(sport: str, league: str, top_n: int, cache_ttl: float) -> dict[str, int]:
-    """Fetch the ESPN AP Top 25 rankings and return a map of team ID to rank within the top_n.
+    """Fetch the headline college poll (CFP when published, else AP) as a map of team ID to rank within the top_n.
 
     Early in the season (e.g. college football preseason) the AP poll may not be
     published yet even though other polls (like the AFCA Coaches Poll) are. In that
@@ -163,19 +168,7 @@ def _fetch_ap_ranked_team_ids(sport: str, league: str, top_n: int, cache_ttl: fl
             use_cache=cache_ttl > 0,
             cache_ttl_seconds=min(cache_ttl, 3600.0),
         )
-        rankings_list = payload.get("rankings") or []
-        fallback_ranked: dict[str, int] = {}
-        for ranking in rankings_list:
-            name = _normalized(ranking.get("name") or ranking.get("shortName") or "")
-            ranked = _ranked_team_ids_from_ranking(ranking, top_n)
-            if not ranked:
-                continue
-            if "ap" in name or "associated press" in name:
-                return ranked
-            if not fallback_ranked:
-                fallback_ranked = ranked
-        if fallback_ranked:
-            return fallback_ranked
+        return pick_headline_poll(payload.get("rankings") or [], top_n)[0]
     except Exception:
         pass
     return {}
@@ -213,6 +206,7 @@ def get_scoreboard(
     included_teams: str | None = Query(None, description="Comma-separated team ids/abbreviations/slugs."),
     included_groups: str | None = Query(None, description="Comma-separated group ids from league-groups."),
     rankings_limit: int | None = Query(None, ge=1, le=100, description="Only show games with a team ranked within top-N of the AP poll."),
+    include_standings: bool = Query(False, description="Attach division place / seed / streak to each team (pro leagues with divisions)."),
     cache_ttl_seconds: float = Query(60.0, ge=0.0, le=3600.0),
 ) -> object:
     now = datetime.now(timezone.utc)
@@ -410,6 +404,43 @@ def get_scoreboard(
         entry=entry,
         events=filtered_events,
     )
+
+    # Division place / seed / streak from the standings feed (cached; only when the league opted in)
+    if include_standings and _normalized(entry.sport) != "racing" and "college" in _normalized(entry.league_id):
+        # Headline poll (CFP once published, else AP) so the number and its label always match
+        try:
+            rankings_payload = _http_client.get_json(
+                _rankings_url(sport=entry.sport, league=entry.league),
+                use_cache=True,
+                cache_ttl_seconds=3600.0,
+            )
+            poll_ranks, poll_label = pick_headline_poll(rankings_payload.get("rankings") or [])
+        except Exception:
+            poll_ranks, poll_label = {}, ""
+        if poll_ranks:
+            for game in normalized_games:
+                for side in ("away", "home"):
+                    team = (game.get("teams") or {}).get(side) or {}
+                    team["rank"] = poll_ranks.get(str(team.get("id") or ""))
+                    team["rankSource"] = poll_label
+
+    if include_standings and _normalized(entry.sport) != "racing" and "college" not in _normalized(entry.league_id):
+        try:
+            standings_payload = _http_client.get_json(
+                _site_standings_url(sport=entry.sport, league=entry.league) + "?level=3",
+                use_cache=True,
+                cache_ttl_seconds=3600.0,
+            )
+            division_standings = build_division_standings(standings_payload.get("children") or [])
+        except Exception:
+            division_standings = {}
+        if division_standings:
+            for game in normalized_games:
+                for side in ("away", "home"):
+                    team = (game.get("teams") or {}).get(side) or {}
+                    standing = division_standings.get(str(team.get("id") or ""))
+                    if standing:
+                        team["standing"] = standing
 
     # For racing leagues: enrich teamColor from the logo_store cache when ESPN
     # doesn't include it directly in the scoreboard competitor data.

@@ -307,6 +307,10 @@
 .ticker-runtime-shell .slab-plate span { padding: 0.8cqh 2.6cqh; white-space: nowrap; }
 .ticker-runtime-shell .sp-rk  { background: #F2C94C; color: #14100a; }
 .ticker-runtime-shell .sp-rec { color: #e9eef6; }
+/* spine: rank as plain glowing text above the logo (slot reserved on unranked teams so logos stay level) */
+.ticker-runtime-shell .spine-rank { height: 15.8cqh; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 0.5cqh; line-height: 1; }
+.ticker-runtime-shell .spine-rank small { font-size: 3.2cqh; font-weight: 800; letter-spacing: .28em; color: #F2C94C; white-space: nowrap; }
+.ticker-runtime-shell .spine-rank b { font-size: 8.9cqh; font-weight: 900; color: #fff; text-shadow: 0 0 14px rgba(255,255,255,.55), 0 0 28px rgba(242,201,76,.5); }
 /* digits: rank before the abbr, callout in the header */
 .ticker-runtime-shell .dig-rank { font-size: 4.5cqh; font-weight: 700; color: #F2C94C; }
 .ticker-runtime-shell .dig-callout {

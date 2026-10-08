@@ -455,9 +455,9 @@ function SlabCard({ game, flags }) {
         <i className="slab-bar" style={{ background: `var(--bar-${side})` }} />
         <div className="slab-logo-group">
           <LogoBox team={team} side={side} size="lg" />
-          {teamRank(game, team) && !isCombat ? (
+          {game?.showStandings && !isCombat && (teamRank(game, team) || (flags.records && record)) ? (
             <div className="slab-plate">
-              <span className="sp-rk">AP {team.rank}</span>
+              {teamRank(game, team) ? <span className="sp-rk">AP {team.rank}</span> : null}
               {flags.records && record ? <span className="sp-rec">{record}</span> : null}
             </div>
           ) : flags.records && !isCombat && record
@@ -528,13 +528,13 @@ function SpineCard({ game, flags }) {
     return (
       <div className={`spine-flank spine-${side}`}>
         <div className="spine-logo-group">
-          <LogoBox team={team} side={side} size="xl" />
-          {teamRank(game, team) ? (
-            <div className="slab-plate">
-              <span className="sp-rk">AP {team.rank}</span>
-              {flags.records && String(team?.record || '').trim() ? <span className="sp-rec">{team.record}</span> : null}
+          {game?.showStandings ? (
+            <div className="spine-rank">
+              {teamRank(game, team) ? <><small>AP POLL</small><b>#{team.rank}</b></> : null}
             </div>
-          ) : flags.records && String(team?.record || '').trim()
+          ) : null}
+          <LogoBox team={team} side={side} size="xl" />
+          {flags.records && String(team?.record || '').trim()
             ? <span className="spine-rec">{team.record}</span>
             : null}
           {spread ? <span className="spine-spread">{spread}</span> : null}

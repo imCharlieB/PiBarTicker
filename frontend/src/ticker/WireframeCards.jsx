@@ -440,6 +440,14 @@ const teamStanding = (game, team) => {
   }
   return null
 }
+// Win/loss streak ("W3", "L2") from the standings feed (pro leagues; ESPN leaves it blank for college).
+const teamStreak = (game, team) => {
+  if (!game?.showStandings) return null
+  const text = String(team?.standing?.streak || '').trim()
+  const m = /^([WL])\d+$/.exec(text)
+  return m ? { text, loss: m[1] === 'L' } : null
+}
+const StreakTag = ({ streak, cls }) => (streak ? <b className={`${cls}${streak.loss ? ' l' : ''}`}>{streak.text}</b> : null)
 const gameHasStanding = (game) => Boolean(teamStanding(game, game?.teams?.away) || teamStanding(game, game?.teams?.home))
 const matchupTag = (game) => (game?.showStandings ? String(game?.matchupText || '') : '')
 const MatchupTab = ({ game }) => (matchupTag(game) ? <span className="calltab">{matchupTag(game)}</span> : null)
@@ -474,7 +482,7 @@ function SlabCard({ game, flags }) {
           {!isCombat && gameHasStanding(game) && (teamStanding(game, team) || (flags.records && record)) ? (
             <div className={`slab-plate${(teamStanding(game, team)?.text.length || 0) > 9 ? ' stack' : ''}`}>
               {teamStanding(game, team) ? <span className="sp-rk">{teamStanding(game, team).text}</span> : null}
-              {flags.records && record ? <span className="sp-rec">{record}</span> : null}
+              {flags.records && record ? <span className="sp-rec">{record}<StreakTag streak={teamStreak(game, team)} cls="sp-st" /></span> : null}
             </div>
           ) : flags.records && !isCombat && record
             ? <span className="slab-rec">{record}</span>
@@ -552,7 +560,7 @@ function SpineCard({ game, flags }) {
           <LogoBox team={team} side={side} size="xl" />
           {flags.records && String(team?.record || '').trim()
             ? (!isCombat && gameHasStanding(game)
-              ? <div className="slab-plate"><span className="sp-rec">{team.record}</span></div>
+              ? <div className="slab-plate"><span className="sp-rec">{team.record}<StreakTag streak={teamStreak(game, team)} cls="sp-st" /></span></div>
               : <span className="spine-rec">{team.record}</span>)
             : null}
           {spread ? <span className="spine-spread">{spread}</span> : null}
@@ -608,7 +616,7 @@ function DigitsCard({ game, flags }) {
       {teamStanding(game, team) ? <span className="dig-rank">{teamStanding(game, team).value}</span> : null}
       {team?.logo ? <span className="dig-abbr">{teamAbbr(team)}</span> : null}
       {flags.records && String(team?.record || '').trim()
-        ? <span className="dig-rec">{team.record}</span>
+        ? <span className="dig-rec">{team.record}<StreakTag streak={teamStreak(game, team)} cls="dig-st" /></span>
         : null}
       <span className="dig-box">{(isPre || isCombat) ? '·' : (team?.score ?? '—')}</span>
     </div>
@@ -657,7 +665,7 @@ function MarqueeCard({ game, flags }) {
   return (
     <div className={`card d-marq ${showFeat ? 'has-feat' : ''}`}>
       <div className="marq-half marq-a">
-        {teamStanding(game, a) ? <span className={`marq-hang${teamStanding(game, a).text.length > 9 ? ' long' : ''}`}>{teamStanding(game, a).text}</span> : null}
+        {teamStanding(game, a) ? <span className={`marq-hang${teamStanding(game, a).text.length > 9 ? ' long' : ''}`}>{teamStanding(game, a).text}<StreakTag streak={teamStreak(game, a)} cls="mh-st" /></span> : null}
         <div className="marq-logo-group">
           <LogoBox team={a} side="a" size="lg" />
           {flags.records && String(a?.record || '').trim()
@@ -676,7 +684,7 @@ function MarqueeCard({ game, flags }) {
         <MetaRow game={game} flags={flags} />
       </div>
       <div className="marq-half marq-h">
-        {teamStanding(game, h) ? <span className={`marq-hang${teamStanding(game, h).text.length > 9 ? ' long' : ''}`}>{teamStanding(game, h).text}</span> : null}
+        {teamStanding(game, h) ? <span className={`marq-hang${teamStanding(game, h).text.length > 9 ? ' long' : ''}`}>{teamStanding(game, h).text}<StreakTag streak={teamStreak(game, h)} cls="mh-st" /></span> : null}
         <span className="marq-score">{(isPre || isCombat) ? '' : (h?.score ?? '')}</span>
         <div className="marq-logo-group">
           <LogoBox team={h} side="h" size="lg" />

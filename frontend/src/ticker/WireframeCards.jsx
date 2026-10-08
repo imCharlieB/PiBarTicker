@@ -528,13 +528,13 @@ function SpineCard({ game, flags }) {
     return (
       <div className={`spine-flank spine-${side}`}>
         <div className="spine-logo-group">
-          <div className="spine-lw">
-            <LogoBox team={team} side={side} size="xl" />
-            {teamRank(game, team) ? (
-              <span className="spine-medal"><small>AP</small><b>{team.rank}</b></span>
-            ) : null}
-          </div>
-          {flags.records && String(team?.record || '').trim()
+          <LogoBox team={team} side={side} size="xl" />
+          {teamRank(game, team) ? (
+            <div className="slab-plate">
+              <span className="sp-rk">AP {team.rank}</span>
+              {flags.records && String(team?.record || '').trim() ? <span className="sp-rec">{team.record}</span> : null}
+            </div>
+          ) : flags.records && String(team?.record || '').trim()
             ? <span className="spine-rec">{team.record}</span>
             : null}
           {spread ? <span className="spine-spread">{spread}</span> : null}

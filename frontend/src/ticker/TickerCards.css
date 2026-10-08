@@ -307,17 +307,6 @@
 .ticker-runtime-shell .slab-plate span { padding: 0.8cqh 2.6cqh; white-space: nowrap; }
 .ticker-runtime-shell .sp-rk  { background: #F2C94C; color: #14100a; }
 .ticker-runtime-shell .sp-rec { color: #e9eef6; }
-/* spine: flat gold disc on the outer top corner of the logo */
-.ticker-runtime-shell .spine-lw { position: relative; display: inline-flex; }
-.ticker-runtime-shell .spine-medal {
-  position: absolute; top: -2.6cqh; z-index: 4; width: 16.8cqh; height: 16.8cqh; border-radius: 50%;
-  display: grid; justify-items: center; align-content: center; line-height: .85;
-  background: #F2C94C; color: #14100a; box-shadow: 0 3px 8px rgba(0,0,0,.55);
-}
-.ticker-runtime-shell .spine-a .spine-medal { left: -4.2cqh; }
-.ticker-runtime-shell .spine-h .spine-medal { right: -4.2cqh; }
-.ticker-runtime-shell .spine-medal small { font-size: 2.9cqh; font-weight: 900; letter-spacing: .1em; }
-.ticker-runtime-shell .spine-medal b { font-size: 8.4cqh; font-weight: 900; }
 /* digits: rank before the abbr, callout in the header */
 .ticker-runtime-shell .dig-rank { font-size: 4.5cqh; font-weight: 700; color: #F2C94C; }
 .ticker-runtime-shell .dig-callout {

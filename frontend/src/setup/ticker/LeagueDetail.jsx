@@ -319,6 +319,19 @@ export default function LeagueDetail({
                 <span className="toggle-slider" />
               </label>
             </div>
+            {/college/i.test(String(selectedTickerLeague.id || '')) && (
+              <div className="ld-toggle-row">
+                <div className="ld-toggle-left">
+                  <span className="ld-toggle-label">Show AP rank</span>
+                  <span className="ld-toggle-desc">Show each ranked team's AP rank on the game cards, plus a top-10 matchup tag.</span>
+                </div>
+                <label className="toggle-switch">
+                  <input type="checkbox" checked={Boolean(selectedTickerLeague.showStandings)}
+                    onChange={(e) => updateLeague(selectedTickerLeagueIndex, 'showStandings', e.target.checked)} />
+                  <span className="toggle-slider" />
+                </label>
+              </div>
+            )}
             {leagueHasNews && (
               <div className="ld-toggle-row">
                 <div className="ld-toggle-left">

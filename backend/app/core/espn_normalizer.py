@@ -95,6 +95,10 @@ def _team_model(competitor: dict[str, Any] | None) -> dict[str, Any] | None:
 
     name = _build_name(entity) or _build_name(athlete) or _build_name(competitor)
 
+    # College polls: curatedRank.current is 1-25ish, 99 means unranked.
+    rank_raw = (competitor.get("curatedRank") or {}).get("current")
+    rank = rank_raw if isinstance(rank_raw, int) and 0 < rank_raw < 99 else None
+
     return {
         "id": entity_id,
         "name": name or None,
@@ -108,6 +112,7 @@ def _team_model(competitor: dict[str, Any] | None) -> dict[str, Any] | None:
         "homeAway": competitor.get("homeAway"),
         "score": str(competitor.get("score") or "").strip(),
         "record": record_summary,
+        "rank": rank,
         "winner": bool(competitor.get("winner")),
         "logo": logo_href,
         "headshot": athlete_headshot,

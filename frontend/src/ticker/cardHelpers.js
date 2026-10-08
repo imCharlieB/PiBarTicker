@@ -617,6 +617,8 @@ export function prepareDisplayGames(games, rawEventsById, displayLeague, leagueL
       useTeamCardColors,
       showLiveState: hasLiveMode,
       showStatRecords: flags.records,
+      showStandings: Boolean(displayLeague?.showStandings),
+      isMatchup: [game?.teams?.away?.rank, game?.teams?.home?.rank].every((r) => Number.isInteger(r) && r <= 10),
       nextRace,
       baseballLiveData,
       baseballBattingSide,

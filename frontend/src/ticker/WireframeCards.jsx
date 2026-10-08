@@ -423,6 +423,11 @@ function teamSpread(oddsText, abbr) {
 
 // ── Score or pre-game dash ─────────────────────────────────────────────────
 
+// Standings info (AP rank, matchup tag) — only when the league's "Show AP rank" setting is on.
+const teamRank = (game, team) => (game?.showStandings && Number.isInteger(team?.rank) ? team.rank : null)
+const matchupTag = (game) => (game?.showStandings && game?.isMatchup ? 'TOP-10 MATCHUP' : '')
+const MatchupTab = ({ game }) => (matchupTag(game) ? <span className="calltab">{matchupTag(game)}</span> : null)
+
 function ScoreOrDash({ team, game }) {
   const state = String(game?.state || '').toLowerCase()
   if (state === 'pre') return <span className="score score-dim">—</span>
@@ -450,7 +455,12 @@ function SlabCard({ game, flags }) {
         <i className="slab-bar" style={{ background: `var(--bar-${side})` }} />
         <div className="slab-logo-group">
           <LogoBox team={team} side={side} size="lg" />
-          {flags.records && !isCombat && record
+          {teamRank(game, team) && !isCombat ? (
+            <div className="slab-plate">
+              <span className="sp-rk">AP {team.rank}</span>
+              {flags.records && record ? <span className="sp-rec">{record}</span> : null}
+            </div>
+          ) : flags.records && !isCombat && record
             ? <span className="slab-rec">{record}</span>
             : null}
           {spread ? <span className="slab-spread">{spread}</span> : null}
@@ -489,6 +499,7 @@ function SlabCard({ game, flags }) {
     <div className={`card d-slab ${isCombat ? 'd-slab-combat' : ''} ${showFeat ? 'has-feat' : ''} ${isPre ? 'is-pre' : ''}`}>
       <Half team={a} side="a" />
       <div className="slab-seam">
+        <MatchupTab game={game} />
         <StateChip game={game} />
         {isCombat && game?.sessionLabel ? <span className="slab-time">{game.sessionLabel}</span> : null}
         {seamDate ? <span className="slab-status">{seamDate}</span> : null}
@@ -517,7 +528,12 @@ function SpineCard({ game, flags }) {
     return (
       <div className={`spine-flank spine-${side}`}>
         <div className="spine-logo-group">
-          <LogoBox team={team} side={side} size="xl" />
+          <div className="spine-lw">
+            <LogoBox team={team} side={side} size="xl" />
+            {teamRank(game, team) ? (
+              <span className="spine-medal"><small>AP</small><b>{team.rank}</b></span>
+            ) : null}
+          </div>
           {flags.records && String(team?.record || '').trim()
             ? <span className="spine-rec">{team.record}</span>
             : null}
@@ -542,6 +558,7 @@ function SpineCard({ game, flags }) {
     <div className={`card d-spine ${isPre ? 'is-pre' : ''}`}>
       <Flank team={a} side="a" />
       <div className="spine-mid">
+        <MatchupTab game={game} />
         <StateChip game={game} />
         {isCombat && game?.sessionLabel ? <span className="spine-time">{game.sessionLabel}</span> : null}
         <div className="spine-score">
@@ -570,6 +587,7 @@ function DigitsCard({ game, flags }) {
     <div className={`dig-row dig-${side}`}>
       <i className="dig-strip" style={{ background: `var(--bar-${side})` }} />
       <LogoBox team={team} side={side} size="sm" />
+      {teamRank(game, team) ? <span className="dig-rank">#{team.rank}</span> : null}
       {team?.logo ? <span className="dig-abbr">{teamAbbr(team)}</span> : null}
       {flags.records && String(team?.record || '').trim()
         ? <span className="dig-rec">{team.record}</span>
@@ -587,6 +605,7 @@ function DigitsCard({ game, flags }) {
       <div className="dig-head">
         <span className="dig-league">{game?.leagueName || ''}</span>
         <StateChip game={game} />
+        {matchupTag(game) ? <span className="dig-callout">{matchupTag(game)}</span> : null}
         <span className="dig-clock">{isCombat && game?.sessionLabel ? game.sessionLabel : digClock}</span>
       </div>
       <Row team={game?.teams?.away} side="a" />
@@ -620,6 +639,7 @@ function MarqueeCard({ game, flags }) {
   return (
     <div className={`card d-marq ${showFeat ? 'has-feat' : ''}`}>
       <div className="marq-half marq-a">
+        {teamRank(game, a) ? <span className="marq-hang">AP {a.rank}</span> : null}
         <div className="marq-logo-group">
           <LogoBox team={a} side="a" size="lg" />
           {flags.records && String(a?.record || '').trim()
@@ -630,6 +650,7 @@ function MarqueeCard({ game, flags }) {
         <span className="marq-score">{(isPre || isCombat) ? '' : (a?.score ?? '')}</span>
       </div>
       <div className={`marq-seam ${showFeat ? `marq-seam-${sport}` : ''}`}>
+        <MatchupTab game={game} />
         <StateChip game={game} />
         {isCombat && game?.sessionLabel ? <span className="marq-clock">{game.sessionLabel}</span> : null}
         <span className="marq-clock">{marqClock}</span>
@@ -637,6 +658,7 @@ function MarqueeCard({ game, flags }) {
         <MetaRow game={game} flags={flags} />
       </div>
       <div className="marq-half marq-h">
+        {teamRank(game, h) ? <span className="marq-hang">AP {h.rank}</span> : null}
         <span className="marq-score">{(isPre || isCombat) ? '' : (h?.score ?? '')}</span>
         <div className="marq-logo-group">
           <LogoBox team={h} side="h" size="lg" />

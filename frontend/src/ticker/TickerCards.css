@@ -290,6 +290,48 @@
 .ticker-runtime-shell .d-marq .marq-seam .sit-txt    { justify-content: center; text-align: center; }
 .ticker-runtime-shell .d-marq .marq-seam .sit-txt b  { white-space: normal; }
 
+/* ── Standings info (AP rank / matchup tag) — league setting "Show AP rank" ── */
+.ticker-runtime-shell .slab-seam,
+.ticker-runtime-shell .spine-mid,
+.ticker-runtime-shell .marq-seam { position: relative; }
+.ticker-runtime-shell .calltab {
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%); z-index: 6;
+  background: #F2C94C; color: #14100a; font-weight: 900; font-style: normal; font-size: 3.7cqh;
+  letter-spacing: .1em; padding: 0.8cqh 3.2cqh; border-radius: 0 0 1.3cqh 1.3cqh; white-space: nowrap;
+}
+/* slab: rank + record on one plate */
+.ticker-runtime-shell .slab-plate {
+  display: flex; align-items: stretch; overflow: hidden; border-radius: 1.3cqh;
+  border: 1px solid rgba(255,255,255,.22); background: rgba(0,0,0,.45); font-weight: 900; font-size: 5.3cqh;
+}
+.ticker-runtime-shell .slab-plate span { padding: 0.8cqh 2.6cqh; white-space: nowrap; }
+.ticker-runtime-shell .sp-rk  { background: #F2C94C; color: #14100a; }
+.ticker-runtime-shell .sp-rec { color: #e9eef6; }
+/* spine: flat gold disc on the outer top corner of the logo */
+.ticker-runtime-shell .spine-lw { position: relative; display: inline-flex; }
+.ticker-runtime-shell .spine-medal {
+  position: absolute; top: -2.6cqh; z-index: 4; width: 16.8cqh; height: 16.8cqh; border-radius: 50%;
+  display: grid; justify-items: center; align-content: center; line-height: .85;
+  background: #F2C94C; color: #14100a; box-shadow: 0 3px 8px rgba(0,0,0,.55);
+}
+.ticker-runtime-shell .spine-a .spine-medal { left: -4.2cqh; }
+.ticker-runtime-shell .spine-h .spine-medal { right: -4.2cqh; }
+.ticker-runtime-shell .spine-medal small { font-size: 2.9cqh; font-weight: 900; letter-spacing: .1em; }
+.ticker-runtime-shell .spine-medal b { font-size: 8.4cqh; font-weight: 900; }
+/* digits: rank before the abbr, callout in the header */
+.ticker-runtime-shell .dig-rank { font-size: 4.5cqh; font-weight: 700; color: #F2C94C; }
+.ticker-runtime-shell .dig-callout {
+  background: #F2C94C; color: #0c0e12; font-size: 3.9cqh; font-weight: 700; letter-spacing: .1em;
+  padding: 0.5cqh 2.6cqh; border-radius: 0.8cqh;
+}
+/* marquee: slanted tab hanging from the top bar */
+.ticker-runtime-shell .marq-hang {
+  position: absolute; top: 1.8cqh; z-index: 4; transform: skewX(-12deg); background: #0a0c10; color: #F2C94C;
+  border-bottom: 0.8cqh solid #F2C94C; font-weight: 900; font-size: 5.8cqh; padding: 1cqh 3.7cqh;
+}
+.ticker-runtime-shell .marq-a .marq-hang { left: 5.8cqh; }
+.ticker-runtime-shell .marq-h .marq-hang { right: 5.8cqh; }
+
 /* ── Color mode: FULL ───────────────────────────────────────────────────── */
 /* MARQUEE: hide accent bars (color already floods the halves) */
 .ticker-runtime-shell .cm-full .d-marq .marq-a::before,

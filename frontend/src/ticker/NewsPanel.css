@@ -18,55 +18,42 @@
   height: 100%;
   display: inline-flex;
   flex-direction: row;
-  align-items: stretch;
-  border-right: 1px solid rgba(255,255,255,0.06);
-  box-sizing: border-box;
-}
-
-.news-panel-bar {
-  flex-shrink: 0;
-  width: 52px;
-  background: #f59e0b;
-  display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 8px;
+  gap: 14px;
+  padding: 0 34px 0 18px;
+  border-right: 1px solid rgba(255,255,255,0.07);
   box-sizing: border-box;
 }
 
 .news-panel-logo {
-  width: 36px;
-  height: 36px;
+  width: 50px;
+  height: 50px;
   object-fit: contain;
   display: block;
+  flex-shrink: 0;
 }
 
-.news-panel-bar-text {
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #0a0706;
-  text-align: center;
-  line-height: 1.1;
-}
-
-.news-panel-body {
+.news-panel-text {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  padding: 6px 18px;
-  min-width: 240px;
-  max-width: 700px;
+  gap: 3px;
 }
 
-.news-panel-headline {
-  font-size: 18px;
-  font-weight: 600;
-  line-height: 1.2;
+.news-panel-meta {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: #fbbf24;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+.news-panel-meta span { color: var(--text-muted, #8d97a8); }
+
+/* Full headline, never cut off — the strip is as wide as the headline needs */
+.news-panel-headline {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.15;
+  white-space: nowrap;
   font-family: 'Archivo', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }

@@ -31,6 +31,7 @@ runtime-cache/
 !/team-meta/nascar-trucks.json
 /logos/*
 !/logos/networks/
+!/logos/leagues/
 !/logos/nascar/
 !/logos/f1/
 /logos/f1/*

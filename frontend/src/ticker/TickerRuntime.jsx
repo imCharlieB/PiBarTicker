@@ -5,7 +5,7 @@ import WireframeCard, { BoardCard } from './WireframeCards.jsx'
 import BaseballCard from './BaseballCard.jsx'
 import GameCard from './GameCard.jsx'
 import NewsCard from './NewsCard.jsx'
-import { sanitizeHexColor, rgbaFromHex, hexToRgb } from './cardHelpers.js'
+import { sanitizeHexColor, rgbaFromHex, hexToRgb, resolveLeagueLogoUrl as resolveLeagueLogo } from './cardHelpers.js'
 import { useHASensors, renderEntityValue, haIconFor, haColorFor, WEATHER_ICON_MAP, HATickerCards } from './haHelpers.js'
 
 // ── TickerRuntime-only helpers ───────────────────────────────────────────────
@@ -76,23 +76,6 @@ function runtimeCardStyle(game, useTeamCardColors = false) {
 
   if (!isWireframe) return teamVars || undefined
   return { ...teamVars, ...cardColorVars(game) }
-}
-
-function resolveLeagueLogo(league, payload) {
-  // NASCAR: real series logo captured during driver sync (injected per-game by backend) wins
-  // over config's league.logo, which for NASCAR is just ESPN's generic placeholder icon
-  // (same icon for Cup/Xfinity/Trucks) captured once at add-time in Setup -- confirmed
-  // 2026-10-02 that Truck/Xfinity still had that stuck in config.json since it's checked
-  // first below otherwise.
-  const seriesLogo = String(payload?.normalizedGames?.[0]?.seriesLogo || '').trim()
-  if (seriesLogo) return seriesLogo.startsWith('http') ? seriesLogo : `/logos/${seriesLogo}`
-  const explicitLogo = String(league?.logo || '').trim()
-  if (explicitLogo) return explicitLogo
-  const payloadLogo = String(payload?.scoreboard?.leagues?.[0]?.logos?.[0]?.href || '').trim()
-  if (payloadLogo) return payloadLogo
-  const leagueId = String(league?.id || '').trim().toLowerCase()
-  if (!leagueId) return ''
-  return `https://a.espncdn.com/i/teamlogos/leagues/500/${leagueId}.png`
 }
 
 // Only used for standard / large-logo cardStyles — wireframe styles dispatch in MemoizedCard.
@@ -247,7 +230,7 @@ const MemoizedCard = memo(function MemoizedCard({
       ) : isWireframe ? (
         <WireframeCard game={game} />
       ) : (
-        <CardComponent game={game} />
+        <CardComponent game={game} leagueLogoUrl={leagueLogoUrl} />
       )}
       {!isWireframe && !game?.isRacing ? (
         <p className="ticker-runtime-meta">{game.cardInfo}</p>

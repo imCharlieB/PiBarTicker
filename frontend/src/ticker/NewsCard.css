@@ -20,27 +20,30 @@
   display: flex;
   align-items: stretch;
   height: 100%;
+  min-width: 205cqh;
+  background: linear-gradient(100deg, rgba(255,255,255,.05), rgba(255,255,255,0) 60%);
 }
 
-/* Left amber bar with vertical "NEWS" label */
-.d-news-type-bar {
+/* Left panel: league logo + name */
+.d-news-league {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 16cqh;
+  gap: 4.7cqh;
+  width: 60cqh;
   flex-shrink: 0;
-  background: #f59e0b;
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-  transform: rotate(180deg);
+  background: rgba(255,255,255,.04);
+  border-right: 1px solid rgba(255,255,255,.08);
 }
-
-.d-news-type-label {
-  font-size: 6cqh;
+.d-news-logo { width: 34cqh; height: 34cqh; object-fit: contain; display: block; }
+.d-news-league-name {
+  font-size: 5.3cqh;
   font-weight: 900;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  color: #0a0706;
+  letter-spacing: .16em;
+  color: #fbbf24;
+  text-align: center;
+  padding-inline: 3cqh;
 }
 
 /* Content area */
@@ -48,16 +51,19 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 0 10cqh;
-  gap: 4cqh;
+  padding: 0 12cqh;
+  gap: 4.7cqh;
 }
+.d-news-meta { font-size: 4.7cqh; font-weight: 800; letter-spacing: .18em; color: #8d97a8; }
+.d-news-meta em { color: #fbbf24; font-style: normal; }
 
-/* Headline text — no wrapping so card width follows text length */
+/* Headline text — card width follows text length, wrapping only at the card's max width */
 .d-news-headline {
-  font-size: 15cqh;
+  font-size: 12.2cqh;
   font-weight: 600;
-  line-height: 1.2;
+  line-height: 1.12;
   color: var(--ticker-text, #e9ebef);
   font-family: 'Oswald', 'Archivo', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+.d-news-rule { height: 1cqh; width: 24cqh; background: #f59e0b; border-radius: 1cqh; }

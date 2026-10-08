@@ -700,7 +700,7 @@ export function prepareDisplayGames(games, rawEventsById, displayLeague, leagueL
   })
 }
 
-export function buildNewsCards(articles, leagueConfig) {
+export function buildNewsCards(articles, leagueConfig, leagueLogo = '') {
   if (!Array.isArray(articles) || articles.length === 0) return []
   return articles.map((article, i) => ({
     id: `news-${article.id || i}`,
@@ -712,6 +712,7 @@ export function buildNewsCards(articles, leagueConfig) {
     useTeamCardColors: false,
     leagueName: String(leagueConfig?.name || leagueConfig?.id || '').toUpperCase(),
     leagueId: String(article.leagueId || leagueConfig?.id || '').trim(),
+    leagueLogo,
     headline: String(article.headline || '').trim(),
     description: String(article.description || '').trim(),
     published: article.published || '',
@@ -726,4 +727,21 @@ export function buildNewsCards(articles, leagueConfig) {
     situationText: '',
     combat: false,
   }))
+}
+
+export function resolveLeagueLogoUrl(league, payload) {
+  // NASCAR: real series logo captured during driver sync (injected per-game by backend) wins
+  // over config's league.logo, which for NASCAR is just ESPN's generic placeholder icon
+  // (same icon for Cup/Xfinity/Trucks) captured once at add-time in Setup -- confirmed
+  // 2026-10-02 that Truck/Xfinity still had that stuck in config.json since it's checked
+  // first below otherwise.
+  const seriesLogo = String(payload?.normalizedGames?.[0]?.seriesLogo || '').trim()
+  if (seriesLogo) return seriesLogo.startsWith('http') ? seriesLogo : `/logos/${seriesLogo}`
+  const explicitLogo = String(league?.logo || '').trim()
+  if (explicitLogo) return explicitLogo
+  const payloadLogo = String(payload?.scoreboard?.leagues?.[0]?.logos?.[0]?.href || '').trim()
+  if (payloadLogo) return payloadLogo
+  const leagueId = String(league?.id || '').trim().toLowerCase()
+  if (!leagueId) return ''
+  return `https://a.espncdn.com/i/teamlogos/leagues/500/${leagueId}.png`
 }

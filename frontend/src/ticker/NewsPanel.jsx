@@ -1,21 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
 import './NewsPanel.css'
+import { newsAgo } from './newsTime.js'
+import { newsLogoCandidates } from './newsLogo.js'
 
 function NewsPanelCard({ article }) {
-  const [logoFailed, setLogoFailed] = useState(false)
+  const [failed, setFailed] = useState([])
   const headline = String(article?.headline || '').trim()
   if (!headline) return null
-  const leagueId = String(article?.leagueId || '').trim().toLowerCase()
-  const logoUrl = leagueId ? `https://a.espncdn.com/i/teamlogos/leagues/500/${leagueId}.png` : ''
+  // first candidate that has not failed to load (a failed earlier URL must not hide a corrected one)
+  const logo = newsLogoCandidates(article?.leagueId, article?.logo).find((u) => !failed.includes(u)) || ''
+  const leagueName = String(article?.leagueName || article?.leagueId || '').toUpperCase()
+  const ago = newsAgo(article?.published)
   return (
     <div className="news-panel-card">
-      <div className="news-panel-bar">
-        {logoUrl && !logoFailed
-          ? <img className="news-panel-logo" src={logoUrl} alt="" onError={() => setLogoFailed(true)} />
-          : <span className="news-panel-bar-text">{leagueId.toUpperCase()}</span>
-        }
-      </div>
-      <div className="news-panel-body">
+      {logo
+        ? <img className="news-panel-logo" src={logo} alt="" onError={() => setFailed((f) => [...f, logo])} />
+        : null}
+      <div className="news-panel-text">
+        <div className="news-panel-meta">{leagueName}{ago ? <span> · {ago}</span> : null}</div>
         <span className="news-panel-headline">{headline}</span>
       </div>
     </div>

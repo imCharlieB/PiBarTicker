@@ -7,6 +7,7 @@ import { computeSectionChecks, getSectionSnapshots } from './setup/helpers'
 import {
   prepareDisplayGames,
   buildNewsCards,
+  resolveLeagueLogoUrl,
 } from './ticker/cardHelpers'
 import LayoutShell from './LayoutShell'
 import HAPanel from './HAPanel'
@@ -135,20 +136,22 @@ function App() {
     const newsArticles = (!newsInGridPanel && runtimeDisplayLeague?.showNews)
       ? (newsByLeagueId?.[runtimeDisplayLeague.id] || [])
       : []
-    const newsCards = buildNewsCards(newsArticles, runtimeDisplayLeague)
+    const newsCards = buildNewsCards(newsArticles, runtimeDisplayLeague, resolveLeagueLogoUrl(runtimeDisplayLeague, runtimePayloadByLeagueId?.[runtimeDisplayLeague?.id]))
     const allCards = [...displayGames, ...newsCards]
     return allCards.length ? allCards : stableGames
-  }, [activeRuntimePayload, runtimeDisplayLeague, stableGoodGamesByLeagueId, leagueLogoMetaById, config?.theme?.mode, newsByLeagueId, newsInGridPanel]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeRuntimePayload, runtimeDisplayLeague, stableGoodGamesByLeagueId, leagueLogoMetaById, config?.theme?.mode, newsByLeagueId, newsInGridPanel, runtimePayloadByLeagueId]) // eslint-disable-line react-hooks/exhaustive-deps
   const panelNewsArticles = useMemo(() => {
     if (!newsInGridPanel) return []
     const all = []
     for (const league of runtimeLeagues) {
       if (league.showNews && newsByLeagueId[league.id]) {
-        all.push(...newsByLeagueId[league.id])
+        const logo = resolveLeagueLogoUrl(league, runtimePayloadByLeagueId?.[league.id])
+        const leagueName = String(league.name || league.id || '').toUpperCase()
+        all.push(...newsByLeagueId[league.id].map((article) => ({ ...article, logo, leagueName })))
       }
     }
     return all
-  }, [newsInGridPanel, runtimeLeagues, newsByLeagueId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [newsInGridPanel, runtimeLeagues, newsByLeagueId, runtimePayloadByLeagueId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!newsInGridPanel) return

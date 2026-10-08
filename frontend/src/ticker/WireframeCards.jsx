@@ -480,7 +480,7 @@ function SlabCard({ game, flags }) {
         <div className="slab-logo-group">
           <LogoBox team={team} side={side} size="lg" />
           {!isCombat && gameHasStanding(game) && (teamStanding(game, team) || (flags.records && record)) ? (
-            <div className={`slab-plate${(teamStanding(game, team)?.text.length || 0) > 9 ? ' stack' : ''}`}>
+            <div className={`slab-plate${(teamStanding(game, team)?.text.length || 0) > 9 || (teamStanding(game, team) && teamStreak(game, team)) ? ' stack' : ''}`}>
               {teamStanding(game, team) ? <span className="sp-rk">{teamStanding(game, team).text}</span> : null}
               {flags.records && record ? <span className="sp-rec">{record}<StreakTag streak={teamStreak(game, team)} cls="sp-st" /></span> : null}
             </div>

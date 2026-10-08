@@ -52,3 +52,19 @@ def test_pick_headline_poll_ignores_unranked_and_deep_ranks():
     from app.core.groups_util import pick_headline_poll
     ap = {"name": "AP Top 25", "ranks": [{"current": 30, "team": {"id": "1"}}, {"current": 99, "team": {"id": "2"}}]}
     assert pick_headline_poll([ap]) == ({}, "")
+
+
+def _ev(date, winner, completed=True, team="9"):
+    return {"date": date, "competitions": [{"status": {"type": {"completed": completed}},
+            "competitors": [{"team": {"id": team}, "winner": winner}, {"team": {"id": "1"}, "winner": None if winner is None else not winner}]}]}
+
+
+def test_streak_from_schedule():
+    from app.core.groups_util import streak_from_schedule
+    evs = [_ev("2026-09-05", True), _ev("2026-09-12", False), _ev("2026-09-19", False), _ev("2026-10-03", False),
+           _ev("2026-10-11", None, completed=False)]
+    assert streak_from_schedule(evs, "9") == "L3"
+    assert streak_from_schedule(list(reversed(evs)), "9") == "L3"  # order-independent
+    assert streak_from_schedule([_ev("2026-09-05", True), _ev("2026-09-12", True)], "9") == "W2"
+    assert streak_from_schedule([_ev("2026-10-11", None, completed=False)], "9") == ""
+    assert streak_from_schedule([], "9") == ""

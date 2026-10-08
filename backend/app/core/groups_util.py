@@ -208,3 +208,29 @@ def pick_headline_poll(rankings: list[dict], top_n: int = 25) -> tuple[dict[str,
             if label == wanted:
                 return ranks, label
     return (candidates[0][1], candidates[0][0]) if candidates else ({}, "")
+
+
+def streak_from_schedule(events: list[dict], team_id: str) -> str:
+    """Current win/loss streak ("W3", "L1") from an ESPN team schedule's events; "" when no completed game."""
+    results: list[tuple[str, bool]] = []
+    for event in events or []:
+        for competition in event.get("competitions") or []:
+            if not ((competition.get("status") or {}).get("type") or {}).get("completed"):
+                continue
+            mine = next(
+                (c for c in competition.get("competitors") or [] if str((c.get("team") or {}).get("id")) == str(team_id)),
+                None,
+            )
+            if mine is None or mine.get("winner") is None:
+                continue
+            results.append((str(event.get("date") or ""), bool(mine.get("winner"))))
+    results.sort(key=lambda r: r[0])
+    if not results:
+        return ""
+    last_win = results[-1][1]
+    run = 0
+    for _, won in reversed(results):
+        if won != last_win:
+            break
+        run += 1
+    return f"{'W' if last_win else 'L'}{run}"

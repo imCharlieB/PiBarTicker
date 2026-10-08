@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unicodedata
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, HTTPException, Query
@@ -15,6 +16,7 @@ import re
 from ...core.groups_util import (
     build_division_standings,
     pick_headline_poll,
+    streak_from_schedule,
     build_team_group_memberships_from_groups,
     build_team_group_memberships_from_standings,
 )
@@ -423,6 +425,39 @@ def get_scoreboard(
                     team = (game.get("teams") or {}).get(side) or {}
                     team["rank"] = poll_ranks.get(str(team.get("id") or ""))
                     team["rankSource"] = poll_label
+
+        # Win/loss streak: college standings leave it blank, so count it from each team's results (cached 1h)
+        def _college_streak(team_id: str) -> str:
+            try:
+                payload = _http_client.get_json(
+                    f"https://site.api.espn.com/apis/site/v2/sports/{entry.sport}/{entry.league}/teams/{team_id}/schedule",
+                    use_cache=True,
+                    cache_ttl_seconds=3600.0,
+                )
+                return streak_from_schedule(payload.get("events") or [], team_id)
+            except Exception:
+                return ""
+
+        college_team_ids = {
+            str((game.get("teams") or {}).get(side, {}).get("id") or "")
+            for game in normalized_games for side in ("away", "home")
+        } - {""}
+        streaks: dict[str, str] = {}
+        if college_team_ids:
+            pool = ThreadPoolExecutor(max_workers=8)
+            futures = {pool.submit(_college_streak, tid): tid for tid in college_team_ids}
+            try:
+                for future in as_completed(futures, timeout=10):
+                    streaks[futures[future]] = future.result()
+            except Exception:
+                pass  # slow teams just get no streak this refresh; their schedules finish into the cache
+            pool.shutdown(wait=False)
+        for game in normalized_games:
+            for side in ("away", "home"):
+                team = (game.get("teams") or {}).get(side) or {}
+                streak = streaks.get(str(team.get("id") or ""))
+                if streak:
+                    team["standing"] = {"streak": streak}
 
     if include_standings and _normalized(entry.sport) != "racing" and "college" not in _normalized(entry.league_id):
         try:

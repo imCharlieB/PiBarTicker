@@ -15,7 +15,7 @@ def test_division_place_seed_streak():
         ]},
     ]
     out = build_division_standings(children)
-    assert out["2"] == {"division": "AFC East", "divisionLabel": "AFC East", "conference": "American Football Conference",
+    assert out["2"] == {"division": "AFC East", "divisionLabel": "AFC East", "conference": "American Football Conference", "conferenceAbbr": "",
                         "place": 1, "seed": 3, "streak": "L1"}
     assert out["15"]["place"] == 2 and out["15"]["streak"] == "W2"
 
@@ -68,3 +68,12 @@ def test_streak_from_schedule():
     assert streak_from_schedule([_ev("2026-09-05", True), _ev("2026-09-12", True)], "9") == "W2"
     assert streak_from_schedule([_ev("2026-10-11", None, completed=False)], "9") == ""
     assert streak_from_schedule([], "9") == ""
+
+
+def test_seed_line_and_conference_abbr():
+    conf = {"name": "American Football Conference", "abbreviation": "AFC", "children": [
+        {"name": "AFC East", "standings": {"entries": [_entry("2", 3), _entry("15", 9)]}}]}
+    off = build_division_standings([conf])
+    assert off["2"]["conferenceAbbr"] == "AFC" and "showSeed" not in off["2"]
+    on = build_division_standings([conf], show_seeds_up_to=7)
+    assert on["2"]["showSeed"] is True and "showSeed" not in on["15"]

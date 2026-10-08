@@ -466,7 +466,14 @@ def get_scoreboard(
                 use_cache=True,
                 cache_ttl_seconds=3600.0,
             )
-            division_standings = build_division_standings(standings_payload.get("children") or [])
+            # NFL: once the playoff race matters (week 10+, or postseason) show the seed for the 7 teams in position
+            week_no = ((payload or {}).get("week") or {}).get("number") if isinstance(payload, dict) else None
+            season_type = ((payload or {}).get("season") or {}).get("type") if isinstance(payload, dict) else None
+            seed_line = 7 if (
+                _normalized(entry.league) == "nfl"
+                and (season_type == 3 or (season_type == 2 and isinstance(week_no, int) and week_no >= 10))
+            ) else None
+            division_standings = build_division_standings(standings_payload.get("children") or [], show_seeds_up_to=seed_line)
         except Exception:
             division_standings = {}
         if division_standings:

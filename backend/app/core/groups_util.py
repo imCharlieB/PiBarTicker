@@ -139,10 +139,12 @@ def _division_label(name: str) -> str:
     return label
 
 
-def build_division_standings(children: list[dict]) -> dict[str, dict]:
+def build_division_standings(children: list[dict], show_seeds_up_to: int | None = None) -> dict[str, dict]:
     """Build {team_id: {division, divisionLabel, place, seed, streak}} from ESPN /standings?level=3.
 
     Entries inside a division come back ordered best-first, so place is the 1-based index.
+    show_seeds_up_to: when set, teams seeded at or above that line also get showSeed=True (cards show the seed
+    instead of the division place); conferenceAbbr ("AFC") labels it.
     """
     out: dict[str, dict] = {}
 
@@ -152,7 +154,7 @@ def build_division_standings(children: list[dict]) -> dict[str, dict]:
                 return str(item.get("displayValue") if item.get("displayValue") is not None else item.get("value") or "").strip()
         return ""
 
-    def walk(nodes: list[dict], conference: str) -> None:
+    def walk(nodes: list[dict], conference: str, conference_abbr: str) -> None:
         for node in nodes:
             name = str(node.get("name") or "").strip()
             entries = (node.get("standings") or {}).get("entries") or []
@@ -166,15 +168,19 @@ def build_division_standings(children: list[dict]) -> dict[str, dict]:
                         "division": name,
                         "divisionLabel": _division_label(name),
                         "conference": conference,
+                        "conferenceAbbr": conference_abbr,
                         "place": index + 1,
                         "seed": int(seed) if seed.isdigit() else None,
                         "streak": stat(entry, "streak"),
                     }
+                    seed_no = out[team_id]["seed"]
+                    if show_seeds_up_to and seed_no and seed_no <= show_seeds_up_to:
+                        out[team_id]["showSeed"] = True
             nested = node.get("children") or []
             if isinstance(nested, list) and nested:
-                walk(nested, name)
+                walk(nested, name, str(node.get("abbreviation") or "").strip())
 
-    walk(children if isinstance(children, list) else [], "")
+    walk(children if isinstance(children, list) else [], "", "")
     return out
 
 

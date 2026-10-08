@@ -434,6 +434,9 @@ const teamStanding = (game, team) => {
     return { label, value: `#${team.rank}`, text: `${src === 'RANK' ? 'RANK' : src} #${team.rank}` }
   }
   const st = team?.standing
+  if (st?.showSeed && st?.seed && st?.conferenceAbbr) {
+    return { label: `${st.conferenceAbbr} SEED`, value: `#${st.seed}`, text: `${st.conferenceAbbr} #${st.seed} Seed` }
+  }
   if (st?.place && st?.divisionLabel) {
     const value = ordinal(st.place)
     return { label: st.divisionLabel.toUpperCase(), value, text: `${st.divisionLabel} ${value}` }

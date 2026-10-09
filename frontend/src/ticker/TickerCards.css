@@ -1306,3 +1306,13 @@
 .ticker-runtime-shell .lv-bd b { font-size: 4.4cqh; }
 .ticker-runtime-shell .lv-gap { font-size: 4cqh; }
 .ticker-runtime-shell .lv-sess { font-weight: 900; font-size: 11cqh; line-height: 1; color: #fff; margin-top: 6cqh; text-shadow: 0 0 4cqh rgba(var(--acc), .6); }
+.ticker-runtime-shell .lv-sess { font-size: 9.4cqh; white-space: normal; max-width: 64cqh; word-break: normal; }
+.ticker-runtime-shell .lv-team { flex: 0 0 auto; height: 7.6cqh; width: 11cqh; object-fit: contain; transform: skewX(9deg); }
+/* practice / qualifying: no laps to show, so the front part shrinks to just the names */
+.ticker-runtime-shell .lv-timed .lv-front { flex: 0 0 auto; width: auto; max-width: 58cqh; padding-right: 5cqh; }
+.ticker-runtime-shell .lv-timed .lv-sess { font-size: 7.6cqh; max-width: 54cqh; margin-top: 1.4cqh; }
+.ticker-runtime-shell .lv-timed .lv-front h3 { font-size: 7cqh; }
+/* practice / qualifying header over the order: race name + session */
+.ticker-runtime-shell .lv-timed .lv-top { justify-content: flex-start; height: 10cqh; gap: 3cqh; align-items: baseline; }
+.ticker-runtime-shell .lv-ht { font-weight: 900; font-size: 7.6cqh; color: #fff; white-space: nowrap; }
+.ticker-runtime-shell .lv-hs { font-weight: 900; font-size: 6cqh; letter-spacing: .14em; color: rgb(var(--acc)); white-space: nowrap; }

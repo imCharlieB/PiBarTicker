@@ -1025,6 +1025,7 @@ function LiveRaceCard({ game, title, seriesName, entries }) {
       pos: e.position ?? i + 1,
       name: surname,
       gap,
+      teamLogo: toUrl(e.teamLogo),
       color: MANUFACTURER_COLORS[mfr] || entryColor(e),
       img: toUrl(isF1 ? (e.render || e.headshot) : e.headshot),
       car: e.carNumber ? String(e.carNumber) : surname.slice(0, 3).toUpperCase(),
@@ -1035,7 +1036,8 @@ function LiveRaceCard({ game, title, seriesName, entries }) {
   // Column width + front column are in cqh, so the card grows with the field like the other cards
   const width = 76 + cols.length * 84.4 + 8
   return (
-    <div className={`card lv-card ${isF1 ? 'lv-f1' : 'lv-nas'}`} style={{ width: 'max-content', minWidth: `${width - 70}cqh`, '--acc': accent }}>
+    <div className={`card lv-card ${isF1 ? 'lv-f1' : 'lv-nas'} ${timedSession ? 'lv-timed' : ''}`} style={{ width: 'max-content', '--acc': accent }}>
+      {timedSession ? null : (
       <div className="lv-front">
         <div className="lv-ttl">
           <span className="lv-k">{seriesName}</span>
@@ -1051,9 +1053,15 @@ function LiveRaceCard({ game, title, seriesName, entries }) {
           </>
         )}
       </div>
+      )}
       <div className="lv-body">
         <div className="lv-top">
-          {timedSession ? <span className="lv-lap">{sessionName}</span> : (
+          {timedSession ? (
+            <>
+              <span className="lv-ht">{title}</span>
+              <span className="lv-hs">{sessionName}</span>
+            </>
+          ) : (
             <>
               <span className={`lv-chip lv-chip-${flag}`}><FlagGraphic kind={flag} /><b>{flag === 'yellow' ? 'CAUTION' : flag === 'pre' ? 'PRE-RACE' : flag.toUpperCase()}</b></span>
               {lapNow != null ? <span className="lv-lap">LAP {lapNow}{lapTotal ? <i> / {lapTotal}</i> : null}</span> : null}
@@ -1071,7 +1079,7 @@ function LiveRaceCard({ game, title, seriesName, entries }) {
                       ? <span className="lv-ph"><img src={r.img} alt="" onError={(e) => { e.currentTarget.remove() }} /></span>
                       : <span className="lv-ph lv-nop"><i>{r.car}</i></span>}
                     <b>{r.name}</b>
-                    <i className="lv-gap">{r.gap}</i>
+                    {timedSession && r.teamLogo ? <img className="lv-team" src={r.teamLogo} alt="" onError={(e) => { e.currentTarget.remove() }} /> : <i className="lv-gap">{r.gap}</i>}
                   </div>
                 </div>
               ))}

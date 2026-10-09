@@ -77,3 +77,29 @@ def test_seed_line_and_conference_abbr():
     assert off["2"]["conferenceAbbr"] == "AFC" and "showSeed" not in off["2"]
     on = build_division_standings([conf], show_seeds_up_to=7)
     assert on["2"]["showSeed"] is True and "showSeed" not in on["15"]
+
+
+def _sg(game_id, date, opp, winner=None, completed=True, me="9"):
+    return {"id": game_id, "date": date, "competitions": [{"status": {"type": {"completed": completed}},
+            "competitors": [{"team": {"id": me}, "winner": winner}, {"team": {"id": opp}, "winner": None if winner is None else not winner}]}]}
+
+
+def test_series_from_schedule_regular_season():
+    from app.core.groups_util import series_from_schedule
+    sched = [_sg("1", "2026-09-01", "5", True), _sg("2", "2026-09-02", "5", False), _sg("3", "2026-09-03", "5", None, completed=False),
+             _sg("4", "2026-09-05", "7", True)]
+    s = series_from_schedule(sched, "9", "3")
+    assert s["label"] == "GAME 3 OF 3" and s["total"] == 3 and s["completed"] is False
+    assert s["wins"] == {"9": 1, "5": 1}
+    s2 = series_from_schedule(sched, "9", "1")
+    assert s2["label"] == "GAME 1 OF 3"
+    assert series_from_schedule(sched, "9", "999") is None
+
+
+def test_series_info_from_playoff_competition():
+    from app.core.espn_normalizer import _series_info
+    comp = {"series": {"type": "playoff", "totalCompetitions": 5, "completed": False, "competitors": [{"id": "4", "wins": 2}, {"id": "5", "wins": 2}]},
+            "notes": [{"headline": "ALDS - Game 4"}]}
+    assert _series_info(comp) == {"kind": "playoff", "label": "ALDS - Game 4", "total": 5, "completed": False, "wins": {"4": 2, "5": 2}}
+    assert _series_info({}) is None
+    assert _series_info({"series": {"type": "season"}}) is None

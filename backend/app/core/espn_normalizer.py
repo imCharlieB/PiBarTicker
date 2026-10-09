@@ -344,6 +344,26 @@ def _pick_best_competition(competitions: list[dict[str, Any]]) -> dict[str, Any]
     return max(competitions, key=_comp_date, default=competitions[0]) or {}
 
 
+def _series_info(competition: dict[str, Any]) -> dict[str, Any] | None:
+    """Playoff series ESPN attaches to a competition ("Series tied 2-2", wins per team, "ALDS - Game 4")."""
+    series = competition.get("series")
+    if not isinstance(series, dict) or _normalized(series.get("type")) != "playoff":
+        return None
+    wins: dict[str, int] = {}
+    for competitor in series.get("competitors") or []:
+        if isinstance(competitor, dict) and competitor.get("id") is not None:
+            wins[str(competitor["id"])] = _safe_int(competitor.get("wins")) or 0
+    notes = [n for n in (competition.get("notes") or []) if isinstance(n, dict)]
+    label = str((notes[0] if notes else {}).get("headline") or "").strip()
+    return {
+        "kind": "playoff",
+        "label": label,
+        "total": _safe_int(series.get("totalCompetitions")),
+        "completed": bool(series.get("completed")),
+        "wins": wins,
+    }
+
+
 def normalize_scoreboard_events(
     *,
     entry: EspnLeagueRegistryEntry,
@@ -453,6 +473,7 @@ def normalize_scoreboard_events(
                     "odds": {
                         "details": odds_detail,
                     },
+                    "series": _series_info(competition if isinstance(competition, dict) else {}),
                     "sessionLabel": str((competition.get("type") or {}).get("abbreviation") or "").strip(),
                     "sessions": _racing_sessions(event) if entry.sport == "racing" else [],
                     "circuitId": str((event.get("circuit") or {}).get("id") or "").strip() if entry.sport == "racing" else "",

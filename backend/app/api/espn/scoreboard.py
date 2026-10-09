@@ -17,6 +17,7 @@ import re
 from ...core.groups_util import (
     build_division_standings,
     pick_headline_poll,
+    series_from_schedule,
     streak_from_schedule,
     build_team_group_memberships_from_groups,
     build_team_group_memberships_from_standings,
@@ -484,6 +485,35 @@ def get_scoreboard(
                     standing = division_standings.get(str(team.get("id") or ""))
                     if standing:
                         team["standing"] = standing
+
+    # Baseball regular season: ESPN sends no series, so work it out from the home team's schedule (short cache — it changes daily)
+    if include_standings and _normalized(entry.sport) == "baseball":
+        def _season_series(game: dict) -> dict | None:
+            home_id = str(((game.get("teams") or {}).get("home") or {}).get("id") or "")
+            if not home_id:
+                return None
+            try:
+                payload_sched = _http_client.get_json(
+                    f"https://site.api.espn.com/apis/site/v2/sports/{entry.sport}/{entry.league}/teams/{home_id}/schedule",
+                    use_cache=True,
+                    cache_ttl_seconds=60.0,
+                )
+                return series_from_schedule(payload_sched.get("events") or [], home_id, str(game.get("id") or ""))
+            except Exception:
+                return None
+
+        pending = [g for g in normalized_games if not g.get("series")]
+        if pending:
+            pool = ThreadPoolExecutor(max_workers=8)
+            futures = {pool.submit(_season_series, g): g for g in pending}
+            try:
+                for future in as_completed(futures, timeout=10):
+                    result = future.result()
+                    if result:
+                        futures[future]["series"] = result
+            except Exception:
+                pass
+            pool.shutdown(wait=False)
 
     # For racing leagues: enrich teamColor from the logo_store cache when ESPN
     # doesn't include it directly in the scoreboard competitor data.

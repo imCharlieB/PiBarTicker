@@ -452,7 +452,26 @@ const teamStreak = (game, team) => {
 }
 const StreakTag = ({ streak, cls }) => (streak ? <b className={`${cls}${streak.loss ? ' l' : ''}`}>{streak.text}</b> : null)
 const gameHasStanding = (game) => Boolean(teamStanding(game, game?.teams?.away) || teamStanding(game, game?.teams?.home))
-const matchupTag = (game) => (game?.showStandings ? String(game?.matchupText || '') : '')
+// Series ("ALDS · GAME 4 · TIED 2–2", "GAME 3 OF 3 · NYY LEAD 2–1") from ESPN's playoff series or the schedule-based
+// regular-season series. It takes the banner's place: series first, otherwise the matchup tag.
+const seriesTag = (game) => {
+  const series = game?.series
+  if (!game?.showStandings || !series) return ''
+  const away = game?.teams?.away
+  const home = game?.teams?.home
+  const wa = Number(series.wins?.[away?.id] ?? 0)
+  const wh = Number(series.wins?.[home?.id] ?? 0)
+  const label = String(series.label || '').replace(/\s+-\s+/g, ' · ').toUpperCase()
+  let status = ''
+  if (wa || wh) {
+    const hi = Math.max(wa, wh)
+    const lo = Math.min(wa, wh)
+    const leader = wa > wh ? (away?.abbreviation || '') : (home?.abbreviation || '')
+    status = wa === wh ? `TIED ${hi}–${lo}` : `${leader} ${series.completed ? 'WIN' : 'LEAD'} ${hi}–${lo}`
+  }
+  return [label, status].filter(Boolean).join(' · ')
+}
+const matchupTag = (game) => (game?.showStandings ? (seriesTag(game) || String(game?.matchupText || '')) : '')
 const MatchupTab = ({ game }) => (matchupTag(game) ? <span className="calltab">{matchupTag(game)}</span> : null)
 
 function ScoreOrDash({ team, game }) {

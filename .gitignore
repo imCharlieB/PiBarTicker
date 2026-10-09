@@ -32,6 +32,7 @@ runtime-cache/
 /logos/*
 !/logos/networks/
 !/logos/leagues/
+!/logos/mlb-postseason/
 !/logos/nascar/
 !/logos/f1/
 /logos/f1/*

@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException, Query
 from ...core.espn_normalizer import normalize_scoreboard_events
 from ...core.espn_registry import resolve_registry_entry
 from ...core.espn_scoreboard import EspnScoreboardClient, resolve_calendar_weeks
+from ...core.mlb_series import match_series, parse_schedule, schedule_url
 from ...core.f1_circuit_stats import f1_circuit_stats, f1_stats_from_length
 import json
 import math
@@ -17,7 +18,6 @@ import re
 from ...core.groups_util import (
     build_division_standings,
     pick_headline_poll,
-    series_from_schedule,
     streak_from_schedule,
     build_team_group_memberships_from_groups,
     build_team_group_memberships_from_standings,
@@ -486,34 +486,24 @@ def get_scoreboard(
                     if standing:
                         team["standing"] = standing
 
-    # Baseball regular season: ESPN sends no series, so work it out from the home team's schedule (short cache — it changes daily)
-    if include_standings and _normalized(entry.sport) == "baseball":
-        def _season_series(game: dict) -> dict | None:
-            home_id = str(((game.get("teams") or {}).get("home") or {}).get("id") or "")
-            if not home_id:
-                return None
+    # MLB series (regular season, every postseason round, World Series) from the MLB Stats API — one call for the whole slate
+    if include_standings and _normalized(entry.league_id) == "mlb" and normalized_games:
+        url = schedule_url([str(g.get("startTimeUtc") or "") for g in normalized_games])
+        if url:
             try:
-                payload_sched = _http_client.get_json(
-                    f"https://site.api.espn.com/apis/site/v2/sports/{entry.sport}/{entry.league}/teams/{home_id}/schedule",
-                    use_cache=True,
-                    cache_ttl_seconds=60.0,
+                lookup = parse_schedule(_http_client.get_json(url, use_cache=True, cache_ttl_seconds=60.0))
+            except Exception:
+                lookup = []
+            for game in normalized_games:
+                teams = game.get("teams") or {}
+                found = match_series(
+                    lookup,
+                    (teams.get("away") or {}).get("name"),
+                    (teams.get("home") or {}).get("name"),
+                    str(game.get("startTimeUtc") or ""),
                 )
-                return series_from_schedule(payload_sched.get("events") or [], home_id, str(game.get("id") or ""))
-            except Exception:
-                return None
-
-        pending = [g for g in normalized_games if not g.get("series")]
-        if pending:
-            pool = ThreadPoolExecutor(max_workers=8)
-            futures = {pool.submit(_season_series, g): g for g in pending}
-            try:
-                for future in as_completed(futures, timeout=10):
-                    result = future.result()
-                    if result:
-                        futures[future]["series"] = result
-            except Exception:
-                pass
-            pool.shutdown(wait=False)
+                if found:
+                    game["series"] = found
 
     # For racing leagues: enrich teamColor from the logo_store cache when ESPN
     # doesn't include it directly in the scoreboard competitor data.

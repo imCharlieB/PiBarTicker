@@ -299,6 +299,11 @@
   background: #F2C94C; color: #14100a; font-weight: 900; font-style: normal; font-size: 3.7cqh;
   letter-spacing: .1em; padding: 0.8cqh 3.2cqh; border-radius: 0 0 1.3cqh 1.3cqh; white-space: nowrap;
 }
+.ticker-runtime-shell .calltab-logo { display: flex; align-items: center; gap: 2.4cqh; padding: 0.8cqh 3.2cqh 0.8cqh 0.8cqh; }
+/* the round logos are navy lettering made for white, so they sit on a light plate */
+.ticker-runtime-shell .ct-plate { display: flex; align-items: center; justify-content: center; background: #fff; border-radius: 1.1cqh; padding: 0.4cqh 1.6cqh; }
+.ticker-runtime-shell .ct-plate.tall img { height: 16cqh; }
+.ticker-runtime-shell .ct-plate img { height: 9.2cqh; width: auto; max-width: 24cqh; object-fit: contain; display: block; }
 /* slab: rank + record on one plate */
 .ticker-runtime-shell .slab-plate {
   display: flex; align-items: stretch; overflow: hidden; border-radius: 1.3cqh;

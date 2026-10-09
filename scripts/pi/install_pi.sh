@@ -183,6 +183,10 @@ if [[ "${SOURCE_REAL}" != "${APP_REAL}" ]]; then
     --include "logos/f1/teams/" \
     --include "logos/f1/teams/**" \
     --exclude "logos/f1/*" \
+    --include "logos/mlb-postseason/" \
+    --include "logos/mlb-postseason/**" \
+    --include "logos/leagues/" \
+    --include "logos/leagues/**" \
     --exclude "logos/*" \
     "${SOURCE_DIR}/" "${APP_DIR}/"
 else

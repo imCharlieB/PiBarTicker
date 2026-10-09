@@ -11,6 +11,7 @@ from ...core.espn_registry import resolve_registry_entry
 from ...core.espn_scoreboard import EspnScoreboardClient, resolve_calendar_weeks
 from ...core.f1_circuit_stats import f1_circuit_stats, f1_stats_from_length
 import json
+import math
 import re
 
 from ...core.groups_util import (
@@ -1551,6 +1552,9 @@ def get_scoreboard(
                         game["raceDetails"] = _f1_details
                     elif _f1_details.get("scheduledLaps"):
                         game["totalLaps"] = _f1_details["scheduledLaps"]
+                        # Sprint: ~100 km (fewest laps that reach it), not the full race distance
+                        if str(game.get("sessionLabel") or "") == "SR" and _f1_details.get("trackMiles"):
+                            game["totalLaps"] = max(1, math.ceil(100.0 / (_f1_details["trackMiles"] * 1.609344)))
         except Exception:
             pass
 

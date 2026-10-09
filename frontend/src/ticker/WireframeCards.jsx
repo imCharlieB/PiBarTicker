@@ -1007,6 +1007,10 @@ function LiveRaceCard({ game, title, seriesName, entries }) {
   const flag = lapNow === 0 ? 'pre' : baseFlag
   const pct = lapNow && lapTotal ? Math.min(100, Math.round((lapNow / lapTotal) * 100)) : 0
   const accent = isF1 ? '255,42,32' : '242,183,5'
+  // F1 sessions: only the sprint and the race are lap-based. Practice / qualifying show the session name instead.
+  const SESSION_NAMES = { FP1: 'PRACTICE 1', FP2: 'PRACTICE 2', FP3: 'PRACTICE 3', SS: 'SPRINT QUALIFYING', Qual: 'QUALIFYING', SR: 'SPRINT' }
+  const sessionName = isF1 ? (SESSION_NAMES[String(game?.sessionLabel || '')] || '') : ''
+  const timedSession = sessionName && String(game?.sessionLabel || '') !== 'SR'
   const PER_COL = 5
   const rows = entries.map((e, i) => {
     const mfr = String(e.manufacturer || '').toUpperCase()
@@ -1037,14 +1041,24 @@ function LiveRaceCard({ game, title, seriesName, entries }) {
           <span className="lv-k">{seriesName}</span>
           <h3>{title}</h3>
         </div>
-        <div className="lv-big" style={{ fontSize: `${String(lapNow ?? '—').length >= 3 ? 19 : (lapTotal && String(lapTotal).length >= 3 ? 26 : 30)}cqh` }}>{lapNow ?? '—'}{lapTotal ? <small>/ {lapTotal}</small> : null}</div>
-        <div className="lv-prog"><div style={{ width: `${pct}%` }} /></div>
-        <div className="lv-fl"><FlagGraphic kind={flag} />{FLAG_LABELS[flag]}</div>
+        {timedSession ? (
+          <div className="lv-sess">{sessionName}</div>
+        ) : (
+          <>
+            <div className="lv-big" style={{ fontSize: `${String(lapNow ?? '—').length >= 3 ? 19 : (lapTotal && String(lapTotal).length >= 3 ? 26 : 30)}cqh` }}>{lapNow ?? '—'}{lapTotal ? <small>/ {lapTotal}</small> : null}</div>
+            <div className="lv-prog"><div style={{ width: `${pct}%` }} /></div>
+            <div className="lv-fl"><FlagGraphic kind={flag} />{FLAG_LABELS[flag]}</div>
+          </>
+        )}
       </div>
       <div className="lv-body">
         <div className="lv-top">
-          <span className={`lv-chip lv-chip-${flag}`}><FlagGraphic kind={flag} /><b>{flag === 'yellow' ? 'CAUTION' : flag === 'pre' ? 'PRE-RACE' : flag.toUpperCase()}</b></span>
-          {lapNow != null ? <span className="lv-lap">LAP {lapNow}{lapTotal ? <i> / {lapTotal}</i> : null}</span> : null}
+          {timedSession ? <span className="lv-lap">{sessionName}</span> : (
+            <>
+              <span className={`lv-chip lv-chip-${flag}`}><FlagGraphic kind={flag} /><b>{flag === 'yellow' ? 'CAUTION' : flag === 'pre' ? 'PRE-RACE' : flag.toUpperCase()}</b></span>
+              {lapNow != null ? <span className="lv-lap">LAP {lapNow}{lapTotal ? <i> / {lapTotal}</i> : null}</span> : null}
+            </>
+          )}
         </div>
         <div className="lv-cols">
           {cols.map((col, ci) => (

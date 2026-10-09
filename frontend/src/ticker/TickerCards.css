@@ -1305,3 +1305,4 @@
 .ticker-runtime-shell .lv-col { flex: 0 0 82cqh; }
 .ticker-runtime-shell .lv-bd b { font-size: 4.4cqh; }
 .ticker-runtime-shell .lv-gap { font-size: 4cqh; }
+.ticker-runtime-shell .lv-sess { font-weight: 900; font-size: 11cqh; line-height: 1; color: #fff; margin-top: 6cqh; text-shadow: 0 0 4cqh rgba(var(--acc), .6); }

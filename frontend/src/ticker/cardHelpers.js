@@ -415,17 +415,18 @@ export function extractFootballLiveSituation(rawEvent, game) {
   const toFieldPct = (yardsFromLeftGoal) =>
     FIELD_INSET_PCT + Math.max(0, Math.min(100, yardsFromLeftGoal)) / 100 * FIELD_SPAN_PCT
 
+  // Only draw the ball / line markers when ESPN says who has the ball. Between plays (end of a quarter,
+  // right after a score) `possession` is missing and the spot is stale, and there is no team to put on
+  // the ball -- so show nothing rather than a generic football.
   let losPct = null
   let firstDownPct = null
-  if (Number.isFinite(yardLine)) {
+  if (possessionSide && Number.isFinite(yardLine)) {
     const yardsFromLeftGoal = 100 - yardLine
     losPct = toFieldPct(yardsFromLeftGoal)
     // The away team attacks right (toward the home goal), the home team attacks left.
-    if (possessionSide) {
-      firstDownPct = possessionSide === 'home'
-        ? toFieldPct(yardsFromLeftGoal - (distance ?? 0))
-        : toFieldPct(yardsFromLeftGoal + (distance ?? 0))
-    }
+    firstDownPct = possessionSide === 'home'
+      ? toFieldPct(yardsFromLeftGoal - (distance ?? 0))
+      : toFieldPct(yardsFromLeftGoal + (distance ?? 0))
   }
 
   return {
@@ -523,11 +524,12 @@ function resolveCachedTeamLogo(cachedTeam, themeMode) {
   const preferred = cachedTeam.preferred_variant
   if (preferred && logos[preferred]) return `/logos/${logos[preferred]}`
 
-  // Prefer dark variant when not in light mode (dark mode, team mode, or default)
-  if (themeMode !== 'light') {
-    for (const v of ['dark', 'full_dark']) {
-      if (logos[v]) return `/logos/${logos[v]}`
-    }
+  // Ticker cards are DARK surfaces in every theme mode (tickerCardBg is #13161c even in light
+  // mode; only the page behind the ticker goes light), so the light-on-dark variant is always the
+  // right one. Keying this on themeMode picked the dark-colored default logo in light mode, which
+  // vanished on the card (e.g. Indiana's crimson logo on its crimson card).
+  for (const v of ['dark', 'full_dark']) {
+    if (logos[v]) return `/logos/${logos[v]}`
   }
 
   // Default priority order

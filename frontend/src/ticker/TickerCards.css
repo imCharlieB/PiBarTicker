@@ -611,13 +611,13 @@
   border: 1.5px solid #d9b48c; transform: translate(-50%, -50%);
   box-shadow: 0 1px 3px rgba(0,0,0,.55);
 }
-/* the team with the ball: its logo on a white chip, glowing in its team color */
+/* the team with the ball: its (light) logo on a chip in its team color, ringed in white and glowing */
 .ticker-runtime-shell .ff-ball-logo {
-  width: 8.2cqh; height: 8.2cqh; border-radius: 50%; border: none; background: #fff;
+  width: 8.2cqh; height: 8.2cqh; border-radius: 50%; border: none; background: var(--bc, #333);
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 0 0 2px var(--bc, #fff), 0 0 10px var(--bc, #fff);
+  box-shadow: 0 0 0 2px #fff, 0 0 10px var(--bc, #fff);
 }
-.ticker-runtime-shell .ff-ball-logo::before { content: none; }
+.ticker-runtime-shell .ff-ball.ff-ball-logo::before { content: none; }
 .ticker-runtime-shell .ff-ball-logo img { width: 70%; height: 70%; object-fit: contain; }
 .ticker-runtime-shell .ff-ball::before {
   content: '+'; position: absolute; inset: 0;

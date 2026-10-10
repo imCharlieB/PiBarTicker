@@ -10,15 +10,6 @@ import {
   FIELD_SPAN_PCT,
 } from './cardHelpers.js'
 
-// Yard markers along the playing field, labeled the way a broadcast field is: counting up
-// from each goal line to midfield. Position mirrors the FIELD_INSET_PCT/FIELD_SPAN_PCT
-// mapping cardHelpers.js uses for the ball/LOS/first-down markers so everything lines up.
-const FIELD_YARD_MARKS = [10, 20, 30, 40, 50, 60, 70, 80, 90].map((yard) => ({
-  yard,
-  label: String(yard <= 50 ? yard : 100 - yard),
-  left: FIELD_INSET_PCT + (yard / 100) * FIELD_SPAN_PCT,
-}))
-
 // ── TV network logo map — files live in logos/networks/ (served at /logos/) ─
 // Populated by running:  python scripts/download_tv_logos.py
 // Keys match broadcast names ESPN returns (case-insensitive lookup below).
@@ -298,11 +289,27 @@ function SoccerLive({ game }) {
 
 const FOOTBALL_DOWN_ORDINALS = { 1: '1ST', 2: '2ND', 3: '3RD', 4: '4TH' }
 
-// Team logo that quietly disappears if it fails to load (the end zone keeps its team color).
+// Team logo that quietly disappears if it fails to load (the chip keeps its color).
 function FieldLogo({ src, className }) {
   const [failedSrc, setFailedSrc] = useState('')
   if (!src || failedSrc === src) return null
   return <img className={className} src={src} alt="" onError={() => setFailedSrc(src)} />
+}
+
+const fieldPct = (yard) => FIELD_INSET_PCT + (yard / 100) * FIELD_SPAN_PCT   // yards from the left (away) goal -> % across
+
+// Team name written down an end zone (two lines when long). Sizes are cqw: the field is a container.
+function EndZone({ team, side }) {
+  const name = String(team?.shortName || team?.abbreviation || '').toUpperCase()
+  const two = name.includes(' ') && name.length > 9
+  const parts = two ? name.split(' ') : [name]
+  const longest = Math.max(...parts.map((w) => w.length), 1)
+  const fs = Math.min(two ? 3.3 : 3.9, 29.5 / (longest * 0.78 + 0.2))
+  return (
+    <div className={`fld-ez ${side}`}>
+      <div className="fld-ezt" style={{ fontSize: `${fs}cqw` }}>{parts.map((p, i) => <span key={i}>{p}</span>)}</div>
+    </div>
+  )
 }
 
 function FootballLive({ game, compact }) {
@@ -321,19 +328,35 @@ function FootballLive({ game, compact }) {
   return (
     <div className={`ff ${compact ? 'live-compact' : ''}`}>
       {downDistanceText ? <div className="ff-dd">{downDistanceText}</div> : null}
-      <div className="ff-field" aria-label="Field position">
-        <span className="ff-ez ff-ez-l" style={{ backgroundColor: 'var(--ca)' }}><FieldLogo className="ff-ez-logo" src={game?.teams?.away?.logo} /></span>
-        <span className="ff-ez ff-ez-r" style={{ backgroundColor: 'var(--ch)' }}><FieldLogo className="ff-ez-logo" src={game?.teams?.home?.logo} /></span>
-        {FIELD_YARD_MARKS.map((mark) => (
-          <span key={mark.yard} className="ff-yd" style={{ left: `${mark.left}%` }}>{mark.label}</span>
-        ))}
-        {!f.isRedZone && f.firstDownPct != null ? <span className="ff-fd" style={{ left: `${f.firstDownPct}%` }} /> : null}
-        {!f.isRedZone && f.losPct != null ? <span className="ff-los" style={{ left: `${f.losPct}%` }} /> : null}
-        {f.losPct != null
-          ? (possTeam?.logo
-            ? <span className="ff-ball ff-ball-logo" style={{ left: `${f.losPct}%`, '--bc': f.possessionSide === 'home' ? 'var(--ch)' : 'var(--ca)' }}><FieldLogo src={possTeam.logo} /></span>
-            : <span className="ff-ball" style={{ left: `${f.losPct}%` }} />)
-          : null}
+      <div className="fld" aria-label="Field position">
+        <div className="fld-in">
+          <div className="fld-turf">
+            {Array.from({ length: 10 }, (_, i) => <i key={i} className="fld-stripe" style={{ left: `${fieldPct(i * 10)}%`, opacity: i % 2 ? 1 : 0 }} />)}
+          </div>
+          {Math.abs((f.yardsFromLeft ?? 50) - 50) >= 12
+            ? <FieldLogo className="fld-mlogo" src={game?.teams?.home?.logo} />
+            : null}
+          {Array.from({ length: 11 }, (_, i) => <i key={`l${i}`} className="fld-yl" style={{ left: `${fieldPct(i * 10)}%` }} />)}
+          {Array.from({ length: 10 }, (_, i) => <i key={`h${i}`} className="fld-yl half" style={{ left: `${fieldPct(i * 10 + 5)}%` }} />)}
+          {[10, 20, 30, 40, 50, 40, 30, 20, 10].map((n, i) => <span key={`n${i}`} className="fld-yn" style={{ left: `${fieldPct((i + 1) * 10)}%` }}>{n}</span>)}
+          {f.driveFromPct != null && f.losPct != null && Math.abs(f.driveFromPct - f.losPct) > 0.8 ? (
+            <div
+              className="fld-drive"
+              style={{ left: `${Math.min(f.driveFromPct, f.losPct)}%`, width: `${Math.abs(f.driveFromPct - f.losPct)}%`, '--bc': f.possessionSide === 'home' ? 'var(--ch)' : 'var(--ca)' }}
+            >
+              <span className={`fld-chev ${f.possessionSide === 'away' ? 'r' : 'l'}`} />
+            </div>
+          ) : null}
+          {!f.isRedZone && f.firstDownPct != null ? <i className="fld-fd" style={{ left: `${f.firstDownPct}%` }} /> : null}
+          {!f.isRedZone && f.losPct != null ? <i className="fld-los" style={{ left: `${f.losPct}%` }} /> : null}
+          <EndZone team={game?.teams?.away} side="l" />
+          <EndZone team={game?.teams?.home} side="r" />
+          {f.losPct != null
+            ? (possTeam?.logo
+              ? <div className="fld-ball" style={{ left: `${f.losPct}%`, '--bc': f.possessionSide === 'home' ? 'var(--ch)' : 'var(--ca)' }}><FieldLogo src={possTeam.logo} /></div>
+              : <div className="fld-ball plain" style={{ left: `${f.losPct}%` }} />)
+            : null}
+        </div>
       </div>
       <div className="ff-sub">
         {possTeam

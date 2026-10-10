@@ -568,65 +568,36 @@
 .ticker-runtime-shell .d-digits .ff-sub { justify-content: flex-start; }
 .ticker-runtime-shell .ff-poss { color: #7CF29B; }
 .ticker-runtime-shell .ff-rz   { font-size: 2.9cqh; font-weight: 900; letter-spacing: .1em; color: #0b0e0c; background: #F2766B; padding: 0.5cqh 1.6cqh; border-radius: 0.8cqh; }
-.ticker-runtime-shell .ff-field {
-  position: relative; width: 100%; height: 13.2cqh; border-radius: 1.6cqh; overflow: hidden;
-  border: 1px solid #0a2013;
-  background-color: #0f3319;
-  /* Layers, back to front: 10-yard tick lines, 10-yard mow stripes. Both share a
-     9%-offset, 8.2%-period (=10 yards) phase so they line up with the
-     FIELD_INSET_PCT/FIELD_SPAN_PCT mapping cardHelpers.js uses for the markers below. */
-  background-image:
-    repeating-linear-gradient(90deg, rgba(255,255,255,.16) 0 1.5px, transparent 1.5px 8.2%),
-    repeating-linear-gradient(90deg, #12401f 0 4.1%, #0e341a 4.1% 8.2%);
-  background-position-x: 9%, 9%;
-  box-shadow: inset 0 0 1.8cqh rgba(0,0,0,.5);
-}
-.ticker-runtime-shell .ff-ez   {
-  position: absolute; top: 0; bottom: 0; width: 9%; opacity: .92;
-  background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.12) 0 5px, transparent 5px 12px);
-  box-shadow: inset 0 0 1.4cqh rgba(0,0,0,.4);
-}
-.ticker-runtime-shell .ff-ez { display: flex; align-items: center; justify-content: center; }
-.ticker-runtime-shell .ff-ez-logo { width: 78%; max-height: 80%; object-fit: contain; filter: drop-shadow(0 1px 2px rgba(0,0,0,.55)); }
-.ticker-runtime-shell .ff-ez-l { left: 0; box-shadow: inset 0 0 1.4cqh rgba(0,0,0,.4), 2px 0 0 rgba(255,255,255,.9); }
-.ticker-runtime-shell .ff-ez-r { right: 0; box-shadow: inset 0 0 1.4cqh rgba(0,0,0,.4), -2px 0 0 rgba(255,255,255,.9); }
-.ticker-runtime-shell .ff-yd {
-  position: absolute; top: 1.8cqh; transform: translateX(-50%);
-  font-size: 3.2cqh; font-weight: 800; color: rgba(255,255,255,.4);
-  font-variant-numeric: tabular-nums; pointer-events: none; user-select: none;
-}
-.ticker-runtime-shell .ff-los, .ticker-runtime-shell .ff-fd {
-  position: absolute; top: 0; bottom: 0; width: 2.5px;
-}
-.ticker-runtime-shell .ff-los { background: #fff; box-shadow: 0 0 6px rgba(255,255,255,.6); }
-.ticker-runtime-shell .ff-fd  { background: #F2C94C; box-shadow: 0 0 6px rgba(242,201,76,.7); }
-.ticker-runtime-shell .ff-los::before, .ticker-runtime-shell .ff-fd::before {
-  content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
-  width: 0; height: 0;
-  border-left: 3.5px solid transparent; border-right: 3.5px solid transparent;
-  border-top: 4px solid currentColor;
-}
-.ticker-runtime-shell .ff-los::before { color: #fff; }
-.ticker-runtime-shell .ff-fd::before  { color: #F2C94C; }
-.ticker-runtime-shell .ff-ball {
-  position: absolute; top: 50%; width: 4.8cqh; height: 3.1cqh; border-radius: 50%;
-  background: linear-gradient(135deg, #8a5a34, #6b3f1f);
-  border: 1.5px solid #d9b48c; transform: translate(-50%, -50%);
-  box-shadow: 0 1px 3px rgba(0,0,0,.55);
-}
-/* the team with the ball: its dark-background logo on a dark chip (a team-colored chip hid logos of the same color, e.g. Nebraska's red N), ringed in white and glowing in its team color */
-.ticker-runtime-shell .ff-ball-logo {
-  width: 8.2cqh; height: 8.2cqh; border-radius: 50%; border: none; background: #0f1218;
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 0 0 2px #fff, 0 0 10px var(--bc, #fff);
-}
-.ticker-runtime-shell .ff-ball.ff-ball-logo::before { content: none; }
-.ticker-runtime-shell .ff-ball-logo img { width: 70%; height: 70%; object-fit: contain; }
-.ticker-runtime-shell .ff-ball::before {
-  content: '+'; position: absolute; inset: 0;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 2.6cqh; font-weight: 900; line-height: 1; color: #f2e4d0;
-}
+.ticker-runtime-shell .fld { position: relative; width: min(100%, 78cqh); margin-inline: auto; aspect-ratio: 332 / 114; container-type: inline-size; }
+/* the field is taller than the old bar, so each card style gets the size that still leaves room for the rest of its live content */
+.ticker-runtime-shell .d-spine .fld { width: min(100%, 60cqh); }
+.ticker-runtime-shell .d-digits .fld { width: min(100%, 44cqh); margin-inline: 0; }
+.ticker-runtime-shell .fld-in { position: absolute; inset: 0; border-radius: 3.3cqw; overflow: hidden; box-shadow: 0 0 0 .9cqw #f1f6e4, 0 2.4cqw 5cqw rgba(0,0,0,.55); }
+.ticker-runtime-shell .fld-turf { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(0,0,0,.20)), #4b9a3f; }
+.ticker-runtime-shell .fld-turf::after { content: ''; position: absolute; inset: 0; opacity: .5; mix-blend-mode: multiply; background-image: radial-gradient(rgba(0,0,0,.35) .6px, transparent .7px); background-size: 3px 3px; }
+.ticker-runtime-shell .fld-stripe { position: absolute; top: 0; bottom: 0; width: 7.8%; background: #3f8a35; }
+.ticker-runtime-shell .fld-yl { position: absolute; top: 0; bottom: 0; width: max(1px, .6cqw); margin-left: calc(max(1px, .6cqw) / -2); background: rgba(244,248,232,.85); }
+.ticker-runtime-shell .fld-yl.half { width: 1px; margin-left: -.5px; top: 22%; bottom: 22%; background: rgba(244,248,232,.45); }
+.ticker-runtime-shell .fld-yn { position: absolute; bottom: 1.5cqw; transform: translateX(-50%); font-size: 4.1cqw; font-weight: 900; line-height: 1; color: rgba(244,248,232,.92); font-variant-numeric: tabular-nums; letter-spacing: .02em; text-shadow: 0 1px 2px rgba(0,0,0,.35); }
+.ticker-runtime-shell .fld-mlogo { position: absolute; left: 50%; top: 46%; width: 13.3cqw; height: 13.3cqw; transform: translate(-50%, -50%); object-fit: contain; opacity: .8; filter: drop-shadow(0 2px 3px rgba(0,0,0,.45)); }
+.ticker-runtime-shell .fld-ez { position: absolute; top: 0; bottom: 0; width: 11%; display: grid; place-items: center; box-shadow: inset 0 0 4cqw rgba(0,0,0,.28); }
+.ticker-runtime-shell .fld-ez.l { left: 0; background: var(--ca); border-right: .9cqw solid #f4f8e8; }
+.ticker-runtime-shell .fld-ez.r { right: 0; background: var(--ch); border-left: .9cqw solid #f4f8e8; }
+.ticker-runtime-shell .fld-ez::before { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(45deg, rgba(255,255,255,.09) 0 5px, transparent 5px 11px); }
+.ticker-runtime-shell .fld-ezt { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 900; color: #fff; letter-spacing: .08em; line-height: 1.05; white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,.5); writing-mode: vertical-rl; }
+.ticker-runtime-shell .fld-ezt span { display: block; }
+.ticker-runtime-shell .fld-ez.l .fld-ezt { transform: rotate(180deg); }
+.ticker-runtime-shell .fld-drive { position: absolute; top: 28%; bottom: 28%; border-top: 1px solid rgba(255,255,255,.6); border-bottom: 1px solid rgba(255,255,255,.6); overflow: hidden; }
+.ticker-runtime-shell .fld-drive::before { content: ''; position: absolute; inset: 0; background: var(--bc); opacity: .6; }
+.ticker-runtime-shell .fld-chev { position: absolute; inset: 0; opacity: .55; background-size: 4.2cqw 100%; background-repeat: repeat-x; background-position: center; }
+.ticker-runtime-shell .fld-chev.r { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='20' viewBox='0 0 14 20'><path d='M3 2 L10 10 L3 18' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/></svg>"); }
+.ticker-runtime-shell .fld-chev.l { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='20' viewBox='0 0 14 20'><path d='M11 2 L4 10 L11 18' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/></svg>"); }
+.ticker-runtime-shell .fld-fd { position: absolute; top: 0; bottom: 0; width: 1.5cqw; margin-left: -.75cqw; background: #F2C94C; box-shadow: 0 0 3cqw rgba(242,201,76,.9); }
+.ticker-runtime-shell .fld-los { position: absolute; top: 0; bottom: 0; width: .9cqw; margin-left: -.45cqw; background: #fff; box-shadow: 0 0 2cqw rgba(255,255,255,.8); }
+/* the team with the ball: its dark-background logo on a dark chip (a team-colored chip hid same-colored logos, e.g. Nebraska's red N), ringed in white and glowing in its team color */
+.ticker-runtime-shell .fld-ball { position: absolute; top: 46%; width: 12cqw; height: 12cqw; transform: translate(-50%, -50%); border-radius: 50%; background: #0f1218; border: .9cqw solid #fff; display: grid; place-items: center; box-shadow: 0 1cqw 3cqw rgba(0,0,0,.6), 0 0 4cqw var(--bc, #fff); z-index: 3; }
+.ticker-runtime-shell .fld-ball img { width: 8.1cqw; height: 8.1cqw; object-fit: contain; }
+.ticker-runtime-shell .fld-ball.plain { width: 5cqw; height: 3.3cqw; border-radius: 50%; background: linear-gradient(135deg, #8a5a34, #6b3f1f); border: 1.5px solid #d9b48c; box-shadow: 0 1px 3px rgba(0,0,0,.55); }
 
 /* ── Soccer live (mini pitch + possession & shots) ──────────────────────── */
 .ticker-runtime-shell .sc-dd {

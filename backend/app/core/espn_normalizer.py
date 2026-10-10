@@ -109,6 +109,7 @@ def _team_model(competitor: dict[str, Any] | None) -> dict[str, Any] | None:
             or ""
         ),
         "slug": entity.get("slug"),
+        "shortName": str(entity.get("shortDisplayName") or "").strip() or None,  # "Nebraska" / "Cowboys" — written in the football end zones
         "homeAway": competitor.get("homeAway"),
         "score": str(competitor.get("score") or "").strip(),
         "record": record_summary,

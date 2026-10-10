@@ -358,11 +358,11 @@ export function extractBaseballLiveSituation(rawEvent, game) {
   }
 }
 
-// Must match the .ff-ez width in TickerCards.css -- the field graphic reserves this much
+// Must match the .fld-ez width in TickerCards.css -- the field graphic reserves this much
 // space at each edge for the end zone, so the 100-yard playing field only occupies the
-// inner FIELD_SPAN_PCT of the bar. Shared with WireframeCards.jsx so yard-line tick marks
-// line up with where ball/LOS/first-down markers actually render.
-export const FIELD_INSET_PCT = 9
+// inner FIELD_SPAN_PCT of the field. Shared with WireframeCards.jsx so yard lines line up
+// with where ball/LOS/first-down markers actually render.
+export const FIELD_INSET_PCT = 11
 export const FIELD_SPAN_PCT = 100 - FIELD_INSET_PCT * 2
 
 export function extractFootballLiveSituation(rawEvent, game) {
@@ -399,7 +399,7 @@ export function extractFootballLiveSituation(rawEvent, game) {
   if (possessionId && homeId && possessionId === homeId) possessionSide = 'home'
   else if (possessionId && awayId && possessionId === awayId) possessionSide = 'away'
 
-  // The ff-field bar reserves a FIELD_INSET_PCT-wide end zone at each edge (.ff-ez in
+  // The field reserves a FIELD_INSET_PCT-wide end zone at each edge (.fld-ez in
   // TickerCards.css), so the actual 100-yard playing field spans only the middle
   // FIELD_SPAN_PCT of the bar -- not the full 0-100%. Map yard lines into that inner
   // range so a marker sits on the true goal line instead of stopping short of (or
@@ -418,8 +418,10 @@ export function extractFootballLiveSituation(rawEvent, game) {
   // Only draw the ball / line markers when ESPN says who has the ball. Between plays (end of a quarter,
   // right after a score) `possession` is missing and the spot is stale, and there is no team to put on
   // the ball -- so show nothing rather than a generic football.
+  const yardsFromLeft = possessionSide && Number.isFinite(yardLine) ? 100 - yardLine : null  // lets the midfield logo step aside when the ball is near the 50
   let losPct = null
   let firstDownPct = null
+  let driveFromPct = null
   if (possessionSide && Number.isFinite(yardLine)) {
     const yardsFromLeftGoal = 100 - yardLine
     losPct = toFieldPct(yardsFromLeftGoal)
@@ -427,6 +429,12 @@ export function extractFootballLiveSituation(rawEvent, game) {
     firstDownPct = possessionSide === 'home'
       ? toFieldPct(yardsFromLeftGoal - (distance ?? 0))
       : toFieldPct(yardsFromLeftGoal + (distance ?? 0))
+    // Where the current drive started (backend adds game.driveStart from ESPN's summary, same home-goal axis).
+    // Only trusted while the drive's team is the team ESPN says has the ball.
+    const ds = game?.driveStart
+    if (ds && Number.isFinite(Number(ds.yardLine)) && String(ds.teamId) === possessionId) {
+      driveFromPct = toFieldPct(100 - Number(ds.yardLine))
+    }
   }
 
   return {
@@ -442,6 +450,8 @@ export function extractFootballLiveSituation(rawEvent, game) {
     possessionSide,
     losPct,
     firstDownPct,
+    driveFromPct,
+    yardsFromLeft,
   }
 }
 

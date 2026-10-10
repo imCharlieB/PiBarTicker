@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException, Query
 from ...core.espn_normalizer import normalize_scoreboard_events
 from ...core.espn_registry import resolve_registry_entry
 from ...core.espn_scoreboard import EspnScoreboardClient, resolve_calendar_weeks
+from ...core.football_drive import drive_start_from_summary
 from ...core.mlb_series import match_series, parse_schedule, schedule_url
 from ...core.f1_circuit_stats import f1_circuit_stats, f1_stats_from_length
 import json
@@ -1577,6 +1578,36 @@ def get_scoreboard(
                             game["totalLaps"] = max(1, math.ceil(100.0 / (_f1_details["trackMiles"] * 1.609344)))
         except Exception:
             pass
+
+    # Football: where the current drive started (draws the drive band on the field). One cached summary call per live game.
+    if entry.sport == "football":
+        live_ids = [str(g["id"]) for g in normalized_games if str(g.get("state") or "").lower() == "in" and g.get("id")]
+        if live_ids:
+            def _drive_start(event_id: str) -> dict | None:
+                try:
+                    summary = _http_client.get_json(
+                        f"https://site.api.espn.com/apis/site/v2/sports/football/{entry.league}/summary?event={event_id}",
+                        use_cache=True,
+                        cache_ttl_seconds=15.0,
+                    )
+                    return drive_start_from_summary(summary)
+                except Exception:
+                    return None
+
+            pool = ThreadPoolExecutor(max_workers=6)
+            futures = {pool.submit(_drive_start, eid): eid for eid in live_ids}
+            starts: dict[str, dict] = {}
+            try:
+                for future in as_completed(futures, timeout=8):
+                    result = future.result()
+                    if result:
+                        starts[futures[future]] = result
+            except Exception:
+                pass  # a slow game just gets no drive band this refresh
+            pool.shutdown(wait=False)
+            for game in normalized_games:
+                if str(game.get("id")) in starts:
+                    game["driveStart"] = starts[str(game["id"])]
 
     # Soccer: fetch live summary (possession %, shots, corners) per live game.
     # The scoreboard situation block is empty for soccer; this data lives in the

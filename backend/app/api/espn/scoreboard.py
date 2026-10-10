@@ -201,11 +201,6 @@ def _event_best_rank(event: dict, ranked_team_ids: dict[str, int]) -> int:
     return best if best is not None else (max(ranked_team_ids.values(), default=0) + 1)
 
 
-# Win/loss streaks and division places change the moment a game ends, so they are cached only briefly
-# (a longer cache showed last week's streak for up to an hour after the final whistle). Polls change weekly.
-_RESULTS_TTL = 90.0
-
-
 @router.get("/scoreboard")
 def get_scoreboard(
     league: str = Query(..., description="League id, for example nfl or mlb."),
@@ -421,8 +416,8 @@ def get_scoreboard(
         try:
             rankings_payload = _http_client.get_json(
                 _rankings_url(sport=entry.sport, league=entry.league),
-                use_cache=True,
-                cache_ttl_seconds=3600.0,
+                use_cache=cache_ttl_seconds > 0,
+                cache_ttl_seconds=cache_ttl_seconds,
             )
             poll_ranks, poll_label = pick_headline_poll(rankings_payload.get("rankings") or [])
         except Exception:
@@ -439,8 +434,8 @@ def get_scoreboard(
             try:
                 payload = _http_client.get_json(
                     f"https://site.api.espn.com/apis/site/v2/sports/{entry.sport}/{entry.league}/teams/{team_id}/schedule",
-                    use_cache=True,
-                    cache_ttl_seconds=_RESULTS_TTL,
+                    use_cache=cache_ttl_seconds > 0,
+                    cache_ttl_seconds=cache_ttl_seconds,
                 )
                 return streak_from_schedule(payload.get("events") or [], team_id)
             except Exception:
@@ -471,8 +466,8 @@ def get_scoreboard(
         try:
             standings_payload = _http_client.get_json(
                 _site_standings_url(sport=entry.sport, league=entry.league) + "?level=3",
-                use_cache=True,
-                cache_ttl_seconds=_RESULTS_TTL,
+                use_cache=cache_ttl_seconds > 0,
+                cache_ttl_seconds=cache_ttl_seconds,
             )
             # NFL: once the playoff race matters (week 10+, or postseason) show the seed for the 7 teams in position
             week_no = ((payload or {}).get("week") or {}).get("number") if isinstance(payload, dict) else None
@@ -497,7 +492,7 @@ def get_scoreboard(
         url = schedule_url([str(g.get("startTimeUtc") or "") for g in normalized_games])
         if url:
             try:
-                lookup = parse_schedule(_http_client.get_json(url, use_cache=True, cache_ttl_seconds=60.0))
+                lookup = parse_schedule(_http_client.get_json(url, use_cache=cache_ttl_seconds > 0, cache_ttl_seconds=cache_ttl_seconds))
             except Exception:
                 lookup = []
             for game in normalized_games:
@@ -951,8 +946,8 @@ def get_scoreboard(
                 try:
                     _standings_data = _http_client.get_json(
                         f"https://site.api.espn.com/apis/v2/sports/racing/{entry.league_id}/standings",
-                        use_cache=True,
-                        cache_ttl_seconds=_RESULTS_TTL,
+                        use_cache=cache_ttl_seconds > 0,
+                        cache_ttl_seconds=cache_ttl_seconds,
                     )
                     _standings_children = (_standings_data or {}).get("children") if isinstance(_standings_data, dict) else None
                     _standings_entries = (
@@ -1026,8 +1021,8 @@ def get_scoreboard(
                         _tn = _slug(_d.remote_urls.get("team_name"))
                         if _tn and _d.color and _tn not in _team_color:
                             _team_color[_tn] = _d.color
-                    _jd = _http_client.get_json("https://api.jolpi.ca/ergast/f1/current/driverStandings.json", use_cache=True, cache_ttl_seconds=_RESULTS_TTL)
-                    _jc = _http_client.get_json("https://api.jolpi.ca/ergast/f1/current/constructorStandings.json", use_cache=True, cache_ttl_seconds=_RESULTS_TTL)
+                    _jd = _http_client.get_json("https://api.jolpi.ca/ergast/f1/current/driverStandings.json", use_cache=cache_ttl_seconds > 0, cache_ttl_seconds=cache_ttl_seconds)
+                    _jc = _http_client.get_json("https://api.jolpi.ca/ergast/f1/current/constructorStandings.json", use_cache=cache_ttl_seconds > 0, cache_ttl_seconds=cache_ttl_seconds)
                     _dl = ((_jd or {}).get("MRData") or {}).get("StandingsTable", {}).get("StandingsLists") or []
                     _cl = ((_jc or {}).get("MRData") or {}).get("StandingsTable", {}).get("StandingsLists") or []
                     _drows = []
@@ -1592,8 +1587,8 @@ def get_scoreboard(
                 try:
                     summary = _http_client.get_json(
                         f"https://site.api.espn.com/apis/site/v2/sports/football/{entry.league}/summary?event={event_id}",
-                        use_cache=True,
-                        cache_ttl_seconds=15.0,
+                        use_cache=cache_ttl_seconds > 0,
+                        cache_ttl_seconds=cache_ttl_seconds,
                     )
                     return drive_start_from_summary(summary)
                 except Exception:

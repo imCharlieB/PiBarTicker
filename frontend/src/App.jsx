@@ -65,7 +65,7 @@ function App() {
     initialPreFetchesComplete, setHandoffCheckKey,
     stableGoodGamesByLeagueId,
     newsByLeagueId, refreshLeagueNews,
-    handleRuntimeAdvance,
+    handleRuntimeAdvance, prefetchNextRuntimeLeague,
     handoffGraceRef, scrolledThisSlotRef, leagueSlotStartTimeRef, currentSlotLeagueIdRef,
   } = useAppContext()
 
@@ -223,6 +223,7 @@ function App() {
         leagueSlotStartTimeRef={leagueSlotStartTimeRef}
         currentSlotLeagueIdRef={currentSlotLeagueIdRef}
         onAdvance={handleRuntimeAdvance}
+        onPrefetchNext={prefetchNextRuntimeLeague}
         onHandoffCheck={onHandoffCheck}
         haSlotActive={activeSlotIsHA}
         haRotateMs={rotateMs}

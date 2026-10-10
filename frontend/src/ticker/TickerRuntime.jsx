@@ -247,6 +247,10 @@ const MemoizedCard = memo(function MemoizedCard({
 // CSS transitions for `transform` are more reliably compositor-threaded across
 // Android WebView versions. offsetHeight read forces the start position to be
 // applied before the transition begins (standard "stage then animate" pattern).
+// How long before a league finishes scrolling the next league starts loading in the background. Long enough for the
+// slowest lookup (the college slate takes ~1.5s), short enough that the data on screen is only seconds old.
+const PREFETCH_LEAD_MS = 8000
+
 function startScrollTransition(track, startX, endX, dur, onFinish) {
   track.style.transition = 'none'
   track.style.transform = `translateX(${startX}px)`
@@ -296,6 +300,7 @@ function TickerRuntime({
   leagueSlotStartTimeRef,
   currentSlotLeagueIdRef,
   onAdvance,
+  onPrefetchNext,
   onHandoffCheck,
   haSlotActive,
   haRotateMs,
@@ -318,6 +323,9 @@ function TickerRuntime({
 
   const onAdvanceRef = useRef(onAdvance)
   useEffect(() => { onAdvanceRef.current = onAdvance }, [onAdvance])
+  const onPrefetchNextRef = useRef(onPrefetchNext)
+  useEffect(() => { onPrefetchNextRef.current = onPrefetchNext }, [onPrefetchNext])
+  const prefetchTimerRef = useRef(null)
   const onHandoffCheckRef = useRef(onHandoffCheck)
   useEffect(() => { onHandoffCheckRef.current = onHandoffCheck }, [onHandoffCheck])
 
@@ -350,6 +358,7 @@ function TickerRuntime({
 
     if (animRef.current) { animRef.current.cancel(); animRef.current = null }
     if (backupTimerRef.current) { clearTimeout(backupTimerRef.current); backupTimerRef.current = null }
+    if (prefetchTimerRef.current) { clearTimeout(prefetchTimerRef.current); prefetchTimerRef.current = null }
 
     const track = trackRef.current
     if (!track) return
@@ -371,6 +380,7 @@ function TickerRuntime({
     }
     animRef.current = startScrollTransition(track, startX, endX, dur, doHaAdvance)
     backupTimerRef.current = setTimeout(doHaAdvance, dur + 2000)
+    prefetchTimerRef.current = setTimeout(() => onPrefetchNextRef.current?.(), Math.max(dur * 0.5, dur - PREFETCH_LEAD_MS))
   }, [haSlotActive, haRotateMs, sportsBoard?.scrollSpeed]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Sports animation ──────────────────────────────────────────────────────
@@ -379,6 +389,7 @@ function TickerRuntime({
 
     if (animRef.current) { animRef.current.cancel(); animRef.current = null }
     if (backupTimerRef.current) { clearTimeout(backupTimerRef.current); backupTimerRef.current = null }
+    if (prefetchTimerRef.current) { clearTimeout(prefetchTimerRef.current); prefetchTimerRef.current = null }
 
     const track = trackRef.current
     if (!track) return
@@ -423,6 +434,7 @@ function TickerRuntime({
 
     animRef.current = startScrollTransition(track, startX, endX, dur, doAdvance)
     backupTimerRef.current = setTimeout(doAdvance, dur + 2000)
+    prefetchTimerRef.current = setTimeout(() => onPrefetchNextRef.current?.(), Math.max(dur * 0.5, dur - PREFETCH_LEAD_MS))
 
     setTimeout(() => onHandoffCheckRef.current(), 600)
   }, [displayLeague?.id, games.length, sessionKey, initialPreFetchesComplete, boardWidth, sportsBoard?.scrollSpeed, sportsBoard?.cardGap]) // eslint-disable-line react-hooks/exhaustive-deps

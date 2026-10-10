@@ -113,6 +113,8 @@ export function AppContextProvider({ children }) {
   const tickerEntryGraceRef = useRef(0)
   const currentLeaguesLengthRef = useRef(0)
   const currentRuntimeLeagueIndexRef = useRef(0)
+  const runtimeSlotsRef = useRef([])               // latest rotation order, read by the prefetch below
+  const prefetchedLeagueIdRef = useRef('')         // league loaded ahead of its turn (so showing it does not refetch)
   const leagueSlotStartTimeRef = useRef(0)
   const currentSlotLeagueIdRef = useRef('')
   const scrolledThisSlotRef = useRef(0)
@@ -746,6 +748,21 @@ export function AppContextProvider({ children }) {
     setRuntimeLeagueIndex((current) => (current + 1) % (currentLeaguesLengthRef.current || 1))
   }
 
+  // Called by the ticker a few seconds before the current slot finishes scrolling: quietly load the league that is
+  // next in the rotation (skipping the HA slot) so its fresh data is already in place when it rotates in.
+  function prefetchNextRuntimeLeague() {
+    const slots = runtimeSlotsRef.current
+    if (!slots.length) return
+    const start = currentRuntimeLeagueIndexRef.current
+    for (let step = 1; step <= slots.length; step += 1) {
+      const slot = slots[(start + step) % slots.length]
+      if (slot?.type !== 'league') continue
+      prefetchedLeagueIdRef.current = slot.league.id
+      refreshRuntimeLeaguePayload(slot.league).catch(() => null)
+      return
+    }
+  }
+
   // ── Derived ticker values (for effects) ─────────────────────────────────
   const sportsBoard = config?.boards?.find((board) => board.type === 'sports') ?? null
   const runtimeLeagues = sportsBoard?.leagues?.filter((league) => league.enabled) ?? []
@@ -767,7 +784,8 @@ export function AppContextProvider({ children }) {
   // ── Ticker rotation effects ─────────────────────────────────────────────
   useEffect(() => {
     currentLeaguesLengthRef.current = runtimeSlots.length
-  }, [runtimeSlots.length])
+    runtimeSlotsRef.current = runtimeSlots
+  }, [runtimeSlots.length, runtimeSlotsKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     currentRuntimeLeagueIndexRef.current = runtimeLeagueIndex
@@ -889,7 +907,9 @@ export function AppContextProvider({ children }) {
 
   useEffect(() => {
     if (!isTickerRuntime || !runtimeDisplayLeague) return
-    refreshRuntimeLeaguePayload(runtimeDisplayLeague)
+    // already loaded a few seconds ago by prefetchNextRuntimeLeague -> do not fetch it a second time on screen
+    if (prefetchedLeagueIdRef.current === runtimeDisplayLeague.id) prefetchedLeagueIdRef.current = ''
+    else refreshRuntimeLeaguePayload(runtimeDisplayLeague)
     refreshLeagueNews(runtimeDisplayLeague)
     if (!leagueLogoMetaById[runtimeDisplayLeague.id]) {
       loadLeagueLogoMeta(runtimeDisplayLeague.id)
@@ -943,7 +963,7 @@ export function AppContextProvider({ children }) {
     runtimePayloadByLeagueId, runtimeLoadStateByLeagueId,
     initialPreFetchesComplete, handoffCheckKey, setHandoffCheckKey,
     stableGoodGamesByLeagueId, runtimeLastStableLeagueId, runtimeLastStableMarqueeGames,
-    refreshRuntimeLeaguePayload, handleRuntimeAdvance,
+    refreshRuntimeLeaguePayload, handleRuntimeAdvance, prefetchNextRuntimeLeague,
     newsByLeagueId, newsLeagueSupport, refreshLeagueNews,
     handoffGraceRef, scrolledThisSlotRef, leagueSlotStartTimeRef, currentSlotLeagueIdRef,
     currentLeaguesLengthRef,

@@ -201,6 +201,11 @@ def _event_best_rank(event: dict, ranked_team_ids: dict[str, int]) -> int:
     return best if best is not None else (max(ranked_team_ids.values(), default=0) + 1)
 
 
+# Win/loss streaks and division places change the moment a game ends, so they are cached only briefly
+# (a longer cache showed last week's streak for up to an hour after the final whistle). Polls change weekly.
+_RESULTS_TTL = 90.0
+
+
 @router.get("/scoreboard")
 def get_scoreboard(
     league: str = Query(..., description="League id, for example nfl or mlb."),
@@ -429,13 +434,13 @@ def get_scoreboard(
                     team["rank"] = poll_ranks.get(str(team.get("id") or ""))
                     team["rankSource"] = poll_label
 
-        # Win/loss streak: college standings leave it blank, so count it from each team's results (cached 1h)
+        # Win/loss streak: college standings leave it blank, so count it from each team's results (cached briefly so it updates right after a game ends)
         def _college_streak(team_id: str) -> str:
             try:
                 payload = _http_client.get_json(
                     f"https://site.api.espn.com/apis/site/v2/sports/{entry.sport}/{entry.league}/teams/{team_id}/schedule",
                     use_cache=True,
-                    cache_ttl_seconds=3600.0,
+                    cache_ttl_seconds=_RESULTS_TTL,
                 )
                 return streak_from_schedule(payload.get("events") or [], team_id)
             except Exception:
@@ -467,7 +472,7 @@ def get_scoreboard(
             standings_payload = _http_client.get_json(
                 _site_standings_url(sport=entry.sport, league=entry.league) + "?level=3",
                 use_cache=True,
-                cache_ttl_seconds=3600.0,
+                cache_ttl_seconds=_RESULTS_TTL,
             )
             # NFL: once the playoff race matters (week 10+, or postseason) show the seed for the 7 teams in position
             week_no = ((payload or {}).get("week") or {}).get("number") if isinstance(payload, dict) else None

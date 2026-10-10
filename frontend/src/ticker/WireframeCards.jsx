@@ -660,12 +660,20 @@ function SpineCard({ game, flags }) {
   const footballLead = flags.situation && hasLiveFeature(game)
     && String(game?.sport || '').toLowerCase() === 'football' && game?.footballLiveData && game?.isLiveFeatured
     ? spineStatus : ''
+  // Network logo(s) sit beside the status chip on upcoming + live games; final games show none. The bottom row is then only the stadium.
+  const stateKey = String(game?.state || '').toLowerCase()
+  const nets = !isCombat && flags.tv && game?.broadcastText && (stateKey === 'pre' || stateKey === 'in')
+    ? game.broadcastText.split(/\s*\/\s*/).map((n) => n.trim()).filter(Boolean)
+    : []
   return (
     <div className={`card d-spine ${isPre ? 'is-pre' : ''}${footballLead ? ' fb-live' : ''}`}>
       <Flank team={a} side="a" />
       <div className="spine-mid">
         <MatchupTab game={game} />
-        <StateChip game={game} />
+        <div className="spine-state">
+          <StateChip game={game} />
+          {nets.length ? <span className="spine-nets">{nets.map((n, i) => <NetworkLogo key={i} name={n} />)}</span> : null}
+        </div>
         {isCombat && game?.sessionLabel ? <span className="spine-time">{game.sessionLabel}</span> : null}
         <div className="spine-score">
           {(isPre || isCombat)
@@ -675,7 +683,7 @@ function SpineCard({ game, flags }) {
         {spineStatus && !footballLead ? <span className="spine-status">{spineStatus}</span> : null}
         {!isCombat && time ? <span className="spine-time">{time}</span> : null}
         {flags.situation && hasLiveFeature(game) ? <LiveFeature game={game} lead={footballLead} /> : null}
-        <MetaRow game={game} flags={flags} />
+        <MetaRow game={game} flags={isCombat ? flags : { ...flags, tv: false }} />
       </div>
       <Flank team={h} side="h" />
     </div>

@@ -561,6 +561,9 @@
 .ticker-runtime-shell .ff-dd  { font-size: 8.4cqh; font-weight: 900; color: #fff; letter-spacing: .01em; line-height: 1; text-align: center; }
 .ticker-runtime-shell .ff-lead { color: #cfd6e2; font-weight: 800; }
 .ticker-runtime-shell .ff-sep { margin: 0 1.6cqh; opacity: .45; }
+/* spine: status chip with the network logo(s) beside it */
+.ticker-runtime-shell .spine-state { display: flex; align-items: center; justify-content: center; gap: 2.6cqh; min-width: 0; }
+.ticker-runtime-shell .spine-nets { display: inline-flex; align-items: center; gap: 1.6cqh; }
 /* spine, live football: tighter vertical gaps so a network logo + a long stadium name that wraps onto its own line (and the red-zone chip) still fit inside the card */
 .ticker-runtime-shell .d-spine.fb-live .spine-mid { gap: 1.3cqh; padding-block: 2.6cqh; }
 .ticker-runtime-shell .d-spine.fb-live .ff { gap: 1.2cqh; }

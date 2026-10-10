@@ -405,21 +405,27 @@ export function extractFootballLiveSituation(rawEvent, game) {
   // range so a marker sits on the true goal line instead of stopping short of (or
   // bleeding into) the end zone stripe.
   //
-  // ESPN's yardLine is always relative to the possessing team's own goal line (0 = their
-  // goal, 100 = the opponent's) rather than a fixed home/away axis. The field renders the
-  // away team's goal on the left and home's on the right, so an away possession maps
-  // straight across while a home possession has to be flipped.
+  // ESPN's yardLine is measured from the HOME team's goal line on a fixed axis (0 = home goal,
+  // 100 = away goal) no matter who has the ball -- verified 2026-10-10 against live college games
+  // for both home and away possessions (e.g. SC ball on "SC 25" at Florida -> yardLine 75; Pitt
+  // ball on "PITT 38" -> 38). It is NOT relative to the offense. The field renders the away
+  // team's goal on the left and home's on the right and never swaps ends (teams really swap ends
+  // each quarter, but ESPN's axis stays on the home goal, so a fixed bar never has to flip).
+  // So yards from the left (away) goal is always 100 - yardLine.
   const toFieldPct = (yardsFromLeftGoal) =>
     FIELD_INSET_PCT + Math.max(0, Math.min(100, yardsFromLeftGoal)) / 100 * FIELD_SPAN_PCT
 
   let losPct = null
   let firstDownPct = null
-  if (possessionSide && Number.isFinite(yardLine)) {
-    const yardsFromLeftGoal = possessionSide === 'away' ? yardLine : 100 - yardLine
+  if (Number.isFinite(yardLine)) {
+    const yardsFromLeftGoal = 100 - yardLine
     losPct = toFieldPct(yardsFromLeftGoal)
-    firstDownPct = possessionSide === 'home'
-      ? toFieldPct(yardsFromLeftGoal - (distance ?? 0))
-      : toFieldPct(yardsFromLeftGoal + (distance ?? 0))
+    // The away team attacks right (toward the home goal), the home team attacks left.
+    if (possessionSide) {
+      firstDownPct = possessionSide === 'home'
+        ? toFieldPct(yardsFromLeftGoal - (distance ?? 0))
+        : toFieldPct(yardsFromLeftGoal + (distance ?? 0))
+    }
   }
 
   return {

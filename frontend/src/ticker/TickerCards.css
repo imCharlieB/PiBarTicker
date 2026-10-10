@@ -559,6 +559,10 @@
 /* ── Football live (field diagram + down & distance) ────────────────────── */
 .ticker-runtime-shell .ff     { display: flex; flex-direction: column; gap: 2.4cqh; width: 100%; min-width: 0; }
 .ticker-runtime-shell .ff-dd  { font-size: 8.4cqh; font-weight: 900; color: #fff; letter-spacing: .01em; line-height: 1; text-align: center; }
+.ticker-runtime-shell .ff-lead { color: #cfd6e2; font-weight: 800; }
+.ticker-runtime-shell .ff-sep { margin: 0 1.6cqh; opacity: .45; }
+/* spine: clock + down & distance share one smaller line */
+.ticker-runtime-shell .d-spine .ff-dd { font-size: 5.6cqh; white-space: nowrap; }
 .ticker-runtime-shell .ff-sub {
   font-size: 3.9cqh; font-weight: 800; color: #aeb6c2; letter-spacing: .03em;
   display: flex; align-items: center; justify-content: center; gap: 2.6cqh; flex-wrap: wrap;

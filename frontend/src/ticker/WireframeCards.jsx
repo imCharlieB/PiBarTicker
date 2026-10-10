@@ -312,7 +312,7 @@ function EndZone({ team, side }) {
   )
 }
 
-function FootballLive({ game, compact }) {
+function FootballLive({ game, compact, lead }) {
   const f = game?.footballLiveData
   if (!f) return null
   // ESPN's own short form (e.g. "1st & 10", or "1st & Goal" near the goal line) has no
@@ -327,7 +327,13 @@ function FootballLive({ game, compact }) {
   const attackRight = f.possessionSide === 'away'
   return (
     <div className={`ff ${compact ? 'live-compact' : ''}`}>
-      {downDistanceText ? <div className="ff-dd">{downDistanceText}</div> : null}
+      {downDistanceText || lead ? (
+        <div className="ff-dd">
+          {lead ? <span className="ff-lead">{lead}</span> : null}
+          {lead && downDistanceText ? <span className="ff-sep">·</span> : null}
+          {downDistanceText}
+        </div>
+      ) : null}
       <div className="fld" aria-label="Field position">
         <div className="fld-in">
           <div className="fld-turf">
@@ -383,7 +389,7 @@ function hasLiveFeature(game) {
   return Boolean(game?.situationText)
 }
 
-function LiveFeature({ game, compact }) {
+function LiveFeature({ game, compact, lead }) {
   if (String(game?.state || '').toLowerCase() !== 'in') return null
   const sport = String(game?.sport || '').toLowerCase()
   if (sport === 'baseball' && game?.baseballLiveData && game?.isLiveFeatured) {
@@ -393,7 +399,7 @@ function LiveFeature({ game, compact }) {
     return <SoccerLive game={game} />
   }
   if (sport === 'football' && game?.footballLiveData && game?.isLiveFeatured) {
-    return <FootballLive game={game} compact={compact} />
+    return <FootballLive game={game} compact={compact} lead={lead} />
   }
   if (game?.situationText) {
     return <span className="sit-txt"><b>{game.situationText}</b></span>
@@ -650,6 +656,10 @@ function SpineCard({ game, flags }) {
   const spineStatus = isCombat && String(game?.state || '').toLowerCase() === 'in'
     ? String(game?.liveState?.detail || game?.status?.shortDetail || st || '').trim()
     : date
+  // live football: the clock rides on the down & distance line ("8:42 - 3rd · 1st & 10") to save a line of height
+  const footballLead = flags.situation && hasLiveFeature(game)
+    && String(game?.sport || '').toLowerCase() === 'football' && game?.footballLiveData && game?.isLiveFeatured
+    ? spineStatus : ''
   return (
     <div className={`card d-spine ${isPre ? 'is-pre' : ''}`}>
       <Flank team={a} side="a" />
@@ -662,9 +672,9 @@ function SpineCard({ game, flags }) {
             ? <span className="spine-vs">VS</span>
             : (<><b>{a?.score}</b><s>–</s><b>{h?.score}</b></>)}
         </div>
-        {spineStatus ? <span className="spine-status">{spineStatus}</span> : null}
+        {spineStatus && !footballLead ? <span className="spine-status">{spineStatus}</span> : null}
         {!isCombat && time ? <span className="spine-time">{time}</span> : null}
-        {flags.situation && hasLiveFeature(game) ? <LiveFeature game={game} /> : null}
+        {flags.situation && hasLiveFeature(game) ? <LiveFeature game={game} lead={footballLead} /> : null}
         <MetaRow game={game} flags={flags} />
       </div>
       <Flank team={h} side="h" />

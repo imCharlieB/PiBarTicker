@@ -558,11 +558,14 @@
 
 /* ── Football live (field diagram + down & distance) ────────────────────── */
 .ticker-runtime-shell .ff     { display: flex; flex-direction: column; gap: 2.4cqh; width: 100%; min-width: 0; }
-.ticker-runtime-shell .ff-dd  { font-size: 8.4cqh; font-weight: 900; color: #fff; letter-spacing: .01em; line-height: 1; }
+.ticker-runtime-shell .ff-dd  { font-size: 8.4cqh; font-weight: 900; color: #fff; letter-spacing: .01em; line-height: 1; text-align: center; }
 .ticker-runtime-shell .ff-sub {
   font-size: 3.9cqh; font-weight: 800; color: #aeb6c2; letter-spacing: .03em;
-  display: flex; align-items: center; gap: 2.6cqh; flex-wrap: wrap;
+  display: flex; align-items: center; justify-content: center; gap: 2.6cqh; flex-wrap: wrap;
 }
+/* the digits card keeps its situation block left-aligned in the footer */
+.ticker-runtime-shell .d-digits .ff-dd { text-align: left; }
+.ticker-runtime-shell .d-digits .ff-sub { justify-content: flex-start; }
 .ticker-runtime-shell .ff-poss { color: #7CF29B; }
 .ticker-runtime-shell .ff-rz   { font-size: 2.9cqh; font-weight: 900; letter-spacing: .1em; color: #0b0e0c; background: #F2766B; padding: 0.5cqh 1.6cqh; border-radius: 0.8cqh; }
 .ticker-runtime-shell .ff-field {

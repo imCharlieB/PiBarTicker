@@ -304,7 +304,7 @@ function EndZone({ team, side }) {
   const two = name.includes(' ') && name.length > 9
   const parts = two ? name.split(' ') : [name]
   const longest = Math.max(...parts.map((w) => w.length), 1)
-  const fs = Math.min(two ? 3.3 : 3.9, 29.5 / (longest * 0.78 + 0.2))
+  const fs = Math.min(two ? 3.3 : 3.9, 24.5 / (longest * 0.78 + 0.2)) // 24.5cqw: fits the shallowest field (spine)
   return (
     <div className={`fld-ez ${side}`}>
       <div className="fld-ezt" style={{ fontSize: `${fs}cqw` }}>{parts.map((p, i) => <span key={i}>{p}</span>)}</div>
@@ -622,9 +622,9 @@ function SpineCard({ game, flags }) {
     return (
       <div className={`spine-flank spine-${side}`}>
         <div className="spine-logo-group">
-          {!isCombat && gameHasStanding(game) ? (
+          {!isCombat && teamStanding(game, team) ? (
             <div className="spine-rank">
-              {teamStanding(game, team) ? <><small>{teamStanding(game, team).label}</small><b>{teamStanding(game, team).value}</b></> : null}
+              <small>{teamStanding(game, team).label}</small><b>{teamStanding(game, team).value}</b>
             </div>
           ) : null}
           <LogoBox team={team} side={side} size="xl" />

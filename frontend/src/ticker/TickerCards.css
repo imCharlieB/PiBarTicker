@@ -282,7 +282,7 @@
 /* Marquee live: seam auto-widens to hold field/diamond */
 .ticker-runtime-shell .d-marq.has-feat .marq-seam    { width: auto; min-width: 52.6cqh; gap: 3.2cqh; padding: 4.7cqh 6.3cqh; }
 .ticker-runtime-shell .d-marq .marq-seam .live       { gap: 4.2cqh; }
-.ticker-runtime-shell .d-marq .marq-seam-football .ff { width: 68.4cqh; }
+.ticker-runtime-shell .d-marq .marq-seam-football .ff { width: 76cqh; }
 .ticker-runtime-shell .d-marq .marq-seam .ff-dd      { font-size: 7.4cqh; }
 .ticker-runtime-shell .d-marq .marq-seam-soccer .ff  { width: 71.1cqh; }
 .ticker-runtime-shell .d-marq .marq-seam .sc-dd      { font-size: 5.8cqh; }
@@ -322,7 +322,7 @@
 .ticker-runtime-shell .slab-plate.stack { flex-direction: column; font-size: 4.5cqh; max-width: 100%; }
 .ticker-runtime-shell .slab-plate.stack span { text-align: center; }
 .ticker-runtime-shell .slab-plate.stack .sp-rec { border-top: 1px solid rgba(255,255,255,.22); padding-block: 0.4cqh; }
-/* spine: rank as plain glowing text above the logo (slot reserved on unranked teams so logos stay level) */
+/* spine: rank as plain glowing text above the logo (an unranked team gets no slot, so its logo stays centered) */
 .ticker-runtime-shell .spine-rank { height: 15.8cqh; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 0.5cqh; line-height: 1; }
 .ticker-runtime-shell .spine-rank small { font-size: 3.2cqh; font-weight: 800; letter-spacing: .28em; color: #F2C94C; white-space: nowrap; }
 .ticker-runtime-shell .spine-rank b { font-size: 8.9cqh; font-weight: 900; color: #fff; text-shadow: 0 0 14px rgba(255,255,255,.55), 0 0 28px rgba(242,201,76,.5); }
@@ -570,7 +570,8 @@
 .ticker-runtime-shell .ff-rz   { font-size: 2.9cqh; font-weight: 900; letter-spacing: .1em; color: #0b0e0c; background: #F2766B; padding: 0.5cqh 1.6cqh; border-radius: 0.8cqh; }
 .ticker-runtime-shell .fld { position: relative; width: min(100%, 78cqh); margin-inline: auto; aspect-ratio: 332 / 114; container-type: inline-size; }
 /* the field is taller than the old bar, so each card style gets the size that still leaves room for the rest of its live content */
-.ticker-runtime-shell .d-spine .fld { width: min(100%, 60cqh); }
+/* spine: full column width, but a shallower field so the extra width does not cost vertical room (LIVE chip + stadium row) */
+.ticker-runtime-shell .d-spine .fld { width: 100%; aspect-ratio: 332 / 86; }
 .ticker-runtime-shell .d-digits .fld { width: min(100%, 44cqh); margin-inline: 0; }
 .ticker-runtime-shell .fld-in { position: absolute; inset: 0; border-radius: 3.3cqw; overflow: hidden; box-shadow: 0 0 0 .9cqw #f1f6e4, 0 2.4cqw 5cqw rgba(0,0,0,.55); }
 .ticker-runtime-shell .fld-turf { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(0,0,0,.20)), #4b9a3f; }

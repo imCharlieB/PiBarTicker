@@ -561,6 +561,10 @@
 .ticker-runtime-shell .ff-dd  { font-size: 8.4cqh; font-weight: 900; color: #fff; letter-spacing: .01em; line-height: 1; text-align: center; }
 .ticker-runtime-shell .ff-lead { color: #cfd6e2; font-weight: 800; }
 .ticker-runtime-shell .ff-sep { margin: 0 1.6cqh; opacity: .45; }
+/* spine, live football: tighter vertical gaps so a network logo + a long stadium name that wraps onto its own line (and the red-zone chip) still fit inside the card */
+.ticker-runtime-shell .d-spine.fb-live .spine-mid { gap: 1.3cqh; padding-block: 2.6cqh; }
+.ticker-runtime-shell .d-spine.fb-live .ff { gap: 1.2cqh; }
+.ticker-runtime-shell .d-spine.fb-live .meta { margin-top: 0; gap: 0.6cqh 2cqh; justify-content: center; }
 /* spine: clock + down & distance share one smaller line */
 .ticker-runtime-shell .d-spine .ff-dd { font-size: 5.6cqh; white-space: nowrap; }
 .ticker-runtime-shell .ff-sub {

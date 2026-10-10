@@ -661,7 +661,7 @@ function SpineCard({ game, flags }) {
     && String(game?.sport || '').toLowerCase() === 'football' && game?.footballLiveData && game?.isLiveFeatured
     ? spineStatus : ''
   return (
-    <div className={`card d-spine ${isPre ? 'is-pre' : ''}`}>
+    <div className={`card d-spine ${isPre ? 'is-pre' : ''}${footballLead ? ' fb-live' : ''}`}>
       <Flank team={a} side="a" />
       <div className="spine-mid">
         <MatchupTab game={game} />

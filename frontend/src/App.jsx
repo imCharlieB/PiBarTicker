@@ -177,6 +177,7 @@ function App() {
     '--ticker-card-border': themeTokens?.tickerCardBorder,
     '--lower-bg': themeTokens?.lowerBg,
     '--lower-text': themeTokens?.lowerText,
+    '--news-accent': themeTokens?.modeClass === 'mode-light' ? '#b45309' : '#fbbf24', // amber that stays readable on the light page
     '--hero-eyebrow': themeTokens?.heroEyebrow,
     '--button-text': themeTokens?.buttonText,
     ...(tickerWatermarkUrl ? { '--ticker-watermark-url': `url(${tickerWatermarkUrl})` } : {}),

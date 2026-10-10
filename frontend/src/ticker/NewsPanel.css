@@ -43,7 +43,7 @@
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.16em;
-  color: #fbbf24;
+  color: var(--news-accent, #fbbf24);
   white-space: nowrap;
 }
 .news-panel-meta span { color: var(--text-muted, #8d97a8); }

@@ -298,6 +298,13 @@ function SoccerLive({ game }) {
 
 const FOOTBALL_DOWN_ORDINALS = { 1: '1ST', 2: '2ND', 3: '3RD', 4: '4TH' }
 
+// Team logo that quietly disappears if it fails to load (the end zone keeps its team color).
+function FieldLogo({ src, className }) {
+  const [failedSrc, setFailedSrc] = useState('')
+  if (!src || failedSrc === src) return null
+  return <img className={className} src={src} alt="" onError={() => setFailedSrc(src)} />
+}
+
 function FootballLive({ game, compact }) {
   const f = game?.footballLiveData
   if (!f) return null
@@ -315,14 +322,18 @@ function FootballLive({ game, compact }) {
     <div className={`ff ${compact ? 'live-compact' : ''}`}>
       {downDistanceText ? <div className="ff-dd">{downDistanceText}</div> : null}
       <div className="ff-field" aria-label="Field position">
-        <span className="ff-ez ff-ez-l" style={{ backgroundColor: 'var(--ca)' }} />
-        <span className="ff-ez ff-ez-r" style={{ backgroundColor: 'var(--ch)' }} />
+        <span className="ff-ez ff-ez-l" style={{ backgroundColor: 'var(--ca)' }}><FieldLogo className="ff-ez-logo" src={game?.teams?.away?.logo} /></span>
+        <span className="ff-ez ff-ez-r" style={{ backgroundColor: 'var(--ch)' }}><FieldLogo className="ff-ez-logo" src={game?.teams?.home?.logo} /></span>
         {FIELD_YARD_MARKS.map((mark) => (
           <span key={mark.yard} className="ff-yd" style={{ left: `${mark.left}%` }}>{mark.label}</span>
         ))}
         {!f.isRedZone && f.firstDownPct != null ? <span className="ff-fd" style={{ left: `${f.firstDownPct}%` }} /> : null}
         {!f.isRedZone && f.losPct != null ? <span className="ff-los" style={{ left: `${f.losPct}%` }} /> : null}
-        {f.losPct != null ? <span className="ff-ball" style={{ left: `${f.losPct}%` }} /> : null}
+        {f.losPct != null
+          ? (possTeam?.logo
+            ? <span className="ff-ball ff-ball-logo" style={{ left: `${f.losPct}%`, '--bc': f.possessionSide === 'home' ? 'var(--ch)' : 'var(--ca)' }}><FieldLogo src={possTeam.logo} /></span>
+            : <span className="ff-ball" style={{ left: `${f.losPct}%` }} />)
+          : null}
       </div>
       <div className="ff-sub">
         {possTeam

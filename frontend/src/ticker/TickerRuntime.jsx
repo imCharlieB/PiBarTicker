@@ -5,6 +5,7 @@ import WireframeCard, { BoardCard } from './WireframeCards.jsx'
 import BaseballCard from './BaseballCard.jsx'
 import GameCard from './GameCard.jsx'
 import NewsCard from './NewsCard.jsx'
+import { newsLogoCandidates } from './newsLogo.js'
 import { sanitizeHexColor, rgbaFromHex, hexToRgb, resolveLeagueLogoUrl as resolveLeagueLogo } from './cardHelpers.js'
 import { useHASensors, renderEntityValue, haIconFor, haColorFor, WEATHER_ICON_MAP, HATickerCards } from './haHelpers.js'
 
@@ -86,10 +87,11 @@ function pickCardComponent(game) {
   return GameCard
 }
 
-function LeagueMark({ league, logo }) {
-  const [err, setErr] = useState(false)
-  useEffect(() => { setErr(false) }, [logo])
-  if (logo && !err) return <img className="l3-logo" src={logo} alt={league} onError={() => setErr(true)} />
+function LeagueMark({ league, leagueId, logo }) {
+  // a hand-placed logos/leagues/{leagueId}.png wins, then the resolved logo; a candidate that fails to load is skipped
+  const [failed, setFailed] = useState([])
+  const src = newsLogoCandidates(leagueId, logo).find((u) => !failed.includes(u)) || ''
+  if (src) return <img className="l3-logo" src={src} alt={league} onError={() => setFailed((f) => [...f, src])} />
   if (league) return <span className="l3-badge">{league}</span>
   return null
 }
@@ -155,7 +157,7 @@ function SensorCornerWidgets({ haSensors, sensorValues }) {
   })
 }
 
-function LowerThird({ clockFormat, haSlotActive, leagueName, leagueLogo }) {
+function LowerThird({ clockFormat, haSlotActive, leagueName, leagueId, leagueLogo }) {
   const timeRef = useRef(null)
 
   useEffect(() => {
@@ -180,7 +182,7 @@ function LowerThird({ clockFormat, haSlotActive, leagueName, leagueLogo }) {
     <div className="ticker-runtime-lower l3-insert" aria-label="Lower third">
       {haSlotActive
         ? <span className="l3-badge">HOME</span>
-        : <LeagueMark league={leagueName} logo={leagueLogo} />}
+        : <LeagueMark league={leagueName} leagueId={leagueId} logo={leagueLogo} />}
       <span className="l3-time" ref={timeRef} />
     </div>
   )
@@ -577,7 +579,7 @@ function TickerRuntime({
           <SensorCornerWidgets haSensors={haSensors} sensorValues={sensorValues} />
         </section>
       )}
-      <LowerThird clockFormat={config?.theme?.clockFormat ?? '12h'} haSlotActive={haSlotActive} leagueName={typeof renderLeague === 'string' ? renderLeague : (renderLeague?.name || renderLeague?.id || '')} leagueLogo={brandLogoUrl} />
+      <LowerThird clockFormat={config?.theme?.clockFormat ?? '12h'} haSlotActive={haSlotActive} leagueName={typeof renderLeague === 'string' ? renderLeague : (renderLeague?.name || renderLeague?.id || '')} leagueId={brandLeague?.id} leagueLogo={brandLogoUrl} />
     </main>
   )
 }

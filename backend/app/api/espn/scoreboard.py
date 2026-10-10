@@ -952,7 +952,7 @@ def get_scoreboard(
                     _standings_data = _http_client.get_json(
                         f"https://site.api.espn.com/apis/v2/sports/racing/{entry.league_id}/standings",
                         use_cache=True,
-                        cache_ttl_seconds=3600.0,
+                        cache_ttl_seconds=_RESULTS_TTL,
                     )
                     _standings_children = (_standings_data or {}).get("children") if isinstance(_standings_data, dict) else None
                     _standings_entries = (
@@ -1026,8 +1026,8 @@ def get_scoreboard(
                         _tn = _slug(_d.remote_urls.get("team_name"))
                         if _tn and _d.color and _tn not in _team_color:
                             _team_color[_tn] = _d.color
-                    _jd = _http_client.get_json("https://api.jolpi.ca/ergast/f1/current/driverStandings.json", use_cache=True, cache_ttl_seconds=3600.0)
-                    _jc = _http_client.get_json("https://api.jolpi.ca/ergast/f1/current/constructorStandings.json", use_cache=True, cache_ttl_seconds=3600.0)
+                    _jd = _http_client.get_json("https://api.jolpi.ca/ergast/f1/current/driverStandings.json", use_cache=True, cache_ttl_seconds=_RESULTS_TTL)
+                    _jc = _http_client.get_json("https://api.jolpi.ca/ergast/f1/current/constructorStandings.json", use_cache=True, cache_ttl_seconds=_RESULTS_TTL)
                     _dl = ((_jd or {}).get("MRData") or {}).get("StandingsTable", {}).get("StandingsLists") or []
                     _cl = ((_jc or {}).get("MRData") or {}).get("StandingsTable", {}).get("StandingsLists") or []
                     _drows = []

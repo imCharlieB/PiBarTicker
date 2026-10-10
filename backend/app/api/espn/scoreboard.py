@@ -1768,6 +1768,8 @@ def get_scoreboard(
                 str(_g.get("state") or "").lower() == "pre"
                 and _g.get("raceDetails")
                 and _g.get("racingEntries")
+                # a real starting order has positions; ESPN's bare entry list (points order, no positions) does not
+                and any(isinstance(_e.get("position"), int) and _e.get("position") > 0 for _e in _g["racingEntries"])
             ):
                 _order = {k: v for k, v in _g.items() if k != "raceDetails"}
                 _order["id"] = f"{_g.get('id')}-order"

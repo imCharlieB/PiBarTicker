@@ -611,9 +611,9 @@
   border: 1.5px solid #d9b48c; transform: translate(-50%, -50%);
   box-shadow: 0 1px 3px rgba(0,0,0,.55);
 }
-/* the team with the ball: its (light) logo on a chip in its team color, ringed in white and glowing */
+/* the team with the ball: its dark-background logo on a dark chip (a team-colored chip hid logos of the same color, e.g. Nebraska's red N), ringed in white and glowing in its team color */
 .ticker-runtime-shell .ff-ball-logo {
-  width: 8.2cqh; height: 8.2cqh; border-radius: 50%; border: none; background: var(--bc, #333);
+  width: 8.2cqh; height: 8.2cqh; border-radius: 50%; border: none; background: #0f1218;
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 0 0 2px #fff, 0 0 10px var(--bc, #fff);
 }

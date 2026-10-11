@@ -595,17 +595,25 @@ function SlabCard({ game, flags }) {
     ? splitDateTime(seamStatus)
     : { date: seamStatus, time: '' }
 
+  // Network logo(s) sit beside the status chip on upcoming + live games (none on final), like the spine
+  const nets = !isCombat && flags.tv && game?.broadcastText && (state === 'pre' || state === 'in')
+    ? game.broadcastText.split(/\s*\/\s*/).map((n) => n.trim()).filter(Boolean)
+    : []
+
   return (
     <div className={`card d-slab ${isCombat ? 'd-slab-combat' : ''} ${showFeat ? 'has-feat' : ''} ${isPre ? 'is-pre' : ''}`}>
       <Half team={a} side="a" />
       <div className="slab-seam">
         <MatchupTab game={game} />
-        <StateChip game={game} />
+        <div className="slab-state">
+          <StateChip game={game} />
+          {nets.length ? <span className="slab-nets">{nets.map((n, i) => <NetworkLogo key={i} name={n} />)}</span> : null}
+        </div>
         {isCombat && game?.sessionLabel ? <span className="slab-time">{game.sessionLabel}</span> : null}
         {seamDate ? <span className="slab-status">{seamDate}</span> : null}
         {(isCombat ? seamTime : time) ? <span className="slab-time">{isCombat ? seamTime : time}</span> : null}
         {showFeat ? <LiveFeature game={game} compact /> : null}
-        <MetaRow game={game} flags={flags} mono />
+        <MetaRow game={game} flags={isCombat ? flags : { ...flags, tv: false }} mono />
       </div>
       <Half team={h} side="h" />
     </div>

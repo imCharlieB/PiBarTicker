@@ -173,6 +173,13 @@
 .ticker-runtime-shell .slab-seam .sit-txt          { justify-content: center; text-align: center; }
 .ticker-runtime-shell .slab-seam .sit-txt b        { white-space: normal; }
 .ticker-runtime-shell .slab-status { font-weight: 800; font-size: 7.4cqh; color: #e9eef6; white-space: nowrap; }
+/* status chip with the network logo beside it (upcoming + live) */
+.ticker-runtime-shell .slab-state { display: flex; align-items: center; justify-content: center; gap: 2.6cqh; min-width: 0; }
+.ticker-runtime-shell .slab-nets { display: inline-flex; align-items: center; gap: 1.6cqh; }
+.ticker-runtime-shell .slab-nets .meta-tv-logo { height: 6.6cqh; max-width: 18cqh; }
+/* live football: the clock is a small gray line and the down & distance a medium white line under it, so the field is the hero */
+.ticker-runtime-shell .d-slab:has(.fld) .slab-status { font-size: 5.6cqh; font-weight: 700; color: #9aa3b1; }
+.ticker-runtime-shell .d-slab:has(.fld) .ff-dd { font-size: 6.6cqh; }
 .ticker-runtime-shell .slab-time   { font-weight: 700; font-size: 5.8cqh; color: #9aa3b1; }
 /* slab: logo + record + spread stacked vertically in team panels */
 .ticker-runtime-shell .slab-logo-group { display: flex; flex-direction: column; align-items: center; gap: 2.1cqh; }

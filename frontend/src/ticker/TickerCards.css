@@ -1347,3 +1347,17 @@
 .ticker-runtime-shell .lv-hs { font-weight: 900; font-size: 6cqh; letter-spacing: .14em; color: rgb(var(--acc)); white-space: nowrap; }
 /* live race: the race name sits at the top like the timed sessions; the flag chip + lap count stay on the right */
 .ticker-runtime-shell .lv-ht.lv-race { margin-right: auto; }
+
+/* ── Win probability (live football, Maximal) ── slab: split bar under the down & distance; spine + marquee: vertical meter on the inside edge of each team box */
+.ticker-runtime-shell .ff-wp { display: flex; align-items: center; gap: 1.6cqh; width: 100%; margin-bottom: 0.9cqh; }
+.ticker-runtime-shell .ff-wp b { font-weight: 900; font-size: 4.4cqh; line-height: 1; min-width: 9.5cqh; }
+.ticker-runtime-shell .ff-wp b:first-child { text-align: right; }
+.ticker-runtime-shell .ff-wp-tr { flex: 1; display: flex; height: 2cqh; border-radius: 1cqh; overflow: hidden; }
+.ticker-runtime-shell .ff-wp-tr i { display: block; height: 100%; }
+.ticker-runtime-shell .wp-meter { position: absolute; top: 0; bottom: 0; width: 2.2cqh; background: rgba(0, 0, 0, .38); z-index: 4; }
+.ticker-runtime-shell .wp-meter.wp-a { right: 0; }
+.ticker-runtime-shell .wp-meter.wp-h { left: 0; }
+.ticker-runtime-shell .wp-meter i { position: absolute; left: 0; right: 0; bottom: 0; }
+.ticker-runtime-shell .wp-pct { position: absolute; z-index: 5; font-weight: 900; font-size: 4.6cqh; line-height: 1; text-shadow: 0 0 1cqh rgba(0, 0, 0, .7); }
+.ticker-runtime-shell .wp-pct.wp-a { right: 3.2cqh; }
+.ticker-runtime-shell .wp-pct.wp-h { left: 3.2cqh; }

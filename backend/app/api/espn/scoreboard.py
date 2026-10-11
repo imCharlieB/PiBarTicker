@@ -10,7 +10,7 @@ from ...core.espn_normalizer import normalize_scoreboard_events
 from ...core.espn_registry import resolve_registry_entry
 from ...core.espn_scoreboard import EspnScoreboardClient, resolve_calendar_weeks
 from .teams import standings_stats_by_team
-from ...core.football_drive import drive_start_from_summary
+from ...core.football_drive import drive_start_from_summary, win_probability_from_summary
 from ...core.points_store import counted_after_pull, load_points, points_due, save_points
 from ...core.poll_store import headline_from_stored, load_polls, parse_polls, polls_due, save_polls, touch_checked
 from ...core.team_results import (
@@ -1651,13 +1651,14 @@ def get_scoreboard(
         live_ids = [str(g["id"]) for g in normalized_games if str(g.get("state") or "").lower() == "in" and g.get("id")]
         if live_ids:
             def _drive_start(event_id: str) -> dict | None:
+                # one summary call per live game gives both the drive start (field band) and the win chance (Maximal cards)
                 try:
                     summary = _http_client.get_json(
                         f"https://site.api.espn.com/apis/site/v2/sports/football/{entry.league}/summary?event={event_id}",
                         use_cache=cache_ttl_seconds > 0,
                         cache_ttl_seconds=cache_ttl_seconds,
                     )
-                    return drive_start_from_summary(summary)
+                    return {"driveStart": drive_start_from_summary(summary), "winProbability": win_probability_from_summary(summary)}
                 except Exception:
                     return None
 
@@ -1667,14 +1668,17 @@ def get_scoreboard(
             try:
                 for future in as_completed(futures, timeout=8):
                     result = future.result()
-                    if result:
+                    if result and (result.get("driveStart") or result.get("winProbability")):
                         starts[futures[future]] = result
             except Exception:
                 pass  # a slow game just gets no drive band this refresh
             pool.shutdown(wait=False)
             for game in normalized_games:
-                if str(game.get("id")) in starts:
-                    game["driveStart"] = starts[str(game["id"])]
+                extras = starts.get(str(game.get("id"))) or {}
+                if extras.get("driveStart"):
+                    game["driveStart"] = extras["driveStart"]
+                if extras.get("winProbability"):
+                    game["winProbability"] = extras["winProbability"]
 
     # Soccer: fetch live summary (possession %, shots, corners) per live game.
     # The scoreboard situation block is empty for soccer; this data lives in the

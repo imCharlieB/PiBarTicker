@@ -1,6 +1,7 @@
 import { Fragment, useState, useEffect, useLayoutEffect, useRef } from 'react'
 import {
   densityFlags,
+  winProbabilityOf,
   formatRuntimeStatus,
   racingCardTitle,
   racingEntrySummary,
@@ -312,7 +313,30 @@ function EndZone({ team, side }) {
   )
 }
 
-function FootballLive({ game, compact, lead }) {
+// Win chance, slab: a split bar under the down & distance, above the field
+function WinBar({ wp }) {
+  return (
+    <div className="ff-wp" aria-label="Win probability">
+      <b style={{ color: wp.awayColor }}>{wp.away}%</b>
+      <div className="ff-wp-tr"><i style={{ width: `${wp.away}%`, background: wp.awayColor }} /><i style={{ width: `${wp.home}%`, background: wp.homeColor }} /></div>
+      <b style={{ color: wp.homeColor }}>{wp.home}%</b>
+    </div>
+  )
+}
+
+// Win chance, spine + marquee: a vertical meter on the inside edge of the team's colour box, filling up with that team's chance
+function WinMeter({ wp, side }) {
+  const pct = side === 'a' ? wp.away : wp.home
+  const color = side === 'a' ? wp.awayColor : wp.homeColor
+  return (
+    <>
+      <span className={`wp-meter wp-${side}`}><i style={{ height: `${pct}%`, background: color, boxShadow: `0 0 1.4cqh ${color}` }} /></span>
+      <span className={`wp-pct wp-${side}`} style={{ bottom: `calc(${pct}% - 2.4cqh)`, color }}>{pct}%</span>
+    </>
+  )
+}
+
+function FootballLive({ game, compact, lead, wp }) {
   const f = game?.footballLiveData
   if (!f) return null
   // ESPN's own short form (e.g. "1st & 10", or "1st & Goal" near the goal line) has no
@@ -334,6 +358,7 @@ function FootballLive({ game, compact, lead }) {
           {downDistanceText}
         </div>
       ) : null}
+      {wp ? <WinBar wp={wp} /> : null}
       <div className="fld" aria-label="Field position">
         <div className="fld-in">
           <div className="fld-turf">
@@ -389,7 +414,7 @@ function hasLiveFeature(game) {
   return Boolean(game?.situationText)
 }
 
-function LiveFeature({ game, compact, lead }) {
+function LiveFeature({ game, compact, lead, wp }) {
   if (String(game?.state || '').toLowerCase() !== 'in') return null
   const sport = String(game?.sport || '').toLowerCase()
   if (sport === 'baseball' && game?.baseballLiveData && game?.isLiveFeatured) {
@@ -399,7 +424,7 @@ function LiveFeature({ game, compact, lead }) {
     return <SoccerLive game={game} />
   }
   if (sport === 'football' && game?.footballLiveData && game?.isLiveFeatured) {
-    return <FootballLive game={game} compact={compact} lead={lead} />
+    return <FootballLive game={game} compact={compact} lead={lead} wp={wp} />
   }
   if (game?.situationText) {
     return <span className="sit-txt"><b>{game.situationText}</b></span>
@@ -545,6 +570,7 @@ function SlabCard({ game, flags }) {
   const showFeat = flags.situation && hasLiveFeature(game)
   const aSpread = teamSpread(game?.oddsText, teamAbbr(a))
   const hSpread = teamSpread(game?.oddsText, teamAbbr(h))
+  const wp = flags.winProb ? winProbabilityOf(game) : null
 
   const Half = ({ team, side }) => {
     const spread = side === 'a' ? aSpread : hSpread
@@ -614,7 +640,7 @@ function SlabCard({ game, flags }) {
         {isCombat && game?.sessionLabel ? <span className="slab-time">{game.sessionLabel}</span> : null}
         {seamDate ? <span className="slab-status">{seamDate}</span> : null}
         {(isCombat ? seamTime : time) ? <span className="slab-time">{isCombat ? seamTime : time}</span> : null}
-        {showFeat ? <LiveFeature game={game} compact /> : null}
+        {showFeat ? <LiveFeature game={game} compact wp={wp} /> : null}
         <MetaRow game={game} flags={isCombat ? flags : { ...flags, tv: false }} mono />
         </div>
       </div>
@@ -632,12 +658,14 @@ function SpineCard({ game, flags }) {
   const isCombat = Boolean(game?.combat)
   const aSpread = teamSpread(game?.oddsText, teamAbbr(a))
   const hSpread = teamSpread(game?.oddsText, teamAbbr(h))
+  const wp = flags.winProb ? winProbabilityOf(game) : null
 
   const Flank = ({ team, side }) => {
     const spread = side === 'a' ? aSpread : hSpread
     const fighterName = isCombat ? String(team?.name || team?.abbreviation || '').trim() : ''
     return (
       <div className={`spine-flank spine-${side}`}>
+        {wp ? <WinMeter wp={wp} side={side} /> : null}
         <div className="spine-logo-group">
           {!isCombat && teamStanding(game, team) ? (
             <div className="spine-rank">
@@ -759,6 +787,7 @@ function MarqueeCard({ game, flags }) {
   const sport = String(game?.sport || '').toLowerCase()
   const aSpread = teamSpread(game?.oddsText, teamAbbr(a))
   const hSpread = teamSpread(game?.oddsText, teamAbbr(h))
+  const wp = flags.winProb ? winProbabilityOf(game) : null
 
   const marqClock = isCombat && String(game?.state || '').toLowerCase() === 'in'
     ? String(game?.liveState?.detail || game?.status?.shortDetail || '').trim() || 'LIVE'
@@ -767,6 +796,7 @@ function MarqueeCard({ game, flags }) {
   return (
     <div className={`card d-marq ${showFeat ? 'has-feat' : ''}`}>
       <div className="marq-half marq-a">
+        {wp ? <WinMeter wp={wp} side="a" /> : null}
         {teamStanding(game, a) ? <span className={`marq-hang${teamStanding(game, a).text.length > 9 ? ' long' : ''}`}>{teamStanding(game, a).text}<StreakTag streak={teamStreak(game, a)} cls="mh-st" /></span> : null}
         <div className="marq-logo-group">
           <LogoBox team={a} side="a" size="lg" />
@@ -786,6 +816,7 @@ function MarqueeCard({ game, flags }) {
         <MetaRow game={game} flags={flags} />
       </div>
       <div className="marq-half marq-h">
+        {wp ? <WinMeter wp={wp} side="h" /> : null}
         {teamStanding(game, h) ? <span className={`marq-hang${teamStanding(game, h).text.length > 9 ? ' long' : ''}`}>{teamStanding(game, h).text}<StreakTag streak={teamStreak(game, h)} cls="mh-st" /></span> : null}
         <span className="marq-score">{(isPre || isCombat) ? '' : (h?.score ?? '')}</span>
         <div className="marq-logo-group">

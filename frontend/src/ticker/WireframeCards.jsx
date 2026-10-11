@@ -752,6 +752,12 @@ function DigitsCard({ game, flags }) {
     </div>
   )
 
+  // Network logo(s) sit up in the header beside the status chip on upcoming + live games (none on final), like the slab and spine
+  const digState = String(game?.state || '').toLowerCase()
+  const nets = !isCombat && flags.tv && game?.broadcastText && (digState === 'pre' || digState === 'in')
+    ? game.broadcastText.split(/\s*\/\s*/).map((n) => n.trim()).filter(Boolean)
+    : []
+
   const digClock = isCombat && String(game?.state || '').toLowerCase() === 'in'
     ? String(game?.liveState?.detail || game?.status?.shortDetail || '').trim() || 'LIVE'
     : statusText(game)
@@ -761,6 +767,7 @@ function DigitsCard({ game, flags }) {
       <div className="dig-head">
         <span className="dig-league">{game?.leagueName || ''}</span>
         <StateChip game={game} />
+        {nets.length ? <span className="dig-nets">{nets.map((n, i) => <NetworkLogo key={i} name={n} />)}</span> : null}
         {matchupTag(game) ? <span className="dig-callout">{matchupTag(game)}</span> : null}
         <span className="dig-clock">{isCombat && game?.sessionLabel ? game.sessionLabel : digClock}</span>
       </div>
@@ -769,7 +776,7 @@ function DigitsCard({ game, flags }) {
       {(showFeat || flags.tv) ? (
         <div className="dig-foot">
           {showFeat ? <LiveFeature game={game} /> : <span />}
-          <MetaRow game={game} flags={flags} mono />
+          <MetaRow game={game} flags={isCombat ? flags : { ...flags, tv: false }} mono />
         </div>
       ) : null}
     </div>
@@ -788,6 +795,12 @@ function MarqueeCard({ game, flags }) {
   const aSpread = teamSpread(game?.oddsText, teamAbbr(a))
   const hSpread = teamSpread(game?.oddsText, teamAbbr(h))
   const wp = flags.winProb ? winProbabilityOf(game) : null
+
+  // Network logo(s) sit up beside the status chip on upcoming + live games (none on final), like the slab, spine and digits
+  const mState = String(game?.state || '').toLowerCase()
+  const nets = !isCombat && flags.tv && game?.broadcastText && (mState === 'pre' || mState === 'in')
+    ? game.broadcastText.split(/\s*\/\s*/).map((n) => n.trim()).filter(Boolean)
+    : []
 
   const marqClock = isCombat && String(game?.state || '').toLowerCase() === 'in'
     ? String(game?.liveState?.detail || game?.status?.shortDetail || '').trim() || 'LIVE'
@@ -808,12 +821,18 @@ function MarqueeCard({ game, flags }) {
         <span className="marq-score">{(isPre || isCombat) ? '' : (a?.score ?? '')}</span>
       </div>
       <div className={`marq-seam ${showFeat ? `marq-seam-${sport}` : ''}`}>
+        {/* the banner (if any) takes its own height at the top; the body spreads whatever is shown evenly in the room below it */}
         <MatchupTab game={game} />
-        <StateChip game={game} />
+        <div className="marq-body">
+        <div className="marq-state">
+          <StateChip game={game} />
+          {nets.length ? <span className="marq-nets">{nets.map((n, i) => <NetworkLogo key={i} name={n} />)}</span> : null}
+        </div>
         {isCombat && game?.sessionLabel ? <span className="marq-clock">{game.sessionLabel}</span> : null}
         <span className="marq-clock">{marqClock}</span>
         {showFeat ? <LiveFeature game={game} compact /> : null}
-        <MetaRow game={game} flags={flags} />
+        <MetaRow game={game} flags={isCombat ? flags : { ...flags, tv: false }} />
+        </div>
       </div>
       <div className="marq-half marq-h">
         {wp ? <WinMeter wp={wp} side="h" /> : null}

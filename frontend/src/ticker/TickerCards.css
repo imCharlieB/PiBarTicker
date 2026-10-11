@@ -1364,3 +1364,28 @@
 
 /* digits: no football field graphic (the down & distance and ball-on text stay) - it did not fit the compact two-row card */
 .ticker-runtime-shell .d-digits .fld { display: none; }
+
+/* digits: the network logo sits in the header beside the status chip (so the bottom row is just the stadium) */
+.ticker-runtime-shell .dig-nets { display: inline-flex; align-items: center; gap: 1.6cqh; }
+.ticker-runtime-shell .dig-nets .meta-tv-logo { height: 6.2cqh; max-width: 18cqh; }
+
+/* marquee: the network logo sits beside the status chip (upcoming + live) */
+.ticker-runtime-shell .marq-state { display: flex; align-items: center; justify-content: center; gap: 2.6cqh; min-width: 0; }
+.ticker-runtime-shell .marq-nets { display: inline-flex; align-items: center; gap: 1.6cqh; }
+.ticker-runtime-shell .marq-nets .meta-tv-logo { height: 6.6cqh; max-width: 18cqh; }
+/* digits: the stadium name keeps one line and takes the right end of the foot row (the down & ball-on text sits on the left) */
+.ticker-runtime-shell .d-digits .dig-foot .meta { flex: 0 0 auto; margin-left: auto; margin-top: 0; flex-wrap: nowrap; }
+.ticker-runtime-shell .d-digits .dig-foot .meta-i { white-space: nowrap; }
+.ticker-runtime-shell .d-digits .dig-foot .ff { flex: 1 1 auto; min-width: 0; }
+/* marquee: the middle column is as wide as its contents (40cqh is the minimum), so the status chip + network logo and the date never get cut off */
+.ticker-runtime-shell .d-marq .marq-seam { width: auto; min-width: 40cqh; padding-inline: 3.2cqh; }
+.ticker-runtime-shell .d-marq .marq-seam .marq-clock { white-space: nowrap; }
+
+/* marquee AUTO SPACING (same idea as the spine and slab): the banner is a normal item at the top, the body under it spreads its items evenly */
+.ticker-runtime-shell .d-marq .marq-seam,
+.ticker-runtime-shell .d-marq.has-feat .marq-seam { gap: 0; justify-content: flex-start; padding-block: 0; padding-inline: 3.2cqh; }
+.ticker-runtime-shell .d-marq .marq-seam > .calltab { position: relative; top: auto; left: auto; transform: none; flex: 0 0 auto; align-self: center; }
+.ticker-runtime-shell .marq-body {
+  flex: 1 1 auto; min-height: 0; width: 100%; display: flex; flex-direction: column; align-items: center;
+  justify-content: space-evenly; gap: 1.2cqh; padding-block: 1.6cqh;
+}

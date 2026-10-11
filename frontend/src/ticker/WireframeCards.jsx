@@ -556,8 +556,9 @@ function MatchupTab({ game }) {
 function ScoreOrDash({ team, game }) {
   const state = String(game?.state || '').toLowerCase()
   if (state === 'pre') return <span className="score score-dim">—</span>
-  const wide = String(team?.score ?? '').length >= 3
-  return <span className={`score ${wide ? 'score-3d' : ''}`}>{team?.score}</span>
+  const digits = String(team?.score ?? '').length
+  const wide = digits >= 3
+  return <span className={`score ${wide ? 'score-3d' : ''}${digits === 1 ? ' score-1' : ''}`}>{team?.score}</span>
 }
 
 // ── DIRECTION 1 · SLAB ─────────────────────────────────────────────────────

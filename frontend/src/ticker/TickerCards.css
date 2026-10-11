@@ -1392,3 +1392,7 @@
 
 /* slab: a bigger FINAL tab (the middle of a final card is otherwise mostly empty) */
 .ticker-runtime-shell .d-slab:not(.d-board) .chip-final { font-size: 6.4cqh; padding: 1.8cqh 4.6cqh; border-radius: 2cqh; }
+/* slab live cards: the column starts right under the banner (no dead space above the LIVE chip); spare height goes to the bottom */
+.ticker-runtime-shell .d-slab:not(.d-board).has-feat .slab-body { justify-content: flex-start; padding-top: 1.4cqh; }
+/* slab: a one-digit score is centered in its team panel (two and three digits stay at the outer edge) */
+.ticker-runtime-shell .d-slab:not(.d-board) .score.score-1 { align-self: center; }

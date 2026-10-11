@@ -604,7 +604,9 @@ function SlabCard({ game, flags }) {
     <div className={`card d-slab ${isCombat ? 'd-slab-combat' : ''} ${showFeat ? 'has-feat' : ''} ${isPre ? 'is-pre' : ''}`}>
       <Half team={a} side="a" />
       <div className="slab-seam">
+        {/* the banner (if any) takes its own height at the top; the body spreads whatever is shown evenly in the room below it */}
         <MatchupTab game={game} />
+        <div className="slab-body">
         <div className="slab-state">
           <StateChip game={game} />
           {nets.length ? <span className="slab-nets">{nets.map((n, i) => <NetworkLogo key={i} name={n} />)}</span> : null}
@@ -614,6 +616,7 @@ function SlabCard({ game, flags }) {
         {(isCombat ? seamTime : time) ? <span className="slab-time">{isCombat ? seamTime : time}</span> : null}
         {showFeat ? <LiveFeature game={game} compact /> : null}
         <MetaRow game={game} flags={isCombat ? flags : { ...flags, tv: false }} mono />
+        </div>
       </div>
       <Half team={h} side="h" />
     </div>

@@ -126,10 +126,17 @@
 
 /* ── 1 · SLAB ───────────────────────────────────────────────────────────── */
 .ticker-runtime-shell .d-slab { width: 168.4cqh; }
+/* AUTO WIDTH (score cards; the racing board that shares the class keeps its own width): the card is as wide as its contents, the old fixed width is only the
+   minimum. The two team panels are grid 1fr tracks that never shrink below their content, so they are always equal and a standing plate gets the same room
+   on both sides; the middle column takes what it needs (never less than before). */
+.ticker-runtime-shell .d-slab:not(.d-board) { width: max-content; min-width: 168.4cqh; display: grid; grid-template-columns: 1fr auto 1fr; }
+.ticker-runtime-shell .d-slab:not(.d-board) .slab-half { min-width: max-content; }
+.ticker-runtime-shell .d-slab:not(.d-board) .slab-logo-group { align-self: center; }
 /* Combat (MMA / boxing / wrestling) — wider so flag + record fit without wrapping */
 .ticker-runtime-shell .d-slab-combat { width: 200cqh; }
+.ticker-runtime-shell .d-slab-combat:not(.d-board) { width: max-content; min-width: 200cqh; }
 .ticker-runtime-shell .d-slab-combat .rec-big { white-space: nowrap; font-size: 11.1cqh; }
-.ticker-runtime-shell .d-slab-combat .slab-seam { flex-basis: 55.3cqh; }
+.ticker-runtime-shell .d-slab-combat .slab-seam { flex-basis: 55.3cqh; min-width: 55.3cqh; }
 .ticker-runtime-shell .combat-info { display: flex; flex-direction: column; gap: 0.5cqh; }
 .ticker-runtime-shell .combat-name { font-size: 5.8cqh; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 57.9cqh; }
 .ticker-runtime-shell .combat-nickname { font-size: 4.8cqh; font-weight: 500; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 57.9cqh; color: rgba(255,255,255,0.6); }
@@ -151,16 +158,16 @@
 .ticker-runtime-shell .d-slab .score-3d { font-size: 18.4cqh; line-height: .82; }
 .ticker-runtime-shell .d-slab .rec-big  { font-size: 12.1cqh; }
 .ticker-runtime-shell .slab-seam {
-  flex: 0 0 49.5cqh; display: flex; flex-direction: column; align-items: center;
+  flex: 0 0 49.5cqh; min-width: 49.5cqh; display: flex; flex-direction: column; align-items: center;
   justify-content: center; gap: 3.4cqh; padding: 3.2cqh 2.1cqh; text-align: center;
   background: #0b0d11;
   border-left: 1px solid #20252f; border-right: 1px solid #20252f;
 }
-.ticker-runtime-shell .d-slab.has-feat .slab-seam             { flex-basis: 68.4cqh; gap: 2.4cqh; }
-.ticker-runtime-shell .slab-seam:has(.meta)                    { flex-basis: 68.4cqh; }
-.ticker-runtime-shell .d-slab.has-feat .slab-seam:has(.meta)   { flex-basis: 81.6cqh; }
+.ticker-runtime-shell .d-slab.has-feat .slab-seam             { flex-basis: 68.4cqh; min-width: 68.4cqh; gap: 2.4cqh; }
+.ticker-runtime-shell .slab-seam:has(.meta)                    { flex-basis: 68.4cqh; min-width: 68.4cqh; }
+.ticker-runtime-shell .d-slab.has-feat .slab-seam:has(.meta)   { flex-basis: 81.6cqh; min-width: 81.6cqh; }
 /* Pre-game: seam reduced so each half gets more width */
-.ticker-runtime-shell .d-slab.is-pre .slab-seam                { flex-basis: 68.4cqh; }
+.ticker-runtime-shell .d-slab.is-pre .slab-seam                { flex-basis: 68.4cqh; min-width: 68.4cqh; }
 .ticker-runtime-shell .slab-seam .meta             { justify-content: center; margin-top: 0.5cqh; }
 .ticker-runtime-shell .slab-seam .meta-i           { font-size: 4.7cqh; }
 .ticker-runtime-shell .slab-seam .sit-txt          { justify-content: center; text-align: center; }

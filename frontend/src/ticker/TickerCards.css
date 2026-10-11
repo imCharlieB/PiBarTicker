@@ -561,8 +561,7 @@
 .ticker-runtime-shell .ff-dd  { font-size: 8.4cqh; font-weight: 900; color: #fff; letter-spacing: .01em; line-height: 1; text-align: center; }
 .ticker-runtime-shell .ff-lead { color: #cfd6e2; font-weight: 800; }
 .ticker-runtime-shell .ff-sep { margin: 0 1.6cqh; opacity: .45; }
-/* spine: keep the content clear of the banner hanging from the top (taller when it has a round logo) */
-.ticker-runtime-shell .d-spine.banner-s .spine-mid { padding-top: 9cqh; }
+/* spine, LIVE games under a round-logo banner (MLB postseason): keep the tall content clear of the banner */
 .ticker-runtime-shell .d-spine.banner-l .spine-mid { padding-top: 14cqh; }
 /* spine: status chip with the network logo(s) beside it */
 .ticker-runtime-shell .spine-state { display: flex; align-items: center; justify-content: center; gap: 2.6cqh; min-width: 0; }

@@ -662,8 +662,9 @@ function SpineCard({ game, flags }) {
     ? spineStatus : ''
   // Network logo(s) sit beside the status chip on upcoming + live games; final games show none. The bottom row is then only the stadium.
   const stateKey = String(game?.state || '').toLowerCase()
-  // the banner hanging from the top is taller when it carries a postseason round logo; reserve room under it (CSS: banner-s / banner-l)
-  const bannerClass = matchupTag(game) ? (seriesParts(game)?.logo ? ' banner-l' : ' banner-s') : ''
+  // The banner hanging from the top is tall when it carries a postseason round logo. Only a TALL live card (diamond/field) can run into it,
+  // so reserve room under it for those; upcoming/final cards are short and stay centered (padding there shoved them down).
+  const bannerClass = stateKey === 'in' && seriesParts(game)?.logo ? ' banner-l' : ''
   const nets = !isCombat && flags.tv && game?.broadcastText && (stateKey === 'pre' || stateKey === 'in')
     ? game.broadcastText.split(/\s*\/\s*/).map((n) => n.trim()).filter(Boolean)
     : []

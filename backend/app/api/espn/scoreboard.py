@@ -11,6 +11,7 @@ from ...core.espn_registry import resolve_registry_entry
 from ...core.espn_scoreboard import EspnScoreboardClient, resolve_calendar_weeks
 from .teams import standings_stats_by_team
 from ...core.football_drive import drive_start_from_summary
+from ...core.points_store import counted_after_pull, load_points, points_due, save_points
 from ...core.poll_store import headline_from_stored, load_polls, parse_polls, polls_due, save_polls, touch_checked
 from ...core.team_results import (
     load_results,
@@ -981,13 +982,29 @@ def get_scoreboard(
             # the main per-game loop below, so it rides through the exact same enrichment
             # (headshot/badge/teamColor joins, seriesLogo/playoffBadge injection) every other
             # NASCAR entry gets, instead of needing its own separate enrichment pass.
+            # Points standings are pulled once, stored in team-meta, and the source is asked again only when a race on the board has
+            # finished that the stored points do not reflect yet (see core/points_store.py).
+            def _stored_points(fetch) -> dict:
+                stored = load_points(entry.league_id)
+                moment = datetime.now(timezone.utc)
+                if not points_due(stored, normalized_games, moment):
+                    return (stored or {}).get("data") or {}
+                try:
+                    fresh = fetch()
+                except Exception:
+                    return (stored or {}).get("data") or {}  # source down: keep showing what we stored
+                if not fresh or not all(fresh.values()):
+                    return (stored or {}).get("data") or {}
+                save_points(entry.league_id, fresh, counted_after_pull(stored, fresh, normalized_games), moment)
+                print(f"[points] {entry.league_id}: pulled from the source", flush=True)
+                return fresh
+
             if _is_nascar:
                 try:
-                    _standings_data = _http_client.get_json(
+                    _standings_data = _stored_points(lambda: {"standings": _http_client.get_json(
                         f"https://site.api.espn.com/apis/v2/sports/racing/{entry.league_id}/standings",
-                        use_cache=cache_ttl_seconds > 0,
-                        cache_ttl_seconds=cache_ttl_seconds,
-                    )
+                        use_cache=False,
+                    )}).get("standings")
                     _standings_children = (_standings_data or {}).get("children") if isinstance(_standings_data, dict) else None
                     _standings_entries = (
                         ((_standings_children[0] or {}).get("standings") or {}).get("entries") or []
@@ -1060,8 +1077,11 @@ def get_scoreboard(
                         _tn = _slug(_d.remote_urls.get("team_name"))
                         if _tn and _d.color and _tn not in _team_color:
                             _team_color[_tn] = _d.color
-                    _jd = _http_client.get_json("https://api.jolpi.ca/ergast/f1/current/driverStandings.json", use_cache=cache_ttl_seconds > 0, cache_ttl_seconds=cache_ttl_seconds)
-                    _jc = _http_client.get_json("https://api.jolpi.ca/ergast/f1/current/constructorStandings.json", use_cache=cache_ttl_seconds > 0, cache_ttl_seconds=cache_ttl_seconds)
+                    _jolpica = _stored_points(lambda: {
+                        "drivers": _http_client.get_json("https://api.jolpi.ca/ergast/f1/current/driverStandings.json", use_cache=False),
+                        "constructors": _http_client.get_json("https://api.jolpi.ca/ergast/f1/current/constructorStandings.json", use_cache=False),
+                    })
+                    _jd, _jc = _jolpica.get("drivers"), _jolpica.get("constructors")
                     _dl = ((_jd or {}).get("MRData") or {}).get("StandingsTable", {}).get("StandingsLists") or []
                     _cl = ((_jc or {}).get("MRData") or {}).get("StandingsTable", {}).get("StandingsLists") or []
                     _drows = []

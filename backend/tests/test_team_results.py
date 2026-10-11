@@ -159,3 +159,31 @@ def test_cfp_is_looked_for_in_november_until_it_appears():
     assert headline_from_stored(with_cfp["polls"])[1] == "CFP"
     assert headline_from_stored(stored["polls"])[1] == "AP"
     assert headline_from_stored([]) == ({}, "")
+
+
+# ---- stored racing points ----
+def _race(gid, state="post", session=""):
+    return {"id": gid, "state": state, "sessionLabel": session}
+
+
+def test_only_finished_races_are_watched():
+    from app.core.points_store import finished_race_ids
+    games = [_race("1", "post", "Race"), _race("2", "post", "Qual"), _race("3", "post", "FP1"), _race("4", "pre", "Race"),
+             _race("5-order", "post", ""), _race("6", "post", "SR"), _race("7", "post", "")]
+    assert finished_race_ids(games) == {"1", "6", "7"}
+
+
+def test_points_are_pulled_once_then_only_after_a_new_race_finishes():
+    from app.core.points_store import counted_after_pull, points_due
+    games = [_race("401", "post", "Race")]
+    assert points_due(None, games, _at("2026-10-11T15:00Z")) is True
+    counted = counted_after_pull(None, {"p": 1}, games)
+    stored = {"checkedAt": "2026-10-11T15:00:00+00:00", "counted": sorted(counted), "data": {"p": 1}}
+    assert points_due(stored, games, _at("2026-10-12T15:00Z")) is False                      # race already counted: no call at all
+    games2 = games + [_race("402", "post", "Race")]
+    assert points_due(stored, games2, _at("2026-10-18T15:20Z")) is True                      # a new race finished
+    stored["checkedAt"] = "2026-10-18T15:20:00+00:00"
+    assert points_due(stored, games2, _at("2026-10-18T15:40Z")) is False                     # just asked: wait
+    assert points_due(stored, games2, _at("2026-10-18T15:51Z")) is True
+    assert counted_after_pull(stored, {"p": 1}, games2) == {"401"}                           # source unchanged -> not caught up, ask again
+    assert counted_after_pull(stored, {"p": 2}, games2) == {"401", "402"}                    # points moved -> race is reflected

@@ -11,6 +11,7 @@ from ...core.espn_registry import resolve_registry_entry
 from ...core.espn_scoreboard import EspnScoreboardClient, resolve_calendar_weeks
 from .teams import standings_stats_by_team
 from ...core.football_drive import drive_start_from_summary
+from ...core.poll_store import headline_from_stored, load_polls, parse_polls, polls_due, save_polls, touch_checked
 from ...core.team_results import (
     load_results,
     load_snapshot,
@@ -28,7 +29,6 @@ import re
 
 from ...core.groups_util import (
     build_division_standings,
-    pick_headline_poll,
     apply_seed_line,
     college_standings_snapshot,
     build_team_group_memberships_from_groups,
@@ -168,26 +168,6 @@ def _ranked_team_ids_from_ranking(ranking: dict, top_n: int) -> dict[str, int]:
         if team_id:
             ranked[team_id] = int(current)
     return ranked
-
-
-def _fetch_ap_ranked_team_ids(sport: str, league: str, top_n: int, cache_ttl: float) -> dict[str, int]:
-    """Fetch the headline college poll (CFP when published, else AP) as a map of team ID to rank within the top_n.
-
-    Early in the season (e.g. college football preseason) the AP poll may not be
-    published yet even though other polls (like the AFCA Coaches Poll) are. In that
-    case, fall back to the first poll ESPN returns with ranked teams so the filter
-    doesn't silently no-op and show every game.
-    """
-    try:
-        payload = _http_client.get_json(
-            _rankings_url(sport=sport, league=league),
-            use_cache=cache_ttl > 0,
-            cache_ttl_seconds=min(cache_ttl, 3600.0),
-        )
-        return pick_headline_poll(payload.get("rankings") or [], top_n)[0]
-    except Exception:
-        pass
-    return {}
 
 
 def _event_matches_rankings_filter(event: dict, ranked_team_ids: dict[str, int]) -> bool:
@@ -332,15 +312,31 @@ def get_scoreboard(
             except Exception:
                 team_group_memberships = {}
 
-    # Fetch AP ranked team IDs once if rankings_limit is set (live, so rankings stay current)
+    # College polls come out weekly, on their own schedule: pulled once, stored in team-meta, and ESPN is asked again only when a newer poll is due.
+    def _stored_polls() -> list[dict]:
+        stored = load_polls(entry.league_id)
+        moment = datetime.now(timezone.utc)
+        if not polls_due(stored, moment):
+            return (stored or {}).get("polls") or []
+        try:
+            fresh_payload = _http_client.get_json(_rankings_url(sport=entry.sport, league=entry.league), use_cache=False)
+            fresh = parse_polls(fresh_payload.get("rankings") or [])
+        except Exception:
+            fresh = []
+        if fresh:
+            save_polls(entry.league_id, fresh, moment)
+            print(f"[polls] {entry.league_id}: pulled from ESPN ({', '.join(p['label'] for p in fresh)})", flush=True)
+            return fresh
+        if stored:
+            touch_checked(entry.league_id, stored, moment)  # nothing newer yet: do not ask again right away
+            return stored.get("polls") or []
+        return []
+
+    # Rankings filter (top-N AP/CFP only) reads the stored poll
     ap_ranked_team_ids: dict[str, int] = {}
     if rankings_limit and _normalized(entry.sport) != "racing":
-        ap_ranked_team_ids = _fetch_ap_ranked_team_ids(
-            sport=entry.sport,
-            league=entry.league,
-            top_n=rankings_limit,
-            cache_ttl=cache_ttl_seconds,
-        )
+        ranks_map, _label = headline_from_stored(_stored_polls())
+        ap_ranked_team_ids = {tid: r for tid, r in ranks_map.items() if r <= rankings_limit}
 
     filtered_events: list[dict] = []
     for event in events:
@@ -448,16 +444,8 @@ def get_scoreboard(
 
     # Division place / seed / streak from the standings feed (cached; only when the league opted in)
     if include_standings and _normalized(entry.sport) != "racing" and "college" in _normalized(entry.league_id):
-        # Headline poll (CFP once published, else AP) so the number and its label always match
-        try:
-            rankings_payload = _http_client.get_json(
-                _rankings_url(sport=entry.sport, league=entry.league),
-                use_cache=cache_ttl_seconds > 0,
-                cache_ttl_seconds=cache_ttl_seconds,
-            )
-            poll_ranks, poll_label = pick_headline_poll(rankings_payload.get("rankings") or [])
-        except Exception:
-            poll_ranks, poll_label = {}, ""
+        # Headline poll (CFP once published, else AP) so the number and its label always match — from the stored polls
+        poll_ranks, poll_label = headline_from_stored(_stored_polls())
         if poll_ranks:
             for game in normalized_games:
                 for side in ("away", "home"):

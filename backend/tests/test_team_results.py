@@ -111,3 +111,51 @@ def test_standings_stats_by_team_keeps_group_and_mapped_stats():
     assert got["22"]["group"] == {"name": "NFC West", "abbreviation": "WEST"}
     assert got["22"]["stats"]["overall"] == "1-3" and got["22"]["stats"]["streak"] == "L3" and got["22"]["stats"]["homeRecord"] == "0-1"
     assert got["22"]["stats"]["winPercent"] == ".250"
+
+
+# ---- stored polls ----
+def _poll(label, updated):
+    return {"label": label, "week": 6, "updated": updated, "ranks": {"61": 2}}
+
+
+def _at(text):
+    from datetime import datetime
+    return datetime.fromisoformat(text.replace("Z", "+00:00"))
+
+
+def test_poll_label_and_parse_keep_only_showable_polls():
+    from app.core.poll_store import parse_polls
+    rankings = [
+        {"name": "AP Top 25", "shortName": "AP Poll", "headline": "2026 NCAA Football Rankings - AP Poll Week 6", "lastUpdated": "2026-10-04T21:10Z",
+         "ranks": [{"current": 1, "team": {"id": "10"}}, {"current": 2, "team": {"id": "61"}}, {"current": 30, "team": {"id": "99"}}]},
+        {"name": "FCS Coaches Poll", "shortName": "FCS Coaches Poll", "ranks": [{"current": 1, "team": {"id": "5"}}]},
+        {"name": "AFCA Coaches Poll", "shortName": "AFCA Coaches Poll", "headline": "x Week 6", "date": "2026-10-04T07:00Z", "ranks": [{"current": 1, "team": {"id": "10"}}]},
+    ]
+    polls = parse_polls(rankings)
+    assert [p["label"] for p in polls] == ["AP", "COACHES"]          
+    ap = polls[0]
+    assert ap["week"] == 6 and ap["updated"] == "2026-10-04T21:10Z" and ap["ranks"] == {"10": 1, "61": 2}   # rank 30 is outside the top 25
+
+
+def test_polls_are_only_due_about_a_week_after_the_last_update():
+    from app.core.poll_store import polls_due
+    stored = {"polls": [_poll("AP", "2026-10-04T21:10Z")], "checkedAt": "2026-10-05T12:00:00+00:00"}
+    assert polls_due(None, _at("2026-10-05T00:00Z")) is True                     # nothing stored
+    assert polls_due(stored, _at("2026-10-07T00:00Z")) is False                  # mid-week: no call at all
+    assert polls_due(stored, _at("2026-10-11T12:00Z")) is False                  # Sunday morning, still > 2h before a week
+    assert polls_due(stored, _at("2026-10-11T20:00Z")) is True                   # a week (minus 2h) after the last update: look
+    stored["checkedAt"] = "2026-10-11T20:00:00+00:00"
+    assert polls_due(stored, _at("2026-10-11T20:20Z")) is False                  # just asked, nothing newer: wait
+    assert polls_due(stored, _at("2026-10-11T20:31Z")) is True                   # 30 min later ask again until it updates
+
+
+def test_cfp_is_looked_for_in_november_until_it_appears():
+    from app.core.poll_store import headline_from_stored, polls_due
+    stored = {"polls": [_poll("AP", "2026-11-01T21:10Z")], "checkedAt": "2026-11-02T00:00:00+00:00"}
+    assert polls_due(stored, _at("2026-11-02T01:00Z")) is False                  # asked an hour ago
+    assert polls_due(stored, _at("2026-11-02T07:00Z")) is True                   # 7h later: watch for the first CFP release
+    with_cfp = {"polls": [_poll("AP", "2026-11-01T21:10Z"), _poll("CFP", "2026-11-04T22:00Z")], "checkedAt": "2026-11-05T00:00:00+00:00"}
+    assert polls_due(with_cfp, _at("2026-11-06T00:00Z")) is False                # CFP stored: back to the weekly rhythm
+    assert headline_from_stored(with_cfp["polls"])[1] == "CFP"
+    assert headline_from_stored(stored["polls"])[1] == "AP"
+    assert headline_from_stored([]) == ({}, "")

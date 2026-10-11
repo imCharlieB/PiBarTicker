@@ -185,6 +185,19 @@ def build_division_standings(children: list[dict], show_seeds_up_to: int | None 
     return out
 
 
+def poll_label(ranking: dict) -> str:
+    """"CFP", "AP", "COACHES" or "RANK" for one entry of ESPN's /rankings list."""
+    text = _normalized(f"{ranking.get('name') or ''} {ranking.get('shortName') or ''}")
+    words = re.findall("[a-z]+", text)
+    if "playoff" in text or "cfp" in words:
+        return "CFP"
+    if "ap" in words or "associated press" in text:
+        return "AP"
+    if "coaches" in text:
+        return "COACHES"
+    return "RANK"
+
+
 def pick_headline_poll(rankings: list[dict], top_n: int = 25) -> tuple[dict[str, int], str]:
     """Pick the ranking to show on cards from ESPN's /rankings list: CFP committee when it exists, else AP,
     else the first poll with ranked teams. Returns ({team_id: rank}, label) — label is "CFP", "AP", "COACHES" or "RANK".
@@ -198,17 +211,7 @@ def pick_headline_poll(rankings: list[dict], top_n: int = 25) -> tuple[dict[str,
                 out[team_id] = current
         return out
 
-    def label_of(ranking: dict) -> str:
-        text = _normalized(f"{ranking.get('name') or ''} {ranking.get('shortName') or ''}")
-        if "playoff" in text or "cfp" in re.findall("[a-z]+", text):
-            return "CFP"
-        if "ap" in re.findall("[a-z]+", text) or "associated press" in text:
-            return "AP"
-        if "coaches" in text:
-            return "COACHES"
-        return "RANK"
-
-    candidates = [(label_of(r), ranks_of(r)) for r in rankings or [] if isinstance(r, dict)]
+    candidates = [(poll_label(r), ranks_of(r)) for r in rankings or [] if isinstance(r, dict)]
     candidates = [c for c in candidates if c[1]]
     for wanted in ("CFP", "AP"):
         for label, ranks in candidates:

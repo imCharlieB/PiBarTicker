@@ -662,17 +662,16 @@ function SpineCard({ game, flags }) {
     ? spineStatus : ''
   // Network logo(s) sit beside the status chip on upcoming + live games; final games show none. The bottom row is then only the stadium.
   const stateKey = String(game?.state || '').toLowerCase()
-  // The banner hanging from the top is tall when it carries a postseason round logo. Only a TALL live card (diamond/field) can run into it,
-  // so reserve room under it for those; upcoming/final cards are short and stay centered (padding there shoved them down).
-  const bannerClass = stateKey === 'in' && seriesParts(game)?.logo ? ' banner-l' : ''
   const nets = !isCombat && flags.tv && game?.broadcastText && (stateKey === 'pre' || stateKey === 'in')
     ? game.broadcastText.split(/\s*\/\s*/).map((n) => n.trim()).filter(Boolean)
     : []
   return (
-    <div className={`card d-spine ${isPre ? 'is-pre' : ''}${footballLead ? ' fb-live' : ''}${bannerClass}`}>
+    <div className={`card d-spine ${isPre ? 'is-pre' : ''}${footballLead ? ' fb-live' : ''}`}>
       <Flank team={a} side="a" />
       <div className="spine-mid">
+        {/* the banner (if any) takes its own height at the top; the body spreads whatever is shown evenly in the room below it */}
         <MatchupTab game={game} />
+        <div className="spine-body">
         <div className="spine-state">
           <StateChip game={game} />
           {nets.length ? <span className="spine-nets">{nets.map((n, i) => <NetworkLogo key={i} name={n} />)}</span> : null}
@@ -687,6 +686,7 @@ function SpineCard({ game, flags }) {
         {!isCombat && time ? <span className="spine-time">{time}</span> : null}
         {flags.situation && hasLiveFeature(game) ? <LiveFeature game={game} lead={footballLead} /> : null}
         <MetaRow game={game} flags={isCombat ? flags : { ...flags, tv: false }} />
+        </div>
       </div>
       <Flank team={h} side="h" />
     </div>

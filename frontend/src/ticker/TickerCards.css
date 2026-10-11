@@ -193,10 +193,13 @@
 .ticker-runtime-shell .spine-rec  { font-size: 5.3cqh; color: #bcc3cf; font-weight: 700; }
 .ticker-runtime-shell .spine-mid {
   flex: 1; display: flex; flex-direction: column; align-items: center;
-  justify-content: center; gap: 2.6cqh; padding: 4.2cqh 4.7cqh;
-  background: #0d0f14; min-width: 0;
+  padding: 0 4.7cqh; background: #0d0f14; min-width: 0; min-height: 0;
 }
-.ticker-runtime-shell .d-spine.is-pre .spine-mid { gap: 2.1cqh; }
+/* everything under the (optional) banner is spread evenly down the column, so the spacing adapts to how much the density setting shows */
+.ticker-runtime-shell .spine-body {
+  flex: 1 1 auto; min-height: 0; width: 100%; display: flex; flex-direction: column; align-items: center;
+  justify-content: space-evenly; gap: 1.2cqh; padding-block: 1.6cqh;
+}
 .ticker-runtime-shell .spine-score   { display: flex; align-items: center; gap: 4.2cqh; font-variant-numeric: tabular-nums; }
 .ticker-runtime-shell .spine-score b { font-size: 22.1cqh; line-height: .82; color: #fff; font-weight: 900; }
 .ticker-runtime-shell .spine-score s { font-size: 18.9cqh; line-height: .82; color: #fff; font-weight: 900; text-decoration: none; }
@@ -299,6 +302,8 @@
   background: #F2C94C; color: #14100a; font-weight: 900; font-style: normal; font-size: 3.7cqh;
   letter-spacing: .1em; padding: 0.8cqh 3.2cqh; border-radius: 0 0 1.3cqh 1.3cqh; white-space: nowrap;
 }
+/* spine only: the banner is the first in-flow item of the column (takes its own height) instead of floating over the top edge */
+.ticker-runtime-shell .spine-mid > .calltab { position: relative; top: auto; left: auto; transform: none; flex: 0 0 auto; align-self: center; }
 .ticker-runtime-shell .calltab-logo { display: flex; align-items: center; gap: 1.6cqh; padding: 0.8cqh 3.2cqh 0.8cqh 1.6cqh; }
 /* the round logos' navy lettering sits straight on the gold banner (no box) */
 .ticker-runtime-shell .ct-plate { display: flex; align-items: center; justify-content: center; padding: 0 0.8cqh; }
@@ -561,14 +566,11 @@
 .ticker-runtime-shell .ff-dd  { font-size: 8.4cqh; font-weight: 900; color: #fff; letter-spacing: .01em; line-height: 1; text-align: center; }
 .ticker-runtime-shell .ff-lead { color: #cfd6e2; font-weight: 800; }
 .ticker-runtime-shell .ff-sep { margin: 0 1.6cqh; opacity: .45; }
-/* spine, LIVE games under a round-logo banner (MLB postseason): keep the tall content clear of the banner */
-.ticker-runtime-shell .d-spine.banner-l .spine-mid { padding-top: 14cqh; }
 /* spine: status chip with the network logo(s) beside it */
 .ticker-runtime-shell .spine-state { display: flex; align-items: center; justify-content: center; gap: 2.6cqh; min-width: 0; }
 .ticker-runtime-shell .spine-nets { display: inline-flex; align-items: center; gap: 1.6cqh; }
 .ticker-runtime-shell .spine-nets .meta-tv-logo { height: 6.6cqh; max-width: 18cqh; }
-/* spine, live football: normal gaps (the clock now shares the down & distance line, which freed ~45px); the worst case — a 2-line stadium name + the red-zone chip — still fits */
-.ticker-runtime-shell .d-spine.fb-live .spine-mid { gap: 2.6cqh; padding-block: 2.6cqh; }
+/* spine, live football */
 .ticker-runtime-shell .d-spine.fb-live .ff { gap: 2cqh; }
 .ticker-runtime-shell .d-spine.fb-live .meta { margin-top: 0; gap: 0.6cqh 2cqh; justify-content: center; }
 /* spine: clock + down & distance share one smaller line */

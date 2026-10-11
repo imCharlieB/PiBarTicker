@@ -139,7 +139,7 @@ def test_poll_label_and_parse_keep_only_showable_polls():
 
 def test_polls_are_only_due_about_a_week_after_the_last_update():
     from app.core.poll_store import polls_due
-    stored = {"polls": [_poll("AP", "2026-10-04T21:10Z")], "checkedAt": "2026-10-05T12:00:00+00:00"}
+    stored = {"polls": [_poll("AP", "2026-10-04T21:10Z"), _poll("COACHES", "2026-10-04T20:08Z")], "checkedAt": "2026-10-05T12:00:00+00:00"}
     assert polls_due(None, _at("2026-10-05T00:00Z")) is True                     # nothing stored
     assert polls_due(stored, _at("2026-10-07T00:00Z")) is False                  # mid-week: no call at all
     assert polls_due(stored, _at("2026-10-11T12:00Z")) is False                  # Sunday morning, still > 2h before a week
@@ -151,10 +151,10 @@ def test_polls_are_only_due_about_a_week_after_the_last_update():
 
 def test_cfp_is_looked_for_in_november_until_it_appears():
     from app.core.poll_store import headline_from_stored, polls_due
-    stored = {"polls": [_poll("AP", "2026-11-01T21:10Z")], "checkedAt": "2026-11-02T00:00:00+00:00"}
+    stored = {"polls": [_poll("AP", "2026-11-01T21:10Z"), _poll("COACHES", "2026-11-01T20:08Z")], "checkedAt": "2026-11-02T00:00:00+00:00"}
     assert polls_due(stored, _at("2026-11-02T01:00Z")) is False                  # asked an hour ago
     assert polls_due(stored, _at("2026-11-02T07:00Z")) is True                   # 7h later: watch for the first CFP release
-    with_cfp = {"polls": [_poll("AP", "2026-11-01T21:10Z"), _poll("CFP", "2026-11-04T22:00Z")], "checkedAt": "2026-11-05T00:00:00+00:00"}
+    with_cfp = {"polls": [_poll("AP", "2026-11-01T21:10Z"), _poll("COACHES", "2026-11-01T20:08Z"), _poll("CFP", "2026-11-04T22:00Z")], "checkedAt": "2026-11-05T00:00:00+00:00"}
     assert polls_due(with_cfp, _at("2026-11-06T00:00Z")) is False                # CFP stored: back to the weekly rhythm
     assert headline_from_stored(with_cfp["polls"])[1] == "CFP"
     assert headline_from_stored(stored["polls"])[1] == "AP"
@@ -187,3 +187,38 @@ def test_points_are_pulled_once_then_only_after_a_new_race_finishes():
     assert points_due(stored, games2, _at("2026-10-18T15:51Z")) is True
     assert counted_after_pull(stored, {"p": 1}, games2) == {"401"}                           # source unchanged -> not caught up, ask again
     assert counted_after_pull(stored, {"p": 2}, games2) == {"401", "402"}                    # points moved -> race is reflected
+
+
+def test_poll_choice_is_honoured_and_falls_back():
+    from app.core.poll_store import headline_from_stored
+    polls = [
+        {"label": "AP", "ranks": {"1": 1}},
+        {"label": "COACHES", "ranks": {"2": 1}},
+    ]
+    assert headline_from_stored(polls)[1] == "AP"                    # auto: AP (no CFP stored)
+    assert headline_from_stored(polls, "COACHES") == ({"2": 1}, "COACHES")
+    assert headline_from_stored(polls, "AP")[1] == "AP"
+    assert headline_from_stored(polls, "CFP")[1] == "AP"             # chosen poll not stored yet -> the default order
+    assert headline_from_stored(polls, "bogus")[1] == "AP"
+    with_cfp = polls + [{"label": "CFP", "ranks": {"3": 1}}]
+    assert headline_from_stored(with_cfp)[1] == "CFP"                # auto: CFP wins once it is published
+    assert headline_from_stored(with_cfp, "AP")[1] == "AP"           # but the user can still ask for AP
+
+
+def test_a_poll_missing_from_a_fresh_pull_keeps_its_stored_copy():
+    from app.core.poll_store import merge_polls
+    stored = [{"label": "AP", "week": 6, "ranks": {"1": 1}}, {"label": "COACHES", "week": 6, "ranks": {"2": 1}}]
+    fresh = [{"label": "COACHES", "week": 7, "ranks": {"2": 2}}]            # ESPN listed only the Coaches poll this time
+    merged = {p["label"]: p for p in merge_polls(fresh, stored)}
+    assert merged["COACHES"]["week"] == 7                                  # the newer one wins
+    assert merged["AP"]["week"] == 6                                       # AP does not disappear
+    assert [p["label"] for p in merge_polls(fresh, None)] == ["COACHES"]
+
+
+def test_missing_ap_or_coaches_is_rechecked_soon_not_in_a_week():
+    from app.core.poll_store import polls_due
+    only_coaches = {"polls": [_poll("COACHES", "2026-10-11T19:58Z")], "checkedAt": "2026-10-11T20:00:00+00:00"}
+    assert polls_due(only_coaches, _at("2026-10-11T20:10Z")) is False       # just asked
+    assert polls_due(only_coaches, _at("2026-10-11T20:40Z")) is True        # AP is missing: ask again after 30 minutes
+    both = {"polls": [_poll("AP", "2026-10-11T21:07Z"), _poll("COACHES", "2026-10-11T19:58Z")], "checkedAt": "2026-10-11T22:00:00+00:00"}
+    assert polls_due(both, _at("2026-10-14T00:00Z")) is False               # both stored and fresh: no calls for days

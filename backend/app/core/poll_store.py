@@ -118,17 +118,29 @@ def polls_due(stored: dict[str, Any] | None, now: datetime) -> bool:
             break
     if due and not recently(RECHECK):
         return True
+    if {"AP", "COACHES"} - {p.get("label") for p in polls} and not recently(RECHECK):
+        return True  # one of the two weekly polls is missing from our copy: ask again soon instead of waiting a week
     has_cfp = any(p.get("label") == "CFP" for p in polls)
     if not has_cfp and now.month >= 11 and not recently(CFP_WATCH):
         return True
     return False
 
 
-def headline_from_stored(polls: list[dict[str, Any]]) -> tuple[dict[str, int], str]:
-    """The poll to show on cards: CFP when stored, else AP, else Coaches. Returns ({team_id: rank}, label)."""
+def headline_from_stored(polls: list[dict[str, Any]], preferred: str | None = "auto") -> tuple[dict[str, int], str]:
+    """The poll to show on cards. `preferred` is the user's choice (AP / COACHES / CFP); "auto" or a poll we do not have stored uses the default order:
+    CFP when stored, else AP, else Coaches. Returns ({team_id: rank}, label)."""
     by_label = {p.get("label"): p for p in polls or []}
-    for label in KEEP:
+    wanted = str(preferred or "auto").upper()
+    order = ([wanted] if wanted in KEEP else []) + [label for label in KEEP if label != wanted]
+    for label in order:
         poll = by_label.get(label)
         if poll and poll.get("ranks"):
             return {str(k): int(v) for k, v in poll["ranks"].items()}, label
     return {}, ""
+
+
+def merge_polls(fresh: list[dict[str, Any]], stored: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    """A fresh pull can list only some polls (right after one updates). Keep the stored copy of any poll the fresh pull lacks, so a poll never
+    disappears (and the card never flips to another poll) until ESPN publishes a newer one."""
+    have = {p.get("label") for p in fresh}
+    return list(fresh) + [p for p in (stored or []) if p.get("label") not in have]

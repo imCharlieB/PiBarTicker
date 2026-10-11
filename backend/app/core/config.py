@@ -82,6 +82,7 @@ class LeagueConfig(AppBaseModel):
     cardStyle: str = "standard"
     entryLimit: int | None = None  # None = show all; used by racing to cap driver list
     rankingsFilter: int | None = None  # None = no filter; for college leagues, show only games with a top-N ranked team
+    rankingsPoll: Literal["auto", "AP", "COACHES", "CFP"] = "auto"  # which poll the college cards show; auto = CFP once published, else AP, else Coaches
     sortOrder: Literal["time", "rank"] = "time"  # display order; "rank" requires rankingsFilter to have any effect
     showStandings: bool = False  # DEPRECATED/unused — standings now follow density == "max"; kept so saved configs still load (extra=forbid)
 

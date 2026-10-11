@@ -243,6 +243,7 @@ function buildTickerScoreboardQuery(league, {
 
   const rankingsFilter = league?.rankingsFilter ?? null
   if (rankingsFilter) query.set('rankings_limit', String(rankingsFilter))
+  if (league?.rankingsPoll && league.rankingsPoll !== 'auto') query.set('rankings_poll', league.rankingsPoll)
 
   return query.toString()
 }

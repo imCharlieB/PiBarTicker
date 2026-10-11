@@ -277,6 +277,21 @@ export default function LeagueDetail({
               </div>
             )}
 
+            {/college/i.test(leagueApiParams.league || '') && (
+              <div className="ld-seg-control">
+                <span className="ld-seg-label">Poll on cards</span>
+                <div className="seg-pill">
+                  {[['auto','Auto'],['AP','AP Top 25'],['COACHES','Coaches'],['CFP','Playoff']].map(([val, label]) => (
+                    <button key={val} type="button"
+                      className={`seg-pill-btn${(selectedTickerLeague.rankingsPoll || 'auto') === val ? ' is-active' : ''}`}
+                      onClick={() => updateLeague(selectedTickerLeagueIndex, 'rankingsPoll', val)}
+                    >{label}</button>
+                  ))}
+                </div>
+                <small className="ld-seg-help">Which poll the rank on each college card (and the ranking filter) comes from. Auto uses the College Football Playoff rankings once they are published, then AP, then Coaches. If the poll you pick is not available yet, Auto is used.</small>
+              </div>
+            )}
+
             {/college/i.test(leagueApiParams.league || '') && !isBoardLeague && (
               <div className="ld-seg-control">
                 <span className="ld-seg-label">Game order</span>

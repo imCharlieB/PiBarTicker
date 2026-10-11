@@ -12,7 +12,7 @@ from ...core.espn_scoreboard import EspnScoreboardClient, resolve_calendar_weeks
 from .teams import standings_stats_by_team
 from ...core.football_drive import drive_start_from_summary, win_probability_from_summary
 from ...core.points_store import counted_after_pull, load_points, points_due, save_points
-from ...core.poll_store import headline_from_stored, load_polls, parse_polls, polls_due, save_polls, touch_checked
+from ...core.poll_store import headline_from_stored, load_polls, merge_polls, parse_polls, polls_due, save_polls, touch_checked
 from ...core.team_results import (
     load_results,
     load_snapshot,
@@ -202,6 +202,7 @@ def get_scoreboard(
     game_filter: str = Query("all", description="Game filter: all, live, today, upcoming, this-week."),
     included_teams: str | None = Query(None, description="Comma-separated team ids/abbreviations/slugs."),
     included_groups: str | None = Query(None, description="Comma-separated group ids from league-groups."),
+    rankings_poll: str = Query("auto", description="Which stored poll the college cards show: auto, AP, COACHES or CFP."),
     rankings_limit: int | None = Query(None, ge=1, le=100, description="Only show games with a team ranked within top-N of the AP poll."),
     include_standings: bool = Query(False, description="Attach division place / seed / streak to each team (pro leagues with divisions)."),
     cache_ttl_seconds: float = Query(60.0, ge=0.0, le=3600.0),
@@ -325,6 +326,7 @@ def get_scoreboard(
         except Exception:
             fresh = []
         if fresh:
+            fresh = merge_polls(fresh, (stored or {}).get("polls"))   # a poll missing from this pull keeps its stored copy
             save_polls(entry.league_id, fresh, moment)
             print(f"[polls] {entry.league_id}: pulled from ESPN ({', '.join(p['label'] for p in fresh)})", flush=True)
             return fresh
@@ -336,7 +338,7 @@ def get_scoreboard(
     # Rankings filter (top-N AP/CFP only) reads the stored poll
     ap_ranked_team_ids: dict[str, int] = {}
     if rankings_limit and _normalized(entry.sport) != "racing":
-        ranks_map, _label = headline_from_stored(_stored_polls())
+        ranks_map, _label = headline_from_stored(_stored_polls(), rankings_poll)
         ap_ranked_team_ids = {tid: r for tid, r in ranks_map.items() if r <= rankings_limit}
 
     filtered_events: list[dict] = []
@@ -446,7 +448,7 @@ def get_scoreboard(
     # Division place / seed / streak from the standings feed (cached; only when the league opted in)
     if include_standings and _normalized(entry.sport) != "racing" and "college" in _normalized(entry.league_id):
         # Headline poll (CFP once published, else AP) so the number and its label always match — from the stored polls
-        poll_ranks, poll_label = headline_from_stored(_stored_polls())
+        poll_ranks, poll_label = headline_from_stored(_stored_polls(), rankings_poll)
         if poll_ranks:
             for game in normalized_games:
                 for side in ("away", "home"):

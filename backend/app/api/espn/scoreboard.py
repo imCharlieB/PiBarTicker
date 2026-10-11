@@ -1772,6 +1772,11 @@ def get_scoreboard(
                 and any(isinstance(_e.get("position"), int) and _e.get("position") > 0 for _e in _g["racingEntries"])
             ):
                 _order = {k: v for k, v in _g.items() if k != "raceDetails"}
+                # ESPN can list the entries out of order (e.g. P14 first) — a grid is sorted by starting position
+                _order["racingEntries"] = sorted(
+                    _g["racingEntries"],
+                    key=lambda _e: _e.get("position") if isinstance(_e.get("position"), int) and _e.get("position") > 0 else 999,
+                )
                 _order["id"] = f"{_g.get('id')}-order"
                 _order["isStartingOrder"] = True
                 _order["gameId"] = f"{_g.get('gameId') or _g.get('id')}-order"

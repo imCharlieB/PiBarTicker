@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from ...core.paths import get_runtime_paths
+from .paths import get_runtime_paths
 
 
 # ESPN league id -> the team-meta file that holds that league's teams/drivers

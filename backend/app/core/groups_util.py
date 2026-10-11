@@ -2,7 +2,7 @@
 
 Used by:
   - api/espn/scoreboard.py  (live group filtering at request time)
-  - core/logos/cache_service.py  (caching group memberships during sync)
+  - core/cache_service.py  (caching group memberships during sync)
 """
 
 from __future__ import annotations

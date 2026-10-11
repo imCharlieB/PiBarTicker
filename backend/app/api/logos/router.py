@@ -7,12 +7,12 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from ...core.logos.cache_service import LogoCacheService
-from ...core.logos.f1_cache_service import F1CacheService
-from ...core.logos.indycar_cache_service import IndycarCacheService
-from ...core.logos.mma_cache_service import MmaCacheService
-from ...core.logos.nascar_cache_service import NascarCacheService
-from ...core.logos.logo_store import ESPN_TO_CACHE_ID, LogoStore
+from ...core.cache_service import LogoCacheService
+from ...core.f1_cache_service import F1CacheService
+from ...core.indycar_cache_service import IndycarCacheService
+from ...core.mma_cache_service import MmaCacheService
+from ...core.nascar_cache_service import NascarCacheService
+from ...core.logo_store import ESPN_TO_CACHE_ID, LogoStore
 
 router = APIRouter(prefix="/api/v1/logos", tags=["logos"])
 

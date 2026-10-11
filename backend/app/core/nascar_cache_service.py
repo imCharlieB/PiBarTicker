@@ -25,7 +25,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ..paths import get_runtime_paths
+from .paths import get_runtime_paths
 from .logo_store import LogoStore, TeamLogoInfo
 
 _DRIVERS_URL = "https://cf.nascar.com/cacher/drivers.json"

@@ -5,7 +5,7 @@ import re
 from fastapi import APIRouter, HTTPException, Query
 
 from ...core.poll_store import load_polls
-from ...core.logos.logo_store import LogoStore
+from ...core.logo_store import LogoStore
 from ...core.team_results import load_snapshot
 from ._utils import (
     _group_key,

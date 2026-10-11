@@ -12,7 +12,7 @@ import httpx
 
 from .downloader import LogoDownloader
 from .logo_store import LogoStore, LeagueTeamMeta, TeamLogoInfo
-from ..groups_util import (
+from .groups_util import (
     build_group_id_to_name,
     build_team_group_memberships_from_groups,
     build_team_group_memberships_from_standings,

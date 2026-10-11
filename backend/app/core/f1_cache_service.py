@@ -28,7 +28,7 @@ from typing import Any
 
 import httpx
 
-from ..paths import get_runtime_paths
+from .paths import get_runtime_paths
 from .logo_store import LeagueTeamMeta, LogoStore, TeamLogoInfo
 
 # ---------------------------------------------------------------------------

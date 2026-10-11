@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 
 import httpx
 
-from ..paths import get_runtime_paths
+from .paths import get_runtime_paths
 from .logo_store import LeagueTeamMeta, LogoStore, TeamLogoInfo
 
 _BASE = "https://www.indycar.com"

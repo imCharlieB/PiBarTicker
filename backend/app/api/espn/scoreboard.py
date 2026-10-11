@@ -35,7 +35,7 @@ from ...core.groups_util import (
     build_team_group_memberships_from_groups,
     build_team_group_memberships_from_standings,
 )
-from ...core.logos.logo_store import LogoStore
+from ...core.logo_store import LogoStore
 from ...core.paths import get_runtime_paths
 from ._utils import _groups_endpoint_url, _http_client, _normalized, _rankings_url, _site_standings_url
 
@@ -590,7 +590,7 @@ def get_scoreboard(
                 except Exception:
                     pass
                 try:
-                    from ...core.logos.f1_cache_service import F1CacheService
+                    from ...core.f1_cache_service import F1CacheService
                     import threading
                     def _bg_circuit_sync():
                         svc = F1CacheService()
@@ -1812,7 +1812,7 @@ def get_scoreboard(
                 lid: str = _league_id,
             ) -> None:
                 try:
-                    from ...core.logos.mma_cache_service import MmaCacheService
+                    from ...core.mma_cache_service import MmaCacheService
                     svc = MmaCacheService()
                     for aid, name, record, flag in fighters:
                         svc.cache_fighter(aid, lid, name_hint=name, record_hint=record, flag_hint=flag)

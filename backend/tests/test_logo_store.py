@@ -7,7 +7,7 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from app.core.logos.logo_store import LeagueTeamMeta, LogoStore, TeamLogoInfo
+from app.core.logo_store import LeagueTeamMeta, LogoStore, TeamLogoInfo
 
 
 def _store() -> LogoStore:

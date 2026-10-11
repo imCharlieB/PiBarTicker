@@ -16,7 +16,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from .logos.logo_store import LogoStore, cache_id_for
+from .logo_store import LogoStore, cache_id_for
 
 RECHECK = timedelta(minutes=30)       # while a finished race is not reflected yet, ask at most this often
 RACE_SESSIONS = ("", "race", "sr")    # ESPN session abbreviations that award points (blank = NASCAR, SR = F1 sprint)

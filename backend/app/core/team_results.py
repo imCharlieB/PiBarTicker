@@ -15,7 +15,7 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from .groups_util import completed_event_ids, streak_from_schedule
-from .logos.logo_store import LogoStore, cache_id_for
+from .logo_store import LogoStore, cache_id_for
 
 
 def load_results(league_id: str) -> dict[str, dict[str, Any]]:

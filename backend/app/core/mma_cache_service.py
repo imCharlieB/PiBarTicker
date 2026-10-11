@@ -16,7 +16,7 @@ import ssl
 import urllib.request
 from datetime import datetime, timezone
 
-from ..paths import get_runtime_paths
+from .paths import get_runtime_paths
 from .logo_store import LogoStore, TeamLogoInfo
 
 _ESPN_CORE_BASE = "https://sports.core.api.espn.com/v2/sports/mma/leagues"

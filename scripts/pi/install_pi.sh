@@ -150,7 +150,7 @@ if [[ "${SOURCE_REAL}" != "${APP_REAL}" ]]; then
   # blanket exclude meant new NASCAR photos never made it to the Pi no matter how
   # many times install ran).
   # The leading "/" on the team-meta and logos patterns anchors them to the top of the repo. Unanchored, "logos/*" also matched
-  # backend/app/core/logos/*.py, so those Python files were never updated on the Pi (2026-10-11: the new poll_store.py imported a
+  # backend/app/core/logos/*.py (since moved to backend/app/core/), so those Python files were never updated on the Pi (2026-10-11: the new poll_store.py imported a
   # name the Pi's stale logo_store.py did not have, and the backend crashed on start).
   rsync -a --delete \
     --exclude ".git" \

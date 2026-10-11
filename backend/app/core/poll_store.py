@@ -18,7 +18,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from .groups_util import poll_label
-from .logos.logo_store import LogoStore, cache_id_for
+from .logo_store import LogoStore, cache_id_for
 
 POLL_PERIOD = timedelta(days=7)   # polls are weekly
 EARLY = timedelta(hours=2)        # start looking this long before a week has passed

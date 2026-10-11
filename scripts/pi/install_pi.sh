@@ -149,6 +149,9 @@ if [[ "${SOURCE_REAL}" != "${APP_REAL}" ]]; then
   # excluding the whole directories like before (confirmed 2026-10-02: the old
   # blanket exclude meant new NASCAR photos never made it to the Pi no matter how
   # many times install ran).
+  # The leading "/" on the team-meta and logos patterns anchors them to the top of the repo. Unanchored, "logos/*" also matched
+  # backend/app/core/logos/*.py, so those Python files were never updated on the Pi (2026-10-11: the new poll_store.py imported a
+  # name the Pi's stale logo_store.py did not have, and the backend crashed on start).
   rsync -a --delete \
     --exclude ".git" \
     --exclude ".venv" \
@@ -156,38 +159,38 @@ if [[ "${SOURCE_REAL}" != "${APP_REAL}" ]]; then
     --exclude "frontend/dist" \
     --exclude "config.json" \
     --exclude "runtime-cache" \
-    --include "team-meta/" \
-    --include "team-meta/nascar-series.json" \
-    --include "team-meta/nascar-cup.json" \
-    --include "team-meta/nascar-xfinity.json" \
-    --include "team-meta/nascar-trucks.json" \
-    --exclude "team-meta/*" \
-    --include "logos/" \
-    --include "logos/networks/" \
-    --include "logos/networks/**" \
-    --include "logos/nascar/" \
-    --include "logos/nascar/series_*" \
-    --include "logos/nascar/playoffs_*" \
-    --include "logos/nascar/manufacturers/" \
-    --include "logos/nascar/manufacturers/**" \
-    --include "logos/nascar/cup/" \
-    --include "logos/nascar/cup/*_photo.png" \
-    --include "logos/nascar/xfinity/" \
-    --include "logos/nascar/xfinity/*_photo.png" \
-    --include "logos/nascar/trucks/" \
-    --include "logos/nascar/trucks/*_photo.png" \
-    --exclude "logos/nascar/cup/*" \
-    --exclude "logos/nascar/xfinity/*" \
-    --exclude "logos/nascar/trucks/*" \
-    --include "logos/f1/" \
-    --include "logos/f1/teams/" \
-    --include "logos/f1/teams/**" \
-    --exclude "logos/f1/*" \
-    --include "logos/mlb-postseason/" \
-    --include "logos/mlb-postseason/**" \
-    --include "logos/leagues/" \
-    --include "logos/leagues/**" \
-    --exclude "logos/*" \
+    --include "/team-meta/" \
+    --include "/team-meta/nascar-series.json" \
+    --include "/team-meta/nascar-cup.json" \
+    --include "/team-meta/nascar-xfinity.json" \
+    --include "/team-meta/nascar-trucks.json" \
+    --exclude "/team-meta/*" \
+    --include "/logos/" \
+    --include "/logos/networks/" \
+    --include "/logos/networks/**" \
+    --include "/logos/nascar/" \
+    --include "/logos/nascar/series_*" \
+    --include "/logos/nascar/playoffs_*" \
+    --include "/logos/nascar/manufacturers/" \
+    --include "/logos/nascar/manufacturers/**" \
+    --include "/logos/nascar/cup/" \
+    --include "/logos/nascar/cup/*_photo.png" \
+    --include "/logos/nascar/xfinity/" \
+    --include "/logos/nascar/xfinity/*_photo.png" \
+    --include "/logos/nascar/trucks/" \
+    --include "/logos/nascar/trucks/*_photo.png" \
+    --exclude "/logos/nascar/cup/*" \
+    --exclude "/logos/nascar/xfinity/*" \
+    --exclude "/logos/nascar/trucks/*" \
+    --include "/logos/f1/" \
+    --include "/logos/f1/teams/" \
+    --include "/logos/f1/teams/**" \
+    --exclude "/logos/f1/*" \
+    --include "/logos/mlb-postseason/" \
+    --include "/logos/mlb-postseason/**" \
+    --include "/logos/leagues/" \
+    --include "/logos/leagues/**" \
+    --exclude "/logos/*" \
     "${SOURCE_DIR}/" "${APP_DIR}/"
 else
   echo "Source and app directory are the same; skipping sync."

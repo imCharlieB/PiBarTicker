@@ -567,9 +567,9 @@
 .ticker-runtime-shell .spine-state { display: flex; align-items: center; justify-content: center; gap: 2.6cqh; min-width: 0; }
 .ticker-runtime-shell .spine-nets { display: inline-flex; align-items: center; gap: 1.6cqh; }
 .ticker-runtime-shell .spine-nets .meta-tv-logo { height: 6.6cqh; max-width: 18cqh; }
-/* spine, live football: tighter vertical gaps so a network logo + a long stadium name that wraps onto its own line (and the red-zone chip) still fit inside the card */
-.ticker-runtime-shell .d-spine.fb-live .spine-mid { gap: 1.3cqh; padding-block: 2.6cqh; }
-.ticker-runtime-shell .d-spine.fb-live .ff { gap: 1.2cqh; }
+/* spine, live football: normal gaps (the clock now shares the down & distance line, which freed ~45px); the worst case — a 2-line stadium name + the red-zone chip — still fits */
+.ticker-runtime-shell .d-spine.fb-live .spine-mid { gap: 2.6cqh; padding-block: 2.6cqh; }
+.ticker-runtime-shell .d-spine.fb-live .ff { gap: 2cqh; }
 .ticker-runtime-shell .d-spine.fb-live .meta { margin-top: 0; gap: 0.6cqh 2cqh; justify-content: center; }
 /* spine: clock + down & distance share one smaller line */
 .ticker-runtime-shell .d-spine .ff-dd { font-size: 5.6cqh; white-space: nowrap; }

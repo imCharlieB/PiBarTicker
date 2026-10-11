@@ -1361,3 +1361,6 @@
 .ticker-runtime-shell .wp-pct { position: absolute; z-index: 5; font-weight: 900; font-size: 4.6cqh; line-height: 1; text-shadow: 0 0 1cqh rgba(0, 0, 0, .7); }
 .ticker-runtime-shell .wp-pct.wp-a { right: 3.2cqh; }
 .ticker-runtime-shell .wp-pct.wp-h { left: 3.2cqh; }
+
+/* digits: no football field graphic (the down & distance and ball-on text stay) - it did not fit the compact two-row card */
+.ticker-runtime-shell .d-digits .fld { display: none; }

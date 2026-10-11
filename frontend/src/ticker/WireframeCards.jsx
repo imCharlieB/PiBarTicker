@@ -662,11 +662,13 @@ function SpineCard({ game, flags }) {
     ? spineStatus : ''
   // Network logo(s) sit beside the status chip on upcoming + live games; final games show none. The bottom row is then only the stadium.
   const stateKey = String(game?.state || '').toLowerCase()
+  // the banner hanging from the top is taller when it carries a postseason round logo; reserve room under it (CSS: banner-s / banner-l)
+  const bannerClass = matchupTag(game) ? (seriesParts(game)?.logo ? ' banner-l' : ' banner-s') : ''
   const nets = !isCombat && flags.tv && game?.broadcastText && (stateKey === 'pre' || stateKey === 'in')
     ? game.broadcastText.split(/\s*\/\s*/).map((n) => n.trim()).filter(Boolean)
     : []
   return (
-    <div className={`card d-spine ${isPre ? 'is-pre' : ''}${footballLead ? ' fb-live' : ''}`}>
+    <div className={`card d-spine ${isPre ? 'is-pre' : ''}${footballLead ? ' fb-live' : ''}${bannerClass}`}>
       <Flank team={a} side="a" />
       <div className="spine-mid">
         <MatchupTab game={game} />

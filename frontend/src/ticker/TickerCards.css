@@ -672,9 +672,18 @@
   border: 1px solid rgba(255,255,255,.1); border-radius: 4.7cqh;
   padding: 2.6cqh 5.8cqh 2.6cqh 3.2cqh; box-shadow: 0 12px 36px rgba(0,0,0,.45);
 }
-.ticker-runtime-shell .l3-logo  { height: 13.7cqh; width: auto; max-width: 28cqh; object-fit: contain; flex: 0 0 auto; background: rgba(245,248,252,.95); border-radius: 3.2cqh; padding: 1.6cqh; }
-.ticker-runtime-shell .l3-badge { font-weight: 900; font-size: 6.3cqh; letter-spacing: .07em; color: #0c120e; background: #cfd6e2; padding: 2.6cqh 4.2cqh; border-radius: 2.6cqh; }
-.ticker-runtime-shell .l3-time  { font-family: 'Spline Sans Mono', monospace; font-weight: 700; font-size: 7.9cqh; color: #e7edf6; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+/* the white logo box grows to fit a wide logo (NASCAR) but never drops below a minimum size, so it cannot collapse while the old mark leaves; marks fade out, then spin in */
+.ticker-runtime-shell .l3-box   { display: inline-grid; flex: 0 0 auto; min-width: 27cqh; min-height: 13.7cqh; background: rgba(245,248,252,.95); border-radius: 3.2cqh; overflow: hidden; perspective: 60cqh; }
+.ticker-runtime-shell .l3-layer { grid-area: 1 / 1; display: flex; align-items: center; justify-content: center; padding: 1.6cqh; opacity: 0; }
+.ticker-runtime-shell .l3-layer.out      { animation: l3-out .3s ease forwards; }
+.ticker-runtime-shell .l3-layer.in       { animation: l3-spin-in .55s cubic-bezier(.2,.8,.2,1) .3s both; }
+.ticker-runtime-shell .l3-layer.in.first { animation: l3-spin-in .55s cubic-bezier(.2,.8,.2,1) both; }
+.ticker-runtime-shell .l3-img   { height: 10.5cqh; width: auto; max-width: 30cqh; object-fit: contain; }
+.ticker-runtime-shell .l3-badge { font-weight: 900; font-size: 5.2cqh; letter-spacing: .07em; color: #0c120e; text-align: center; line-height: 1.05; }
+.ticker-runtime-shell .l3-time  { font-family: 'Spline Sans Mono', monospace; font-weight: 700; font-size: 7.9cqh; color: #e7edf6; font-variant-numeric: tabular-nums; letter-spacing: .02em; min-width: 8ch; }
+@keyframes l3-out     { from { opacity: 1; } to { opacity: 0; } }
+@keyframes l3-spin-in { from { opacity: 0; transform: rotateY(-90deg) scale(.85); } to { opacity: 1; transform: rotateY(0) scale(1); } }
+@media (prefers-reduced-motion: reduce) { .ticker-runtime-shell .l3-layer.in, .ticker-runtime-shell .l3-layer.in.first { animation: l3-out .01s reverse both; } }
 
 /* ── Home Assistant overlays ─────────────────────────────────────────────── */
 

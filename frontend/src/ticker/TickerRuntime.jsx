@@ -91,9 +91,31 @@ function LeagueMark({ league, leagueId, logo }) {
   // a hand-placed logos/leagues/{leagueId}.png wins, then the resolved logo; a candidate that fails to load is skipped
   const [failed, setFailed] = useState([])
   const src = newsLogoCandidates(leagueId, logo).find((u) => !failed.includes(u)) || ''
-  if (src) return <img className="l3-logo" src={src} alt={league} onError={() => setFailed((f) => [...f, src])} />
-  if (league) return <span className="l3-badge">{league}</span>
-  return null
+  const label = src ? '' : String(league || '')
+  const key = src || (label ? `t:${label}` : '')
+  // The white box NEVER changes size. When the league changes the old mark fades out, then the new one spins in; while there is nothing to
+  // show (between leagues) the last mark simply stays, so the box can never collapse.
+  const [layers, setLayers] = useState(() => [{ key, src, label, first: true }])
+  useEffect(() => {
+    if (!key) return undefined
+    setLayers((cur) => (cur[cur.length - 1]?.key === key ? cur : [...cur.slice(-1), { key, src, label, first: false }]))
+    const t = setTimeout(() => setLayers((cur) => cur.slice(-1)), 400)
+    return () => clearTimeout(t)
+  }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <span className="l3-box">
+      {layers.map((l, i) => {
+        const last = i === layers.length - 1
+        return (
+          <span key={l.key || 'empty'} className={`l3-layer ${last ? (l.first ? 'in first' : 'in') : 'out'}`}>
+            {l.src
+              ? <img className="l3-img" src={l.src} alt={league} onError={() => setFailed((f) => [...f, l.src])} />
+              : l.label ? <span className="l3-badge">{l.label}</span> : null}
+          </span>
+        )
+      })}
+    </span>
+  )
 }
 
 // ── Alert overlay ─────────────────────────────────────────────────────────────
@@ -180,9 +202,11 @@ function LowerThird({ clockFormat, haSlotActive, leagueName, leagueId, leagueLog
 
   return (
     <div className="ticker-runtime-lower l3-insert" aria-label="Lower third">
-      {haSlotActive
-        ? <span className="l3-badge">HOME</span>
-        : <LeagueMark league={leagueName} leagueId={leagueId} logo={leagueLogo} />}
+      <LeagueMark
+        league={haSlotActive ? 'HOME' : leagueName}
+        leagueId={haSlotActive ? '' : leagueId}
+        logo={haSlotActive ? '' : leagueLogo}
+      />
       <span className="l3-time" ref={timeRef} />
     </div>
   )

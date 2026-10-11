@@ -118,6 +118,7 @@ export default function TeamDetail({ selectedTickerLeague, selectedTickerTeam, o
             {selectedTeamProfile?.seed ? <p><strong>Playoff seed</strong><span>{selectedTeamProfile.seed}</span></p> : null}
             {constructorRow ? <p><strong>Constructors position</strong><span>{constructorRow.position}</span></p> : null}
             {constructorRow ? <p><strong>Constructors points</strong><span>{constructorRow.points}{constructorRow.wins != null ? ` (${constructorRow.wins} wins)` : ''}</span></p> : null}
+            {selectedTeamProfile?.series ? <p><strong>{selectedTeamProfile.series.round ? `${selectedTeamProfile.series.round} series` : 'Series'}</strong><span>{[selectedTeamProfile.series.gameNumber ? `Game ${selectedTeamProfile.series.gameNumber}${selectedTeamProfile.series.totalGames ? ` of ${selectedTeamProfile.series.totalGames}` : ''}` : '', selectedTeamProfile.series.text].filter(Boolean).join(' · ')}</span></p> : null}
             <p><strong>Overall</strong><span>{selectedTeamProfile?.recordSummary || selectedTeamStandingsStats.overall || 'N/A'}</span></p>
             <p><strong>Win %</strong><span>{selectedTeamStandingsStats.winPercent || 'N/A'}</span></p>
             <p><strong>Division</strong><span>{selectedTeamStandingsStats.divisionRecord || 'N/A'}</span></p>

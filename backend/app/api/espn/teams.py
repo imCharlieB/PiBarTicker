@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query
 
+from ...core.mlb_series import team_series
 from ...core.poll_store import load_polls
 from ...core.logo_store import LogoStore
 from ...core.team_results import load_snapshot
@@ -286,6 +288,10 @@ def _attach_stored_extras(team_profile: dict, league: str, team_id: str) -> None
     for key in ("place", "seed", "divisionLabel"):
         if stored_team.get(key) not in (None, ""):
             team_profile[key] = stored_team[key]
+    if str(league).lower() == "mlb":
+        series = team_series(league, str(team_profile.get("name") or ""), datetime.now(timezone.utc))
+        if series:
+            team_profile["series"] = series
     stored_polls = (load_polls(league) or {}).get("polls") or []
     if stored_polls:
         team_profile["polls"] = [

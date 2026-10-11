@@ -1,3 +1,4 @@
+from datetime import datetime
 from app.core.mlb_series import match_series, parse_schedule, round_of, schedule_url, status_text
 
 
@@ -56,3 +57,32 @@ def test_schedule_url_has_a_day_of_slack():
     url = schedule_url(["2026-10-08T20:08:00+00:00", "2026-10-09T01:00:00Z"])
     assert "startDate=2026-10-07" in url and "endDate=2026-10-10" in url and "seriesStatus" in url
     assert schedule_url(["bad"]) is None
+
+
+# ---- stored series: asked again only when something changed ----
+def _lk(start="2026-10-12T00:00:00+00:00", text="TIED 1–1"):
+    return [{"away": "a", "home": "b", "awayName": "A", "homeName": "B", "start": datetime.fromisoformat(start),
+             "series": {"statusText": text, "gameNumber": 2, "totalGames": 5, "round": "NLDS", "kind": "playoff", "completed": False}}]
+
+
+def test_series_pulled_once_then_only_when_the_board_or_a_finished_game_changes():
+    from datetime import timezone as tz
+    from app.core.mlb_series import counted_after_pull, series_due, series_range
+    now = datetime(2026, 10, 12, 12, 0, tzinfo=tz.utc)
+    rng = series_range(["2026-10-12T20:00:00Z"])
+    games = [{"id": "1", "state": "pre"}]
+    assert series_due(None, games, rng, now) is True                                           # nothing stored
+    stored = {"lookup": _lk(), "range": list(rng), "counted": [], "checkedAt": now.isoformat()}
+    assert series_due(stored, games, rng, now) is False                                        # covered, nothing finished
+    assert series_due(stored, games, series_range(["2026-10-15T20:00:00Z"]), now) is True      # board shows days we do not have
+    done = [{"id": "1", "state": "post"}]
+    later = datetime(2026, 10, 12, 13, 0, tzinfo=tz.utc)
+    assert series_due(stored, done, rng, later) is True                                        # a finished game is not reflected yet
+    assert series_due(stored, done, rng, datetime(2026, 10, 12, 12, 10, tzinfo=tz.utc)) is False   # asked 10 min ago: wait
+    assert counted_after_pull(stored, _lk(), done) == set()                                    # source unchanged: not reflected, ask again later
+    assert counted_after_pull(stored, _lk(text="NYY LEAD 2–1"), done) == {"1"}                 # series text moved: counted
+
+
+def test_series_lookup_survives_being_stored():
+    from app.core.mlb_series import _parsed, _serial
+    assert _parsed(_serial(_lk()))[0]["start"] == _lk()[0]["start"]

@@ -11,6 +11,10 @@ import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from .logo_store import LogoStore, cache_id_for
+
+RECHECK = timedelta(minutes=30)   # while a finished game is not reflected in the series yet, ask at most this often
+
 SCHEDULE_URL = "https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate={start}&endDate={end}&hydrate=seriesStatus"
 
 _ROUNDS = {"ALDS", "NLDS", "ALCS", "NLCS", "WS"}
@@ -65,6 +69,8 @@ def parse_schedule(payload: dict[str, Any]) -> list[dict[str, Any]]:
             out.append({
                 "away": _key(((teams.get("away") or {}).get("team") or {}).get("name")),
                 "home": _key(((teams.get("home") or {}).get("team") or {}).get("name")),
+                "awayName": str(((teams.get("away") or {}).get("team") or {}).get("name") or ""),
+                "homeName": str(((teams.get("home") or {}).get("team") or {}).get("name") or ""),
                 "start": start,
                 "series": {
                     "kind": "season" if str(game.get("gameType") or "").upper() == "R" else "playoff",
@@ -109,3 +115,121 @@ def schedule_url(start_times_utc: list[str]) -> str | None:
     if not days:
         return None
     return SCHEDULE_URL.format(start=(min(days) - timedelta(days=1)).isoformat(), end=(max(days) + timedelta(days=1)).isoformat())
+
+
+# ---------------------------------------------------------------------------------------------------------------------------
+# Stored copy: the schedule/series lookup lives in the league header of team-meta/mlb.json (sync.series). The MLB Stats API is asked again ONLY
+# when the board shows dates the stored copy does not cover, or a finished game on the board is not yet reflected in the series text.
+# ---------------------------------------------------------------------------------------------------------------------------
+
+def _day(value: str):
+    try:
+        return datetime.fromisoformat(str(value)).date()
+    except ValueError:
+        return None
+
+
+def series_range(start_times_utc: list[str]) -> tuple[str, str] | None:
+    """(first day, last day) the Stats API call covers for these ESPN start times, one day of slack either side, or None."""
+    days = []
+    for raw in start_times_utc:
+        try:
+            days.append(datetime.fromisoformat(str(raw).replace("Z", "+00:00")).astimezone(timezone.utc).date())
+        except ValueError:
+            continue
+    if not days:
+        return None
+    return (min(days) - timedelta(days=1)).isoformat(), (max(days) + timedelta(days=1)).isoformat()
+
+
+def _serial(lookup: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [{**item, "start": item["start"].isoformat() if isinstance(item.get("start"), datetime) else item.get("start")} for item in lookup]
+
+
+def _parsed(lookup: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    out = []
+    for item in lookup or []:
+        try:
+            out.append({**item, "start": datetime.fromisoformat(str(item["start"]))})
+        except (KeyError, ValueError):
+            continue
+    return out
+
+
+def load_series(league_id: str) -> dict[str, Any] | None:
+    meta = LogoStore().load_league_meta(cache_id_for(league_id))
+    stored = meta.sync.get("series")
+    if not stored:
+        return None
+    return {
+        "lookup": _parsed(stored),
+        "range": meta.sync.get("seriesRange"),
+        "counted": list(meta.sync.get("seriesCounted") or []),
+        "checkedAt": meta.sync.get("seriesCheckedAt"),
+    }
+
+
+def save_series(league_id: str, lookup: list[dict[str, Any]], rng: tuple[str, str], counted: set[str], checked_at: datetime) -> None:
+    store = LogoStore()
+    meta = store.load_league_meta(cache_id_for(league_id))
+    meta.sync["series"] = _serial(lookup)
+    meta.sync["seriesRange"] = list(rng)
+    meta.sync["seriesCounted"] = sorted(counted)
+    meta.sync["seriesCheckedAt"] = checked_at.isoformat()
+    store.save_league_meta(meta)
+
+
+def _finished(games: list[dict[str, Any]]) -> set[str]:
+    return {str(g["id"]) for g in games or [] if g.get("id") and str(g.get("state") or "").lower() == "post"}
+
+
+def series_due(stored: dict[str, Any] | None, games: list[dict[str, Any]], rng: tuple[str, str] | None, now: datetime) -> bool:
+    """True only when the stored series copy could be out of date."""
+    if rng is None:
+        return False
+    if not stored or not stored.get("lookup"):
+        return True
+    have = stored.get("range") or []
+    if len(have) != 2 or _day(rng[0]) is None or _day(have[0]) is None or _day(rng[0]) < _day(have[0]) or _day(rng[1]) > _day(have[1]):
+        return True   # the board shows days the stored copy does not cover
+    if not (_finished(games) - set(stored.get("counted") or [])):
+        return False
+    try:
+        checked = datetime.fromisoformat(str(stored.get("checkedAt") or ""))
+        if checked.tzinfo is None:
+            checked = checked.replace(tzinfo=timezone.utc)
+    except ValueError:
+        return True
+    return now - checked >= RECHECK
+
+
+def counted_after_pull(previous: dict[str, Any] | None, fresh: list[dict[str, Any]], games: list[dict[str, Any]]) -> set[str]:
+    """Finished games now reflected: the first pull counts everything on the board; later a game counts only once the series data actually changed."""
+    finished = _finished(games)
+    if not previous:
+        return finished
+    counted = set(previous.get("counted") or [])
+    return counted | finished if _serial(previous.get("lookup") or []) != _serial(fresh) else counted
+
+
+def team_series(league_id: str, team_name: str, now: datetime) -> dict[str, Any] | None:
+    """The stored series entry for one team (closest game to now), for the Setup team page. None when nothing is stored."""
+    stored = load_series(league_id)
+    if not stored:
+        return None
+    key = _key(team_name)
+    mine = [i for i in stored["lookup"] if key and key in (i["away"], i["home"])]
+    if not mine:
+        return None
+    item = min(mine, key=lambda i: abs((i["start"] - now).total_seconds()))
+    series = item["series"]
+    return {
+        "text": series.get("statusText") or "",
+        "gameNumber": series.get("gameNumber"),
+        "totalGames": series.get("totalGames"),
+        "round": series.get("round"),
+        "kind": series.get("kind"),
+        "away": item.get("awayName") or "",
+        "home": item.get("homeName") or "",
+        "start": item["start"].isoformat(),
+    }

@@ -22,7 +22,8 @@ from ...core.team_results import (
     save_results,
     save_snapshot,
 )
-from ...core.mlb_series import match_series, parse_schedule, schedule_url
+from ...core.mlb_series import counted_after_pull as series_counted_after_pull
+from ...core.mlb_series import load_series, match_series, parse_schedule, save_series, schedule_url, series_due, series_range
 from ...core.f1_circuit_stats import f1_circuit_stats, f1_stats_from_length
 import json
 import math
@@ -531,12 +532,24 @@ def get_scoreboard(
 
     # MLB series (regular season, every postseason round, World Series) from the MLB Stats API — one call for the whole slate
     if include_standings and _normalized(entry.league_id) == "mlb" and normalized_games:
-        url = schedule_url([str(g.get("startTimeUtc") or "") for g in normalized_games])
-        if url:
-            try:
-                lookup = parse_schedule(_http_client.get_json(url, use_cache=cache_ttl_seconds > 0, cache_ttl_seconds=cache_ttl_seconds))
-            except Exception:
-                lookup = []
+        _times = [str(g.get("startTimeUtc") or "") for g in normalized_games]
+        url = schedule_url(_times)
+        rng = series_range(_times)
+        if url and rng:
+            # pulled once and stored on the league record; the MLB API is asked again only when the board shows days the copy does not cover
+            # or a finished game is not yet reflected in the series text (see core/mlb_series.py)
+            stored_series = load_series(entry.league_id)
+            lookup = (stored_series or {}).get("lookup") or []
+            moment = datetime.now(timezone.utc)
+            if series_due(stored_series, normalized_games, rng, moment):
+                try:
+                    fresh = parse_schedule(_http_client.get_json(url, use_cache=False))
+                except Exception:
+                    fresh = None
+                if fresh:
+                    save_series(entry.league_id, fresh, rng, series_counted_after_pull(stored_series, fresh, normalized_games), moment)
+                    print(f"[series] {entry.league_id}: pulled from the MLB API ({len(fresh)} games)", flush=True)
+                    lookup = fresh
             for game in normalized_games:
                 teams = game.get("teams") or {}
                 found = match_series(

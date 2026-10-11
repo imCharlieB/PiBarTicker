@@ -1,4 +1,7 @@
+import { useEffect } from 'react'
 import { parseLeagueApiParams, isIndividualSport } from '../../api/espnApi'
+import { useAppContext } from '../../AppContext'
+import { findPointsRow } from '../helpers'
 
 function hexToRgba(hex, alpha) {
   if (!hex || hex.length < 6) return `rgba(100,100,100,${alpha})`
@@ -12,6 +15,11 @@ function hexToRgba(hex, alpha) {
 export default function DriverDetail({ selectedTickerLeague, driver, onBack }) {
   const leagueParams = parseLeagueApiParams(selectedTickerLeague?.url || '')
   const isRacing = leagueParams.sport === 'racing'
+  const { leagueLogoMetaById, loadLeagueLogoMeta } = useAppContext()
+  const leagueMeta = leagueLogoMetaById?.[selectedTickerLeague?.id]
+  useEffect(() => { if (isRacing && !leagueMeta) loadLeagueLogoMeta?.(selectedTickerLeague.id) }, [isRacing, leagueMeta, selectedTickerLeague?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  // championship points: pulled once after each race and stored with the league's team data (F1 keeps drivers + constructors, NASCAR one table)
+  const pointsRow = isRacing ? findPointsRow(leagueMeta?.points?.drivers || leagueMeta?.points?.standings, driver.display_name || driver.name) : null
   // Any individual sport that isn't racing (golf, MMA, boxing, tennis, etc.) gets the athlete layout
   const isIndividualAthlete = !isRacing && isIndividualSport(leagueParams.sport, leagueParams.league)
 
@@ -107,6 +115,10 @@ export default function DriverDetail({ selectedTickerLeague, driver, onBack }) {
             {!isMma && !isIndividualAthlete && <p><strong>Team</strong><span>{teamName || 'N/A'}</span></p>}
             {!isMma && !isIndividualAthlete && series ? <p><strong>Series</strong><span>{series}</span></p> : null}
             {!isMma && !isIndividualAthlete && manufacturer ? <p><strong>Manufacturer</strong><span>{manufacturer}</span></p> : null}
+            {pointsRow ? <p><strong>Championship position</strong><span>{pointsRow.position}</span></p> : null}
+            {pointsRow && pointsRow.points != null ? <p><strong>Championship points</strong><span>{pointsRow.points}</span></p> : null}
+            {pointsRow && pointsRow.wins != null ? <p><strong>Wins</strong><span>{pointsRow.wins}</span></p> : null}
+            {pointsRow && pointsRow.pointsGap ? <p><strong>Gap to leader</strong><span>{pointsRow.pointsGap}</span></p> : null}
             {!isMma && color ? (
               <p>
                 <strong>Colour</strong>

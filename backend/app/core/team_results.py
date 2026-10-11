@@ -1,4 +1,4 @@
-"""Per-team win/loss results kept on disk in team-meta (so they survive restarts and are never re-asked for a finished game).
+"""Per-team win/loss results kept on the team's own record in team-meta/{league}.json (so they survive restarts and are never re-asked for a finished game).
 
 ESPN's college standings carry a streak for most teams in ONE call, but leave it blank for ~40% (American, ACC, MAC, Mountain West, ...).
 For those teams the streak is counted from the team's schedule, which costs one call per team. A team's streak can only change when one of
@@ -12,38 +12,29 @@ its games finishes, so a stored result is reused until a game we have not counte
 
 from __future__ import annotations
 
-import json
-import os
-from pathlib import Path
 from typing import Any, Callable
 
 from .groups_util import completed_event_ids, streak_from_schedule
-from .paths import get_runtime_paths
-
-
-def results_path(league_id: str) -> Path:
-    safe = "".join(ch for ch in str(league_id) if ch.isalnum() or ch in "-_.")
-    return get_runtime_paths().team_meta / f"{safe}-results.json"
+from .logos.logo_store import LogoStore, cache_id_for
 
 
 def load_results(league_id: str) -> dict[str, dict[str, Any]]:
-    try:
-        data = json.loads(results_path(league_id).read_text(encoding="utf-8"))
-        teams = data.get("teams") if isinstance(data, dict) else None
-        return teams if isinstance(teams, dict) else {}
-    except (OSError, ValueError):
-        return {}
+    """{team_id: {"streak", "done"}} read from each team's own record in team-meta/{league}.json."""
+    meta = LogoStore().load_league_meta(cache_id_for(league_id))
+    return {tid: t.data["results"] for tid, t in meta.teams.items() if isinstance(t.data.get("results"), dict)}
 
 
 def save_results(league_id: str, teams: dict[str, dict[str, Any]]) -> None:
-    path = results_path(league_id)
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps({"league": league_id, "teams": teams}, indent=1), encoding="utf-8")
-        os.replace(tmp, path)  # atomic: a reader never sees half a file
-    except OSError:
-        pass  # storing is an optimisation; never fail a scoreboard request over it
+    store = LogoStore()
+    meta = store.load_league_meta(cache_id_for(league_id))
+    changed = False
+    for tid, value in teams.items():
+        team = meta.teams.get(tid)
+        if team is not None and team.data.get("results") != value:
+            team.data["results"] = value
+            changed = True
+    if changed:
+        store.save_league_meta(meta)  # storing is an optimisation; a team that is not synced yet simply has nothing stored
 
 
 def needs_lookup(entry: dict[str, Any] | None, game_id: str, state: str) -> bool:
@@ -80,28 +71,26 @@ def resolve_streak(
 # Standings only change when a game finishes, so ESPN is asked again ONLY when a finished game on the board is not yet reflected.
 # ---------------------------------------------------------------------------------------------------------------------------
 
-def snapshot_path(league_id: str) -> Path:
-    safe = "".join(ch for ch in str(league_id) if ch.isalnum() or ch in "-_.")
-    return get_runtime_paths().team_meta / f"{safe}-standings.json"
-
-
 def load_snapshot(league_id: str) -> dict[str, Any] | None:
-    try:
-        data = json.loads(snapshot_path(league_id).read_text(encoding="utf-8"))
-        return data if isinstance(data, dict) and isinstance(data.get("teams"), dict) and data["teams"] else None
-    except (OSError, ValueError):
+    """{"teams": {team_id: standing}, "counted": [...]}: every team's standing is read from its own record; the list of finished games already
+    reflected sits in the league header of the same file."""
+    meta = LogoStore().load_league_meta(cache_id_for(league_id))
+    teams = {tid: t.data["standing"] for tid, t in meta.teams.items() if isinstance(t.data.get("standing"), dict)}
+    if not teams:
         return None
+    return {"league": league_id, "teams": teams, "counted": list(meta.sync.get("standingsCounted") or [])}
 
 
 def save_snapshot(league_id: str, teams: dict[str, dict], counted: set[str]) -> None:
-    path = snapshot_path(league_id)
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps({"league": league_id, "teams": teams, "counted": sorted(counted)}, indent=1), encoding="utf-8")
-        os.replace(tmp, path)
-    except OSError:
-        pass
+    store = LogoStore()
+    meta = store.load_league_meta(cache_id_for(league_id))
+    for tid, team in meta.teams.items():
+        if tid in teams:
+            team.data["standing"] = teams[tid]
+        else:
+            team.data.pop("standing", None)
+    meta.sync["standingsCounted"] = sorted(counted)
+    store.save_league_meta(meta)
 
 
 def _finished(games: list[dict]) -> list[dict]:

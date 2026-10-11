@@ -18,6 +18,18 @@ from typing import Any
 from ...core.paths import get_runtime_paths
 
 
+# ESPN league id -> the team-meta file that holds that league's teams/drivers
+ESPN_TO_CACHE_ID: dict[str, str] = {
+    "nascar-premier":   "nascar-cup",
+    "nascar-secondary": "nascar-xfinity",
+    "nascar-truck":     "nascar-trucks",
+}
+
+
+def cache_id_for(league_id: str) -> str:
+    return ESPN_TO_CACHE_ID.get(league_id, league_id)
+
+
 @dataclass
 class TeamLogoInfo:
     """Represents one entity's cached logo information.
@@ -48,6 +60,11 @@ class TeamLogoInfo:
     groups: list[str] = field(default_factory=list)
     # Human-readable name of the most specific group (e.g. "SEC West", "NFC North")
     conference_name: str = ""
+    # Home venue (name, city, state, indoor, grass) — pulled once; a stadium does not change
+    venue: dict = field(default_factory=dict)
+    # Live data pulled for this team and kept on its record so every page reads the same copy:
+    #   standing {overall, streak, place, seed, group, stats...}  results {streak, done}  polls {AP: 6, COACHES: 7}
+    data: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -61,6 +78,8 @@ class LeagueTeamMeta:
     league: str
     ts: str = ""
     teams: dict[str, TeamLogoInfo] = field(default_factory=dict)  # keyed by entity id (team or athlete)
+    # League-level bits of the same live data: standingsCounted, polls (week/date headers), pollsCheckedAt, points (racing tables), pointsCounted, pointsCheckedAt
+    sync: dict = field(default_factory=dict)
 
 
 class LogoStore:
@@ -95,11 +114,14 @@ class LogoStore:
                     available_variants=tdata.get("available_variants", []),
                     groups=tdata.get("groups", []),
                     conference_name=tdata.get("conference_name", ""),
+                    venue=tdata.get("venue") or {},
+                    data=tdata.get("data") or {},
                 )
             return LeagueTeamMeta(
                 league=league,
                 ts=data.get("ts", ""),
                 teams=teams,
+                sync=data.get("sync") or {},
             )
         except Exception:
             # Corrupt file? Start fresh.
@@ -112,6 +134,7 @@ class LogoStore:
         data = {
             "league": meta.league,
             "ts": meta.ts,
+            **({"sync": meta.sync} if meta.sync else {}),
             "teams": {
                 tid: {
                     "abbreviation": t.abbreviation,
@@ -124,6 +147,8 @@ class LogoStore:
                     "available_variants": t.available_variants,
                     "groups": t.groups,
                     "conference_name": t.conference_name,
+                    **({"venue": t.venue} if t.venue else {}),
+                    **({"data": t.data} if t.data else {}),
                 }
                 for tid, t in meta.teams.items()
             },

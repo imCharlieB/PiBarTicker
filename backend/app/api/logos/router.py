@@ -12,7 +12,7 @@ from ...core.logos.f1_cache_service import F1CacheService
 from ...core.logos.indycar_cache_service import IndycarCacheService
 from ...core.logos.mma_cache_service import MmaCacheService
 from ...core.logos.nascar_cache_service import NascarCacheService
-from ...core.logos.logo_store import LogoStore
+from ...core.logos.logo_store import ESPN_TO_CACHE_ID, LogoStore
 
 router = APIRouter(prefix="/api/v1/logos", tags=["logos"])
 
@@ -22,11 +22,7 @@ _cache_service = LogoCacheService()
 
 # ESPN league IDs (used as league.id in config) → internal cache league IDs
 # (where team-meta/{cache_id}.json is actually stored).
-_ESPN_TO_CACHE_ID: dict[str, str] = {
-    "nascar-premier":   "nascar-cup",
-    "nascar-secondary": "nascar-xfinity",
-    "nascar-truck":     "nascar-trucks",
-}
+_ESPN_TO_CACHE_ID = ESPN_TO_CACHE_ID
 
 
 @router.get("/meta/{league}")
@@ -38,6 +34,8 @@ def get_league_logo_meta(league: str) -> dict:
         "league": meta.league,
         "ts": meta.ts,
         "team_count": len(meta.teams),
+        "points": meta.sync.get("points"),
+        "polls": meta.sync.get("polls"),
         "teams": {
             tid: {
                 "id": t.id,
@@ -49,6 +47,8 @@ def get_league_logo_meta(league: str) -> dict:
                 "preferred_variant": t.preferred_variant,
                 "logos": t.logos,
                 "remote_urls": t.remote_urls,
+                "venue": t.venue,
+                "data": t.data,
             }
             for tid, t in meta.teams.items()
         },

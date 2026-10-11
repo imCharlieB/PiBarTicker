@@ -151,3 +151,26 @@ export function getSectionSnapshots(cfg) {
     },
   }
 }
+
+// One row of a stored championship-points table for a driver (same name, else the same unique surname: "Andrea Kimi Antonelli" vs "Kimi Antonelli")
+export function findPointsRow(rows, name) {
+  const plain = (v) => String(v || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z ]/g, '').trim()
+  const want = plain(name)
+  if (!want || !Array.isArray(rows)) return null
+  const exact = rows.find((r) => plain(r.name) === want)
+  if (exact) return exact
+  const surname = want.split(' ').pop()
+  const same = rows.filter((r) => plain(r.name).split(' ').pop() === surname)
+  return same.length === 1 ? same[0] : null
+}
+
+// Constructor row: ESPN and Jolpica spell teams differently ("Red Bull Racing" / "Red Bull"), so match when one name contains the other
+export function findTeamPointsRow(rows, name) {
+  // the same spelling differences the backend maps when it builds the F1 cards
+  const ALIAS = { rbf1team: 'racingbulls', alpinef1team: 'alpine', redbull: 'redbullracing' }
+  const plain = (v) => { const t = String(v || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, ''); return ALIAS[t] || t }
+  const want = plain(name)
+  if (!want || !Array.isArray(rows)) return null
+  const hits = rows.filter((r) => { const n = plain(r.name); return n && (n === want || n.includes(want) || want.includes(n)) })
+  return hits.length === 1 ? hits[0] : (hits.find((r) => plain(r.name) === want) || null)
+}

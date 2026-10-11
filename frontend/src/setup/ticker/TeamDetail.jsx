@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAppContext } from '../../AppContext'
-import { getLeagueEntityType } from '../helpers'
+import { findPointsRow, findTeamPointsRow, getLeagueEntityType } from '../helpers'
 
 function sanitizeColor(raw) {
   if (!raw) return ''
@@ -15,6 +15,10 @@ export default function TeamDetail({ selectedTickerLeague, selectedTickerTeam, o
   } = useAppContext()
 
   const cachedTeamMeta = leagueLogoMetaById[selectedTickerLeague.id]?.teams?.[String(selectedTickerTeam.id)] || null
+
+  // F1 championship points (pulled once after each race, stored with the league's team data)
+  const f1Points = selectedTickerLeague.id === 'f1' ? leagueLogoMetaById[selectedTickerLeague.id]?.points : null
+  const constructorRow = f1Points ? findTeamPointsRow(f1Points.constructors, selectedTickerTeam.displayName || selectedTickerTeam.name) : null
 
   const [f1Drivers, setF1Drivers] = useState([])
   useEffect(() => {
@@ -112,6 +116,8 @@ export default function TeamDetail({ selectedTickerLeague, selectedTickerTeam, o
             ))}
             {selectedTeamProfile?.place ? <p><strong>{selectedTeamProfile.divisionLabel || 'Division'} place</strong><span>{selectedTeamProfile.place}</span></p> : null}
             {selectedTeamProfile?.seed ? <p><strong>Playoff seed</strong><span>{selectedTeamProfile.seed}</span></p> : null}
+            {constructorRow ? <p><strong>Constructors position</strong><span>{constructorRow.position}</span></p> : null}
+            {constructorRow ? <p><strong>Constructors points</strong><span>{constructorRow.points}{constructorRow.wins != null ? ` (${constructorRow.wins} wins)` : ''}</span></p> : null}
             <p><strong>Overall</strong><span>{selectedTeamProfile?.recordSummary || selectedTeamStandingsStats.overall || 'N/A'}</span></p>
             <p><strong>Win %</strong><span>{selectedTeamStandingsStats.winPercent || 'N/A'}</span></p>
             <p><strong>Division</strong><span>{selectedTeamStandingsStats.divisionRecord || 'N/A'}</span></p>
@@ -153,6 +159,7 @@ export default function TeamDetail({ selectedTickerLeague, selectedTickerTeam, o
                         : <div style={{ width: 72, height: 72, borderRadius: '50%', background: '#1a1f2a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 900, color: `#${dColor || 'fff'}` }}>{d.abbreviation}</div>}
                       <span style={{ fontSize: 13, fontWeight: 700, textAlign: 'center' }}>{d.display_name}</span>
                       <span style={{ fontSize: 11, color: '#6b7480', fontWeight: 800, letterSpacing: '.06em' }}>{d.abbreviation}</span>
+                      {(() => { const row = findPointsRow(f1Points?.drivers, d.display_name); return row ? <span style={{ fontSize: 11, color: '#9aa3b1', fontWeight: 700 }}>P{row.position} · {row.points} pts</span> : null })()}
                     </div>
                   )
                 })}

@@ -1,4 +1,4 @@
-"""College polls (CFP / AP / Coaches), stored in team-meta/{league}-polls.json.
+"""College polls (CFP / AP / Coaches), stored on each team's own record in team-meta/{league}.json (rank per poll) with the poll dates in the league header.
 
 Polls come out on their own weekly schedule (not when games end), and ESPN stamps every poll with when it was last updated. So the stored
 copy is read by the ticker, and ESPN is asked again only when a newer poll is due:
@@ -13,15 +13,12 @@ All the timings are constants below so they are easy to change.
 
 from __future__ import annotations
 
-import json
-import os
 import re
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from typing import Any
 
 from .groups_util import poll_label
-from .paths import get_runtime_paths
+from .logos.logo_store import LogoStore, cache_id_for
 
 POLL_PERIOD = timedelta(days=7)   # polls are weekly
 EARLY = timedelta(hours=2)        # start looking this long before a week has passed
@@ -29,11 +26,6 @@ RECHECK = timedelta(minutes=30)   # while a poll is overdue, ask at most this of
 CFP_WATCH = timedelta(hours=6)    # looking for the first CFP release (Nov+), at most this often
 LOWER_DIVISIONS = ("fcs", "division ii", "d2", "d3", "naia")
 KEEP = ("CFP", "AP", "COACHES")   # polls we can show on a card; FCS / D2 / D3 polls are ignored
-
-
-def polls_path(league_id: str) -> Path:
-    safe = "".join(ch for ch in str(league_id) if ch.isalnum() or ch in "-_.")
-    return get_runtime_paths().team_meta / f"{safe}-polls.json"
 
 
 def _parse(ts: object) -> datetime | None:
@@ -75,22 +67,35 @@ def parse_polls(rankings: list[dict], top_n: int = 25) -> list[dict[str, Any]]:
 
 
 def load_polls(league_id: str) -> dict[str, Any] | None:
-    try:
-        data = json.loads(polls_path(league_id).read_text(encoding="utf-8"))
-        return data if isinstance(data, dict) and data.get("polls") else None
-    except (OSError, ValueError):
+    """Each team's rank in each poll is read from the team's own record; the poll's week/date headers sit in the league header."""
+    meta = LogoStore().load_league_meta(cache_id_for(league_id))
+    heads = meta.sync.get("polls") or []
+    if not heads:
         return None
+    polls = []
+    for head in heads:
+        ranks = {
+            tid: team.data["polls"][head["label"]]
+            for tid, team in meta.teams.items()
+            if isinstance(team.data.get("polls"), dict) and head["label"] in team.data["polls"]
+        }
+        polls.append({**head, "ranks": ranks})
+    return {"league": league_id, "checkedAt": meta.sync.get("pollsCheckedAt"), "polls": polls}
 
 
 def save_polls(league_id: str, polls: list[dict[str, Any]], checked_at: datetime) -> None:
-    path = polls_path(league_id)
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps({"league": league_id, "checkedAt": checked_at.isoformat(), "polls": polls}, indent=1), encoding="utf-8")
-        os.replace(tmp, path)
-    except OSError:
-        pass
+    store = LogoStore()
+    meta = store.load_league_meta(cache_id_for(league_id))
+    for team in meta.teams.values():
+        team.data.pop("polls", None)
+    for poll in polls:
+        for tid, rank in (poll.get("ranks") or {}).items():
+            team = meta.teams.get(tid)
+            if team is not None:
+                team.data.setdefault("polls", {})[poll["label"]] = rank
+    meta.sync["polls"] = [{key: poll.get(key) for key in ("label", "name", "week", "updated")} for poll in polls]
+    meta.sync["pollsCheckedAt"] = checked_at.isoformat()
+    store.save_league_meta(meta)
 
 
 def touch_checked(league_id: str, stored: dict[str, Any], checked_at: datetime) -> None:

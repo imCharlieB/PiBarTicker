@@ -5,6 +5,7 @@ import re
 from fastapi import APIRouter, HTTPException, Query
 
 from ...core.poll_store import load_polls
+from ...core.logos.logo_store import LogoStore
 from ...core.team_results import load_snapshot
 from ._utils import (
     _group_key,
@@ -246,6 +247,38 @@ def standings_stats_by_team(children: list[dict]) -> dict[str, dict]:
     return out
 
 
+def _stored_venue(team_profile: dict, sport: str, league: str, team_id: str, cache_ttl_seconds: float) -> None:
+    """The home venue lives on the team's own record in team-meta/{league}.json (a stadium does not change): use what the profile already
+    has, then the team's stored venue, and only ask ESPN's core team endpoint when neither has it — then store it on the team."""
+    if not team_id:
+        return
+    store = LogoStore()
+    meta = store.load_league_meta(league)
+    stored_team = meta.teams.get(team_id)
+    if team_profile.get("venue"):
+        if stored_team is not None and stored_team.venue != team_profile["venue"]:
+            stored_team.venue = team_profile["venue"]
+            store.save_league_meta(meta)
+        return
+    if stored_team is not None and stored_team.venue:
+        team_profile["venue"] = stored_team.venue
+        return
+    try:
+        core = _http_client.get_json(
+            _core_team_endpoint_url(sport=sport, league=league, team_id=team_id),
+            use_cache=cache_ttl_seconds > 0,
+            cache_ttl_seconds=cache_ttl_seconds,
+        )
+        venue = _venue_profile(core.get("venue") or {})
+    except Exception:
+        venue = None
+    if venue:
+        team_profile["venue"] = venue
+        if stored_team is not None:
+            stored_team.venue = venue
+            store.save_league_meta(meta)
+
+
 def _attach_stored_extras(team_profile: dict, league: str, team_id: str) -> None:
     """Everything we have pulled and stored about this team, so the setup page can show it: division place / seed (pro) and the
     AP / Coaches / CFP rank from the stored polls (college). `polls` lists every stored poll, with rank None when the team is not in its top 25."""
@@ -370,6 +403,7 @@ def get_team_logos(
                     team_profile["standings"] = {"group": stored_team.get("group") or {}, "stats": stored_team["stats"]}
                     team_profile["group"] = stored_team.get("group") or None
                     team_profile["recordSummary"] = stored_team["stats"].get("overall", "")
+                _stored_venue(team_profile, sport, league, str(direct_team.get("id") or ""), cache_ttl_seconds)
                 _attach_stored_extras(team_profile, league, str(direct_team.get("id") or ""))
 
                 return {
@@ -539,6 +573,7 @@ def get_team_logos(
             except Exception:
                 pass
 
+    _stored_venue(team_profile, sport, league, team_id, cache_ttl_seconds)
     _attach_stored_extras(team_profile, league, team_id)
 
     return {

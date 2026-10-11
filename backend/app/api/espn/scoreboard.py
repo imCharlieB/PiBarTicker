@@ -1001,54 +1001,58 @@ def get_scoreboard(
 
             if _is_nascar:
                 try:
-                    _standings_data = _stored_points(lambda: {"standings": _http_client.get_json(
-                        f"https://site.api.espn.com/apis/v2/sports/racing/{entry.league_id}/standings",
-                        use_cache=False,
-                    )}).get("standings")
-                    _standings_children = (_standings_data or {}).get("children") if isinstance(_standings_data, dict) else None
-                    _standings_entries = (
-                        ((_standings_children[0] or {}).get("standings") or {}).get("entries") or []
-                        if isinstance(_standings_children, list) and _standings_children else []
-                    )
-                    _standings_rows: list[dict] = []
-                    for _se in _standings_entries[:8]:
-                        if not isinstance(_se, dict):
-                            continue
-                        _athlete = _se.get("athlete") or {}
-                        _se_name = str(_athlete.get("displayName") or "").strip()
-                        if not _se_name:
-                            continue
-                        _se_rank = None
-                        _se_pts = None
-                        for _stat in (_se.get("stats") or []):
-                            if not isinstance(_stat, dict):
+                    def _nascar_rows() -> dict:
+                        _standings_data = _http_client.get_json(
+                            f"https://site.api.espn.com/apis/v2/sports/racing/{entry.league_id}/standings",
+                            use_cache=False,
+                        )
+                        _children = (_standings_data or {}).get("children") if isinstance(_standings_data, dict) else None
+                        _entries = (
+                            ((_children[0] or {}).get("standings") or {}).get("entries") or []
+                            if isinstance(_children, list) and _children else []
+                        )
+                        _rows: list[dict] = []
+                        for _se in _entries:  # the whole table is stored; the card shows the top 8
+                            if not isinstance(_se, dict):
                                 continue
-                            if _stat.get("name") == "rank":
-                                _se_rank = _stat.get("value")
-                            elif _stat.get("name") == "championshipPts":
-                                _se_pts = _stat.get("value")
-                        _standings_rows.append({
-                            "id": "",
-                            "position": int(_se_rank) if _se_rank is not None else len(_standings_rows) + 1,
-                            "name": _se_name,
-                            "shortName": _se_name,
-                            "score": "",
-                            "stats": [],
-                            "headshot": "",
-                            "flag": {"href": "", "alt": ""},
-                            "team": "",
-                            "teamId": "",
-                            "teamColor": "",
-                            "athleteId": str(_athlete.get("id") or "").strip(),
-                            "carBadge": "",
-                            "carNumber": "",
-                            "points": int(_se_pts) if _se_pts is not None else None,
-                        })
+                            _athlete = _se.get("athlete") or {}
+                            _se_name = str(_athlete.get("displayName") or "").strip()
+                            if not _se_name:
+                                continue
+                            _se_rank = None
+                            _se_pts = None
+                            for _stat in (_se.get("stats") or []):
+                                if not isinstance(_stat, dict):
+                                    continue
+                                if _stat.get("name") == "rank":
+                                    _se_rank = _stat.get("value")
+                                elif _stat.get("name") == "championshipPts":
+                                    _se_pts = _stat.get("value")
+                            _rows.append({
+                                "id": "",
+                                "position": int(_se_rank) if _se_rank is not None else len(_rows) + 1,
+                                "name": _se_name,
+                                "shortName": _se_name,
+                                "score": "",
+                                "stats": [],
+                                "headshot": "",
+                                "flag": {"href": "", "alt": ""},
+                                "team": "",
+                                "teamId": "",
+                                "teamColor": "",
+                                "athleteId": str(_athlete.get("id") or "").strip(),
+                                "carBadge": "",
+                                "carNumber": "",
+                                "points": int(_se_pts) if _se_pts is not None else None,
+                            })
+                        if _rows and _rows[0].get("points") is not None:
+                            for _row in _rows[1:]:
+                                if _row.get("points") is not None:
+                                    _row["pointsGap"] = _row["points"] - _rows[0]["points"]
+                        return {"standings": _rows}
+
+                    _standings_rows = (_stored_points(_nascar_rows).get("standings") or [])[:8]
                     if _standings_rows and _standings_rows[0].get("points") is not None:
-                        _leader_pts = _standings_rows[0]["points"]
-                        for _row in _standings_rows[1:]:
-                            if _row.get("points") is not None:
-                                _row["pointsGap"] = _row["points"] - _leader_pts
                         _correct_series = _NASCAR_SERIES_LABELS.get(entry.league_id, "")
                         normalized_games.append({
                             "id": f"nascar-standings-{entry.league_id}",
@@ -1077,47 +1081,51 @@ def get_scoreboard(
                         _tn = _slug(_d.remote_urls.get("team_name"))
                         if _tn and _d.color and _tn not in _team_color:
                             _team_color[_tn] = _d.color
-                    _jolpica = _stored_points(lambda: {
-                        "drivers": _http_client.get_json("https://api.jolpi.ca/ergast/f1/current/driverStandings.json", use_cache=False),
-                        "constructors": _http_client.get_json("https://api.jolpi.ca/ergast/f1/current/constructorStandings.json", use_cache=False),
-                    })
-                    _jd, _jc = _jolpica.get("drivers"), _jolpica.get("constructors")
-                    _dl = ((_jd or {}).get("MRData") or {}).get("StandingsTable", {}).get("StandingsLists") or []
-                    _cl = ((_jc or {}).get("MRData") or {}).get("StandingsTable", {}).get("StandingsLists") or []
-                    _drows = []
-                    for _x in ((_dl[0] if _dl else {}).get("DriverStandings") or [])[:8]:
-                        _dr = _x.get("Driver") or {}
-                        _nm = f"{_dr.get('givenName', '')} {_dr.get('familyName', '')}".strip()
-                        _tm = (_x.get("Constructors") or [{}])[-1].get("name") or ""
-                        _drows.append({
-                            "id": "", "position": int(_x.get("position") or len(_drows) + 1), "name": _nm, "shortName": _nm,
-                            "score": "", "stats": [], "headshot": "", "flag": {"href": "", "alt": ""}, "team": _tm, "teamId": "",
-                            "teamColor": "", "athleteId": "", "carBadge": "", "carNumber": str(_dr.get("permanentNumber") or ""),
-                            "points": int(float(_x.get("points") or 0)), "wins": int(_x.get("wins") or 0),
-                        })
-                    if _drows:
+
+                    def _f1_rows() -> dict:
+                        _jd = _http_client.get_json("https://api.jolpi.ca/ergast/f1/current/driverStandings.json", use_cache=False)
+                        _jc = _http_client.get_json("https://api.jolpi.ca/ergast/f1/current/constructorStandings.json", use_cache=False)
+                        _dl = ((_jd or {}).get("MRData") or {}).get("StandingsTable", {}).get("StandingsLists") or []
+                        _cl = ((_jc or {}).get("MRData") or {}).get("StandingsTable", {}).get("StandingsLists") or []
+                        _drows = []
+                        for _x in ((_dl[0] if _dl else {}).get("DriverStandings") or []):  # the whole table is stored; cards show the top 8
+                            _dr = _x.get("Driver") or {}
+                            _nm = f"{_dr.get('givenName', '')} {_dr.get('familyName', '')}".strip()
+                            _tm = (_x.get("Constructors") or [{}])[-1].get("name") or ""
+                            _drows.append({
+                                "id": "", "position": int(_x.get("position") or len(_drows) + 1), "name": _nm, "shortName": _nm,
+                                "score": "", "stats": [], "headshot": "", "flag": {"href": "", "alt": ""}, "team": _tm, "teamId": "",
+                                "teamColor": "", "athleteId": "", "carBadge": "", "carNumber": str(_dr.get("permanentNumber") or ""),
+                                "points": int(float(_x.get("points") or 0)), "wins": int(_x.get("wins") or 0),
+                            })
                         for _r in _drows[1:]:
                             _r["pointsGap"] = _r["points"] - _drows[0]["points"]
+                        _trows = []
+                        for _x in ((_cl[0] if _cl else {}).get("ConstructorStandings") or []):
+                            _cn = (_x.get("Constructor") or {}).get("name") or ""
+                            _sg = _ALIAS.get(_slug(_cn), _slug(_cn))
+                            _trows.append({
+                                "id": "", "position": int(_x.get("position") or len(_trows) + 1), "name": _cn, "shortName": _cn,
+                                "score": "", "stats": [], "headshot": "", "flag": {"href": "", "alt": ""}, "team": _cn, "teamId": "",
+                                "teamColor": _team_color.get(_sg, ""), "athleteId": "", "carBadge": "", "carNumber": "",
+                                "points": int(float(_x.get("points") or 0)), "wins": int(_x.get("wins") or 0),
+                                "teamLogo": f"f1/teams/{_sg}_logo.webp" if (_f1_logos / "teams" / f"{_sg}_logo.webp").exists() else "",
+                                "carImage": f"f1/{_sg}_car.webp" if (_f1_logos / f"{_sg}_car.webp").exists() else "",
+                            })
+                        for _r in _trows[1:]:
+                            _r["pointsGap"] = _r["points"] - _trows[0]["points"]
+                        return {"drivers": _drows, "constructors": _trows}
+
+                    _f1_points = _stored_points(_f1_rows)
+                    _drows = (_f1_points.get("drivers") or [])[:8]
+                    _trows = (_f1_points.get("constructors") or [])[:8]
+                    if _drows:
                         normalized_games.append({
                             "id": "f1-standings-drivers", "gameId": "f1-standings-drivers", "sport": "racing", "league": entry.league,
                             "leagueId": "f1", "state": "standings", "isLive": False, "isCompleted": False,
                             "title": "Formula 1", "standingsKind": "drivers", "racingEntries": _drows,
                         })
-                    _trows = []
-                    for _x in ((_cl[0] if _cl else {}).get("ConstructorStandings") or [])[:8]:
-                        _cn = (_x.get("Constructor") or {}).get("name") or ""
-                        _sg = _ALIAS.get(_slug(_cn), _slug(_cn))
-                        _trows.append({
-                            "id": "", "position": int(_x.get("position") or len(_trows) + 1), "name": _cn, "shortName": _cn,
-                            "score": "", "stats": [], "headshot": "", "flag": {"href": "", "alt": ""}, "team": _cn, "teamId": "",
-                            "teamColor": _team_color.get(_sg, ""), "athleteId": "", "carBadge": "", "carNumber": "",
-                            "points": int(float(_x.get("points") or 0)), "wins": int(_x.get("wins") or 0),
-                            "teamLogo": f"f1/teams/{_sg}_logo.webp" if (_f1_logos / "teams" / f"{_sg}_logo.webp").exists() else "",
-                            "carImage": f"f1/{_sg}_car.webp" if (_f1_logos / f"{_sg}_car.webp").exists() else "",
-                        })
                     if _trows:
-                        for _r in _trows[1:]:
-                            _r["pointsGap"] = _r["points"] - _trows[0]["points"]
                         normalized_games.append({
                             "id": "f1-standings-teams", "gameId": "f1-standings-teams", "sport": "racing", "league": entry.league,
                             "leagueId": "f1", "state": "standings", "isLive": False, "isCompleted": False,

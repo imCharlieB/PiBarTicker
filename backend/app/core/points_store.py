@@ -1,4 +1,4 @@
-"""Racing points standings (NASCAR from ESPN, F1 from Jolpica), stored in team-meta/{league}-points.json.
+"""Racing points standings (NASCAR from ESPN, F1 from Jolpica), stored in the league header of team-meta/{league}.json.
 
 Points only change when a race finishes, so the ticker reads the stored copy and the source is asked again ONLY when a finished race on the
 board is not yet reflected in what we stored:
@@ -13,40 +13,31 @@ Practice / qualifying never change points, so only races (and F1 sprints) are wa
 
 from __future__ import annotations
 
-import json
-import os
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from typing import Any
 
-from .paths import get_runtime_paths
+from .logos.logo_store import LogoStore, cache_id_for
 
 RECHECK = timedelta(minutes=30)       # while a finished race is not reflected yet, ask at most this often
 RACE_SESSIONS = ("", "race", "sr")    # ESPN session abbreviations that award points (blank = NASCAR, SR = F1 sprint)
 
 
-def points_path(league_id: str) -> Path:
-    safe = "".join(ch for ch in str(league_id) if ch.isalnum() or ch in "-_.")
-    return get_runtime_paths().team_meta / f"{safe}-points.json"
-
-
 def load_points(league_id: str) -> dict[str, Any] | None:
-    try:
-        data = json.loads(points_path(league_id).read_text(encoding="utf-8"))
-        return data if isinstance(data, dict) and data.get("data") else None
-    except (OSError, ValueError):
+    """The league's points tables (rows with name, points, wins, gap...) from the league header of team-meta/{league}.json."""
+    meta = LogoStore().load_league_meta(cache_id_for(league_id))
+    data = meta.sync.get("points")
+    if not data:
         return None
+    return {"checkedAt": meta.sync.get("pointsCheckedAt"), "counted": list(meta.sync.get("pointsCounted") or []), "data": data}
 
 
 def save_points(league_id: str, data: dict[str, Any], counted: set[str], checked_at: datetime) -> None:
-    path = points_path(league_id)
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps({"league": league_id, "checkedAt": checked_at.isoformat(), "counted": sorted(counted), "data": data}), encoding="utf-8")
-        os.replace(tmp, path)
-    except OSError:
-        pass
+    store = LogoStore()
+    meta = store.load_league_meta(cache_id_for(league_id))
+    meta.sync["points"] = data
+    meta.sync["pointsCounted"] = sorted(counted)
+    meta.sync["pointsCheckedAt"] = checked_at.isoformat()
+    store.save_league_meta(meta)
 
 
 def finished_race_ids(games: list[dict]) -> set[str]:

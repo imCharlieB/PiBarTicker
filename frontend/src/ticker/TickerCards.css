@@ -180,7 +180,7 @@
 .ticker-runtime-shell .d-slab:not(.d-board) .slab-seam > .calltab { position: relative; top: auto; left: auto; transform: none; flex: 0 0 auto; align-self: center; }
 .ticker-runtime-shell .slab-body {
   flex: 1 1 auto; min-height: 0; width: 100%; display: flex; flex-direction: column; align-items: center;
-  justify-content: center; gap: 2.2cqh; padding-block: 1.2cqh;
+  justify-content: space-evenly; gap: 1cqh; padding-block: 1cqh;
 }
 .ticker-runtime-shell .slab-state { display: flex; align-items: center; justify-content: center; gap: 2.6cqh; min-width: 0; }
 .ticker-runtime-shell .slab-nets { display: inline-flex; align-items: center; gap: 1.6cqh; }
@@ -1393,6 +1393,5 @@
 /* slab: a bigger FINAL tab (the middle of a final card is otherwise mostly empty) */
 .ticker-runtime-shell .d-slab:not(.d-board) .chip-final { font-size: 6.4cqh; padding: 1.8cqh 4.6cqh; border-radius: 2cqh; }
 /* slab live cards: the column starts right under the banner (no dead space above the LIVE chip); spare height goes to the bottom */
-.ticker-runtime-shell .d-slab:not(.d-board).has-feat .slab-body { justify-content: flex-start; padding-top: 1.4cqh; }
 /* slab: a one-digit score is centered in its team panel (two and three digits stay at the outer edge) */
 .ticker-runtime-shell .d-slab:not(.d-board) .score.score-1 { align-self: center; }

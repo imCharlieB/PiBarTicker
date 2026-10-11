@@ -5,7 +5,7 @@ from pathlib import Path
 from threading import Lock
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .paths import get_runtime_paths
 
@@ -62,7 +62,30 @@ class ThemeConfig(AppBaseModel):
     clockFormat: Literal["12h", "24h"] = "12h"
 
 
+# League settings that were removed in later versions. Old config.json files AND Setup pages still open from before an update may still send them;
+# they are dropped instead of failing strict validation with a 422.
+_LEGACY_LEAGUE_KEYS = {
+    "teamStyles",
+    "showOdds",
+    "useTeamCardColors",
+    "showLiveState",
+    "showStatRecords",
+    "showStatClock",
+    "showStatSituation",
+    "showStatVenue",
+    "showStatOdds",
+    "showStandings",  # removed: standings follow density == "max"
+}
+
+
 class LeagueConfig(AppBaseModel):
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_removed_settings(cls, data):
+        if isinstance(data, dict):
+            return {key: value for key, value in data.items() if key not in _LEGACY_LEAGUE_KEYS}
+        return data
+
     id: str
     name: str
     url: str

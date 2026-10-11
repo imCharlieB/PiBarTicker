@@ -83,11 +83,22 @@ export function renderEntityValue(live, sensor, unitClass) {
   return <>{live.state}{unit ? <span className={unitClass}>{unit}</span> : null}</>
 }
 
+// Home Assistant does not always send a device class: guess one from the unit / entity name so a temperature gets a thermometer, not the gauge.
+function inferDeviceClass(live, sensor) {
+  const unit = String(sensor?.unit || live?.unit || live?.attributes?.unit_of_measurement || '').trim()
+  const id = String(sensor?.entityId || '').toLowerCase()
+  if (/°/.test(unit) || /temperature/.test(id)) return 'temperature'
+  if (/humidity/.test(id)) return 'humidity'
+  if (/^k?w$/i.test(unit)) return 'power'
+  if (/^k?wh$/i.test(unit)) return 'energy'
+  return ''
+}
+
 export function haIconFor(live, sensor) {
   const haAttr = live?.attributes?.icon
   if (haAttr && haAttr.startsWith('mdi:')) return haAttr.replace('mdi:', 'mdi-')
   const domain = live?.domain || sensor.entityId.split('.')[0]
-  const dc = live?.attributes?.device_class || ''
+  const dc = live?.attributes?.device_class || inferDeviceClass(live, sensor)
   switch (domain) {
     case 'climate':       return 'mdi-thermostat'
     case 'light':         return 'mdi-lightbulb'
@@ -287,7 +298,7 @@ export function HAPrinterCard({ card, sensors, sensorValues }) {
 
 export function haColorFor(live, sensor) {
   const domain = live?.domain || sensor?.entityId?.split('.')[0]
-  const dc = live?.attributes?.device_class || ''
+  const dc = live?.attributes?.device_class || inferDeviceClass(live, sensor)
   const on = live?.state === 'on'
   switch (domain) {
     case 'climate':       return '#f0894e'

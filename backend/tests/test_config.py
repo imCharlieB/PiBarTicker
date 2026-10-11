@@ -190,3 +190,10 @@ def test_config_store_load_is_idempotent(tmp_path: Path):
     first = store.load()
     second = store.load()
     assert first == second
+
+
+def test_removed_league_settings_are_dropped_not_rejected():
+    from app.core.config import LeagueConfig
+    league = LeagueConfig(id="nfl", name="NFL", url="u", showStandings=False, showOdds=True, teamStyles={"x": 1})
+    assert league.id == "nfl"
+    assert not hasattr(league, "showStandings")

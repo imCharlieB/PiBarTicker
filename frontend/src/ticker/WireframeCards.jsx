@@ -1128,8 +1128,7 @@ function LiveRaceCard({ game, title, seriesName, entries }) {
       {timedSession ? null : (
       <div className="lv-front">
         <div className="lv-ttl">
-          <span className="lv-k">{seriesName}</span>
-          <h3>{title}</h3>
+          <h3>{seriesName}</h3>
         </div>
         {timedSession ? (
           <div className="lv-sess">{sessionName}</div>
@@ -1151,6 +1150,7 @@ function LiveRaceCard({ game, title, seriesName, entries }) {
             </>
           ) : (
             <>
+              <span className="lv-ht lv-race">{title}</span>
               <span className={`lv-chip lv-chip-${flag}`}><FlagGraphic kind={flag} /><b>{flag === 'yellow' ? 'CAUTION' : flag === 'pre' ? 'PRE-RACE' : flag.toUpperCase()}</b></span>
               {lapNow != null ? <span className="lv-lap">LAP {lapNow}{lapTotal ? <i> / {lapTotal}</i> : null}</span> : null}
             </>

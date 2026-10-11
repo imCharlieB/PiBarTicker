@@ -107,6 +107,11 @@ export default function TeamDetail({ selectedTickerLeague, selectedTickerTeam, o
 
           <h3>Standings</h3>
           <div className="team-meta-grid">
+            {(selectedTeamProfile?.polls || []).map((poll) => (
+              <p key={poll.label}><strong>{poll.label === 'COACHES' ? 'Coaches poll' : `${poll.label} poll`}{poll.week ? ` (wk ${poll.week})` : ''}</strong><span>{poll.rank ? `#${poll.rank}` : 'Unranked'}</span></p>
+            ))}
+            {selectedTeamProfile?.place ? <p><strong>{selectedTeamProfile.divisionLabel || 'Division'} place</strong><span>{selectedTeamProfile.place}</span></p> : null}
+            {selectedTeamProfile?.seed ? <p><strong>Playoff seed</strong><span>{selectedTeamProfile.seed}</span></p> : null}
             <p><strong>Overall</strong><span>{selectedTeamProfile?.recordSummary || selectedTeamStandingsStats.overall || 'N/A'}</span></p>
             <p><strong>Win %</strong><span>{selectedTeamStandingsStats.winPercent || 'N/A'}</span></p>
             <p><strong>Division</strong><span>{selectedTeamStandingsStats.divisionRecord || 'N/A'}</span></p>

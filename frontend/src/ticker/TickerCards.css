@@ -125,7 +125,9 @@
 .ticker-runtime-shell .meta-tv-name { font-size: 5.3cqh; font-weight: 700; color: #aeb6c2; }
 
 /* ── 1 · SLAB ───────────────────────────────────────────────────────────── */
-.ticker-runtime-shell .d-slab { width: 168.4cqh; }
+.ticker-runtime-shell .d-slab { width: max-content; min-width: 168.4cqh; }
+/* each team panel is at least as wide as what is in it (e.g. the standing plate) plus its padding, so the plate always has equal space on both sides — the card grows instead of the plate being squeezed */
+.ticker-runtime-shell .d-slab .slab-half { flex: 1 1 0; min-width: max-content; }
 /* Combat (MMA / boxing / wrestling) — wider so flag + record fit without wrapping */
 .ticker-runtime-shell .d-slab-combat { width: 200cqh; }
 .ticker-runtime-shell .d-slab-combat .rec-big { white-space: nowrap; font-size: 11.1cqh; }
@@ -1323,3 +1325,5 @@
 .ticker-runtime-shell .lv-timed .lv-top { justify-content: flex-start; height: 10cqh; gap: 3cqh; align-items: baseline; }
 .ticker-runtime-shell .lv-ht { font-weight: 900; font-size: 7.6cqh; color: #fff; white-space: nowrap; }
 .ticker-runtime-shell .lv-hs { font-weight: 900; font-size: 6cqh; letter-spacing: .14em; color: rgb(var(--acc)); white-space: nowrap; }
+/* live race: the race name sits at the top like the timed sessions; the flag chip + lap count stay on the right */
+.ticker-runtime-shell .lv-ht.lv-race { margin-right: auto; }

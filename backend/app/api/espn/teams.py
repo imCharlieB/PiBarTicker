@@ -4,6 +4,7 @@ import re
 
 from fastapi import APIRouter, HTTPException, Query
 
+from ...core.poll_store import load_polls
 from ...core.team_results import load_snapshot
 from ._utils import (
     _group_key,
@@ -245,6 +246,21 @@ def standings_stats_by_team(children: list[dict]) -> dict[str, dict]:
     return out
 
 
+def _attach_stored_extras(team_profile: dict, league: str, team_id: str) -> None:
+    """Everything we have pulled and stored about this team, so the setup page can show it: division place / seed (pro) and the
+    AP / Coaches / CFP rank from the stored polls (college). `polls` lists every stored poll, with rank None when the team is not in its top 25."""
+    stored_team = ((load_snapshot(league) or {}).get("teams") or {}).get(team_id) or {}
+    for key in ("place", "seed", "divisionLabel"):
+        if stored_team.get(key) not in (None, ""):
+            team_profile[key] = stored_team[key]
+    stored_polls = (load_polls(league) or {}).get("polls") or []
+    if stored_polls:
+        team_profile["polls"] = [
+            {"label": poll.get("label"), "name": poll.get("name"), "week": poll.get("week"), "updated": poll.get("updated"), "rank": (poll.get("ranks") or {}).get(team_id)}
+            for poll in stored_polls
+        ]
+
+
 @router.get("/team-logos")
 def get_team_logos(
     team: str = Query(..., description="Team id, abbreviation, slug, or display name."),
@@ -347,6 +363,14 @@ def get_team_logos(
                 venue_profile = _venue_profile(venue)
                 if venue_profile:
                     team_profile["venue"] = venue_profile
+
+                # teams outside the league list's first page (most of college) still read the stored standings
+                stored_team = ((load_snapshot(league) or {}).get("teams") or {}).get(str(direct_team.get("id") or "")) or {}
+                if stored_team.get("stats"):
+                    team_profile["standings"] = {"group": stored_team.get("group") or {}, "stats": stored_team["stats"]}
+                    team_profile["group"] = stored_team.get("group") or None
+                    team_profile["recordSummary"] = stored_team["stats"].get("overall", "")
+                _attach_stored_extras(team_profile, league, str(direct_team.get("id") or ""))
 
                 return {
                     "sport": sport,
@@ -514,6 +538,8 @@ def get_team_logos(
                     )
             except Exception:
                 pass
+
+    _attach_stored_extras(team_profile, league, team_id)
 
     return {
         "sport": sport,

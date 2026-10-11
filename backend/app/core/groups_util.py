@@ -172,6 +172,7 @@ def build_division_standings(children: list[dict], show_seeds_up_to: int | None 
                         "place": index + 1,
                         "seed": int(seed) if seed.isdigit() else None,
                         "streak": stat(entry, "streak"),
+                        "overall": stat(entry, "overall"),
                     }
                     seed_no = out[team_id]["seed"]
                     if show_seeds_up_to and seed_no and seed_no <= show_seeds_up_to:
@@ -240,3 +241,49 @@ def streak_from_schedule(events: list[dict], team_id: str) -> str:
             break
         run += 1
     return f"{'W' if last_win else 'L'}{run}"
+
+
+def completed_event_ids(events: list[dict]) -> set[str]:
+    """ESPN event ids of a team schedule's finished games."""
+    out: set[str] = set()
+    for event in events or []:
+        for competition in event.get("competitions") or []:
+            if ((competition.get("status") or {}).get("type") or {}).get("completed"):
+                out.add(str(event.get("id") or ""))
+    out.discard("")
+    return out
+
+
+def college_standings_snapshot(children: list[dict]) -> dict[str, dict]:
+    """{team_id: {"streak": "W6"/"L1" or "", "overall": "6-0"}} for EVERY team in ESPN's /standings?level=3.
+    The streak is blank ("-") for roughly 40% of college teams; those are filled in from the team's schedule elsewhere."""
+    out: dict[str, dict] = {}
+
+    def walk(nodes: list[dict]) -> None:
+        for node in nodes:
+            for entry in (node.get("standings") or {}).get("entries") or []:
+                team_id = str((entry.get("team") or {}).get("id") or "").strip()
+                if not team_id:
+                    continue
+                names = {str(st.get("name")): str(st.get("displayValue") or "").strip() for st in entry.get("stats") or []}
+                streak = names.get("streak", "")
+                out[team_id] = {"streak": streak if re.fullmatch(r"[WL]\d+", streak) else "", "overall": names.get("overall", "")}
+            nested = node.get("children") or []
+            if isinstance(nested, list) and nested:
+                walk(nested)
+
+    walk(children if isinstance(children, list) else [])
+    return out
+
+
+def apply_seed_line(teams: dict[str, dict], line: int | None) -> dict[str, dict]:
+    """Copy of the stored standings with showSeed set for teams seeded at or above `line` (None = nobody). The line depends on the week,
+    so it is applied per request and never stored."""
+    out: dict[str, dict] = {}
+    for team_id, standing in teams.items():
+        item = {k: v for k, v in standing.items() if k != "showSeed"}
+        seed = item.get("seed")
+        if line and isinstance(seed, int) and 0 < seed <= line:
+            item["showSeed"] = True
+        out[team_id] = item
+    return out

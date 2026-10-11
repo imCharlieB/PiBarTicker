@@ -16,7 +16,7 @@ def test_division_place_seed_streak():
     ]
     out = build_division_standings(children)
     assert out["2"] == {"division": "AFC East", "divisionLabel": "AFC East", "conference": "American Football Conference", "conferenceAbbr": "",
-                        "place": 1, "seed": 3, "streak": "L1"}
+                        "place": 1, "seed": 3, "streak": "L1", "overall": ""}
     assert out["15"]["place"] == 2 and out["15"]["streak"] == "W2"
 
 

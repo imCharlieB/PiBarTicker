@@ -9,7 +9,17 @@ from fastapi import APIRouter, HTTPException, Query
 from ...core.espn_normalizer import normalize_scoreboard_events
 from ...core.espn_registry import resolve_registry_entry
 from ...core.espn_scoreboard import EspnScoreboardClient, resolve_calendar_weeks
+from .teams import standings_stats_by_team
 from ...core.football_drive import drive_start_from_summary
+from ...core.team_results import (
+    load_results,
+    load_snapshot,
+    needs_standings_refresh,
+    reflected_game_ids,
+    resolve_streak,
+    save_results,
+    save_snapshot,
+)
 from ...core.mlb_series import match_series, parse_schedule, schedule_url
 from ...core.f1_circuit_stats import f1_circuit_stats, f1_stats_from_length
 import json
@@ -19,7 +29,8 @@ import re
 from ...core.groups_util import (
     build_division_standings,
     pick_headline_poll,
-    streak_from_schedule,
+    apply_seed_line,
+    college_standings_snapshot,
     build_team_group_memberships_from_groups,
     build_team_group_memberships_from_standings,
 )
@@ -410,6 +421,31 @@ def get_scoreboard(
         events=filtered_events,
     )
 
+    # Standings are pulled from ESPN once, stored in team-meta, and the ticker reads the stored copy. ESPN is asked again only when a game on
+    # the board has finished that the stored copy does not reflect yet (a finished game's result never changes).
+    def _stored_standings(parse) -> dict[str, dict]:
+        snapshot = load_snapshot(entry.league_id)
+        if not needs_standings_refresh(snapshot, normalized_games):
+            return (snapshot or {}).get("teams") or {}
+        try:
+            fresh_payload = _http_client.get_json(
+                _site_standings_url(sport=entry.sport, league=entry.league) + "?level=3",
+                use_cache=False,
+            )
+            children = fresh_payload.get("children") or []
+            fresh = parse(children)
+            # also keep each team's full record + conference/division name, so the team page reads it from here instead of asking ESPN
+            for tid, extra in standings_stats_by_team(children).items():
+                if tid in fresh:
+                    fresh[tid] = {**fresh[tid], **extra}
+        except Exception:
+            return (snapshot or {}).get("teams") or {}  # ESPN down: keep showing what we stored
+        if fresh:
+            save_snapshot(entry.league_id, fresh, reflected_game_ids(snapshot, fresh, normalized_games))
+            print(f"[standings] {entry.league_id}: pulled from ESPN ({len(fresh)} teams)", flush=True)
+            return fresh
+        return (snapshot or {}).get("teams") or {}
+
     # Division place / seed / streak from the standings feed (cached; only when the league opted in)
     if include_standings and _normalized(entry.sport) != "racing" and "college" in _normalized(entry.league_id):
         # Headline poll (CFP once published, else AP) so the number and its label always match
@@ -429,63 +465,78 @@ def get_scoreboard(
                     team["rank"] = poll_ranks.get(str(team.get("id") or ""))
                     team["rankSource"] = poll_label
 
-        # Win/loss streak: college standings leave it blank, so count it from each team's results (cached briefly so it updates right after a game ends)
-        def _college_streak(team_id: str) -> str:
-            try:
-                payload = _http_client.get_json(
-                    f"https://site.api.espn.com/apis/site/v2/sports/{entry.sport}/{entry.league}/teams/{team_id}/schedule",
-                    use_cache=cache_ttl_seconds > 0,
-                    cache_ttl_seconds=cache_ttl_seconds,
-                )
-                return streak_from_schedule(payload.get("events") or [], team_id)
-            except Exception:
-                return ""
+        # Win/loss streak. ONE standings call holds it for most teams; ESPN leaves ~40% blank, so only for those do we look at the team's
+        # schedule — and only when one of its games finished that we have not stored yet (results live in team-meta/{league}-results.json).
+        snapshot_teams = _stored_standings(college_standings_snapshot)
+        college_streaks: dict[str, str] = {tid: v["streak"] for tid, v in snapshot_teams.items() if v.get("streak")}
 
-        college_team_ids = {
-            str((game.get("teams") or {}).get(side, {}).get("id") or "")
-            for game in normalized_games for side in ("away", "home")
-        } - {""}
-        streaks: dict[str, str] = {}
-        if college_team_ids:
+        team_game: dict[str, tuple[str, str]] = {}
+        for game in normalized_games:
+            for side in ("away", "home"):
+                tid = str(((game.get("teams") or {}).get(side) or {}).get("id") or "")
+                if tid:
+                    team_game[tid] = (str(game.get("id") or ""), str(game.get("state") or ""))
+
+        stored = load_results(entry.league_id)
+        gaps = [tid for tid in team_game if tid not in college_streaks]
+        fetched = 0
+
+        def _fill_gap(tid: str) -> tuple[str, str, dict | None]:
+            game_id, state = team_game[tid]
+
+            def fetch_events() -> list[dict]:
+                payload_sched = _http_client.get_json(
+                    f"https://site.api.espn.com/apis/site/v2/sports/{entry.sport}/{entry.league}/teams/{tid}/schedule",
+                    use_cache=False,
+                )
+                return payload_sched.get("events") or []
+
+            streak, new_entry = resolve_streak(stored.get(tid), tid, game_id, state, fetch_events)
+            return tid, streak, new_entry
+
+        if gaps:
             pool = ThreadPoolExecutor(max_workers=8)
-            futures = {pool.submit(_college_streak, tid): tid for tid in college_team_ids}
+            futures = [pool.submit(_fill_gap, tid) for tid in gaps]
             try:
-                for future in as_completed(futures, timeout=10):
-                    streaks[futures[future]] = future.result()
+                for future in as_completed(futures, timeout=15):
+                    tid, streak, new_entry = future.result()
+                    if streak:
+                        college_streaks[tid] = streak
+                    if new_entry is not None:
+                        stored[tid] = new_entry
+                        fetched += 1
             except Exception:
-                pass  # slow teams just get no streak this refresh; their schedules finish into the cache
+                pass  # a slow team keeps its stored streak; nothing is lost
             pool.shutdown(wait=False)
+            if fetched:
+                save_results(entry.league_id, stored)
+        on_board = sum(1 for tid in team_game if tid in college_streaks)
+        print(f"[streaks] {entry.league_id}: {on_board}/{len(team_game)} teams on the board have a streak "
+              f"({len(team_game) - len(gaps)} from standings, {len(gaps)} gaps, {fetched} looked up)", flush=True)
+
         for game in normalized_games:
             for side in ("away", "home"):
                 team = (game.get("teams") or {}).get(side) or {}
-                streak = streaks.get(str(team.get("id") or ""))
+                streak = college_streaks.get(str(team.get("id") or ""))
                 if streak:
                     team["standing"] = {"streak": streak}
 
     if include_standings and _normalized(entry.sport) != "racing" and "college" not in _normalized(entry.league_id):
-        try:
-            standings_payload = _http_client.get_json(
-                _site_standings_url(sport=entry.sport, league=entry.league) + "?level=3",
-                use_cache=cache_ttl_seconds > 0,
-                cache_ttl_seconds=cache_ttl_seconds,
-            )
-            # NFL: once the playoff race matters (week 10+, or postseason) show the seed for the 7 teams in position
-            week_no = ((payload or {}).get("week") or {}).get("number") if isinstance(payload, dict) else None
-            season_type = ((payload or {}).get("season") or {}).get("type") if isinstance(payload, dict) else None
-            seed_line = 7 if (
-                _normalized(entry.league) == "nfl"
-                and (season_type == 3 or (season_type == 2 and isinstance(week_no, int) and week_no >= 10))
-            ) else None
-            division_standings = build_division_standings(standings_payload.get("children") or [], show_seeds_up_to=seed_line)
-        except Exception:
-            division_standings = {}
+        # NFL: once the playoff race matters (week 10+, or postseason) show the seed for the 7 teams in position (depends on the week, so applied here, not stored)
+        week_no = ((payload or {}).get("week") or {}).get("number") if isinstance(payload, dict) else None
+        season_type = ((payload or {}).get("season") or {}).get("type") if isinstance(payload, dict) else None
+        seed_line = 7 if (
+            _normalized(entry.league) == "nfl"
+            and (season_type == 3 or (season_type == 2 and isinstance(week_no, int) and week_no >= 10))
+        ) else None
+        division_standings = apply_seed_line(_stored_standings(build_division_standings), seed_line)
         if division_standings:
             for game in normalized_games:
                 for side in ("away", "home"):
                     team = (game.get("teams") or {}).get(side) or {}
                     standing = division_standings.get(str(team.get("id") or ""))
                     if standing:
-                        team["standing"] = standing
+                        team["standing"] = {k: v for k, v in standing.items() if k not in ("stats", "group")}
 
     # MLB series (regular season, every postseason round, World Series) from the MLB Stats API — one call for the whole slate
     if include_standings and _normalized(entry.league_id) == "mlb" and normalized_games:

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import re
+
 from fastapi import APIRouter, HTTPException, Query
 
+from ...core.team_results import load_snapshot
 from ._utils import (
     _group_key,
     _groups_endpoint_url,
@@ -197,6 +200,10 @@ def _map_standings_stats(entry_stats: list[dict]) -> dict[str, str]:
         "playoffSeed": "playoffSeed",
         "Home": "homeRecord",
         "Road": "awayRecord",
+        # the college feed names these differently
+        "Away": "awayRecord",
+        "vs. Conf.": "conferenceRecord",
+        "vs Division": "divisionRecord",
     }
 
     mapped: dict[str, str] = {}
@@ -207,7 +214,35 @@ def _map_standings_stats(entry_stats: list[dict]) -> dict[str, str]:
             continue
         mapped[key] = str(stat.get("displayValue") or stat.get("value") or "").strip()
 
+    # the college feed has no overall win percent (only a conference one) — work it out from the overall record ("3-2")
+    if not mapped.get("winPercent"):
+        m = re.match(r"^(\d+)-(\d+)(?:-(\d+))?", mapped.get("overall", ""))
+        if m:
+            wins, losses, ties = int(m.group(1)), int(m.group(2)), int(m.group(3) or 0)
+            games = wins + losses + ties
+            if games:
+                mapped["winPercent"] = f"{(wins + ties / 2) / games:.3f}".lstrip("0")
+
     return mapped
+
+
+def standings_stats_by_team(children: list[dict]) -> dict[str, dict]:
+    """{team_id: {"group": {...}, "stats": {...}}} for every team in an ESPN standings tree. Stored in the league standings snapshot so the
+    team page (and anything else) can read a team's full record without asking ESPN again."""
+    out: dict[str, dict] = {}
+    for child in children if isinstance(children, list) else []:
+        for entry in (child.get("standings") or {}).get("entries") or []:
+            tid = str((entry.get("team") or {}).get("id") or "").strip()
+            if tid:
+                stats = entry.get("stats") or []
+                out[tid] = {
+                    "group": {"name": child.get("name"), "abbreviation": child.get("abbreviation")},
+                    "stats": _map_standings_stats(stats if isinstance(stats, list) else []),
+                }
+        nested = child.get("children") or []
+        if isinstance(nested, list) and nested:
+            out.update(standings_stats_by_team(nested))
+    return out
 
 
 @router.get("/team-logos")
@@ -414,32 +449,39 @@ def get_team_logos(
 
                 team_profile["recordSummary"] = record_summary
 
-            try:
-                standings_payload = _http_client.get_json(
-                    _site_standings_url(sport=sport, league=league),
-                    use_cache=cache_ttl_seconds > 0,
-                    cache_ttl_seconds=cache_ttl_seconds,
-                )
-                standings_children = standings_payload.get("children") or []
-                entry, entry_group = _find_team_standings_entry(
-                    standings_children if isinstance(standings_children, list) else [],
-                    team_id,
-                )
-                if entry:
-                    stats = entry.get("stats") or []
-                    mapped_stats = _map_standings_stats(stats if isinstance(stats, list) else [])
-                    team_profile["standings"] = {
-                        "group": {
-                            "name": entry_group.get("name") if isinstance(entry_group, dict) else None,
-                            "abbreviation": entry_group.get("abbreviation") if isinstance(entry_group, dict) else None,
-                        },
-                        "stats": mapped_stats,
-                    }
+            stored_team = ((load_snapshot(league) or {}).get("teams") or {}).get(team_id) or {}
+            if stored_team.get("stats"):
+                # already pulled and stored by the ticker — no call to ESPN
+                team_profile["standings"] = {"group": stored_team.get("group") or {}, "stats": stored_team["stats"]}
+                if not team_profile["recordSummary"]:
+                    team_profile["recordSummary"] = stored_team["stats"].get("overall", "")
+            else:
+                try:
+                    standings_payload = _http_client.get_json(
+                        _site_standings_url(sport=sport, league=league),
+                        use_cache=cache_ttl_seconds > 0,
+                        cache_ttl_seconds=cache_ttl_seconds,
+                    )
+                    standings_children = standings_payload.get("children") or []
+                    entry, entry_group = _find_team_standings_entry(
+                        standings_children if isinstance(standings_children, list) else [],
+                        team_id,
+                    )
+                    if entry:
+                        stats = entry.get("stats") or []
+                        mapped_stats = _map_standings_stats(stats if isinstance(stats, list) else [])
+                        team_profile["standings"] = {
+                            "group": {
+                                "name": entry_group.get("name") if isinstance(entry_group, dict) else None,
+                                "abbreviation": entry_group.get("abbreviation") if isinstance(entry_group, dict) else None,
+                            },
+                            "stats": mapped_stats,
+                        }
 
-                    if not team_profile["recordSummary"]:
-                        team_profile["recordSummary"] = mapped_stats.get("overall", "")
-            except Exception:
-                pass
+                        if not team_profile["recordSummary"]:
+                            team_profile["recordSummary"] = mapped_stats.get("overall", "")
+                except Exception:
+                    pass
         except Exception:
             # Fallback to site endpoint logos when core lookup is unavailable.
             pass

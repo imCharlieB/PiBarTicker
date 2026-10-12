@@ -373,16 +373,27 @@ function DeviceImage({ model, fallback }) {
   )
 }
 
-function AmsUnit({ unit }) {
+// "H2D_0947AJ612800457_AMS_1" -> "AMS 2" (AMS 2 Pro), "AMS HT"; a label typed on the device row in Setup wins
+function amsShortName(model, name) {
+  const m = String(model || name || '').toLowerCase()
+  if (m.includes('ht')) return 'AMS HT'
+  if (/2\s*pro/.test(m)) return 'AMS 2'
+  return 'AMS'
+}
+
+function AmsUnit({ unit, label }) {
   const trays = Object.entries(unit.byKey).filter(([k]) => /^tray_\d+$/.test(k) || k === 'external_spool').sort(([x], [y]) => x.localeCompare(y))
   const humidity = numOf(unit.byKey.humidity?.state)
   const drying = unit.byKey.drying?.state === 'on'
+  const amsTemp = numOf(unit.byKey.temperature?.state)
   return (
     <div className="hs-ams">
       <div className="hs-ams-head">
         <DeviceImage model={unit.model} />
-        <span className="chip chip-final">{unit.name || 'AMS'}</span>
-        {drying ? <span className="chip chip-live">Drying</span> : humidity != null ? <span className="hs-ams-hum"><i className="mdi mdi-water-percent" />{Math.round(humidity)}%</span> : null}
+        <span className="chip chip-final">{label || amsShortName(unit.model, unit.name)}</span>
+        {humidity != null ? <span className="hs-ams-hum"><i className="mdi mdi-water-percent" />{Math.round(humidity)}%</span> : null}
+        {amsTemp != null ? <span className="hs-ams-hum hs-ams-temp"><i className="mdi mdi-thermometer" />{Math.round(amsTemp)}°</span> : null}
+        {drying ? <span className="chip chip-live">Drying</span> : null}
       </div>
       <div className="hs-spools">
         {trays.map(([key, sensor]) => {
@@ -406,6 +417,7 @@ function AmsUnit({ unit }) {
 export function HAPrinterCard({ card, sensors, sensorValues }) {
   // devices assigned to this card in Setup (rows named device:<id>) + single sensors
   const deviceIds = sensors.filter((x) => x.entityId.startsWith('device:')).map((x) => x.entityId.slice(7))
+  const deviceLabels = Object.fromEntries(sensors.filter((x) => x.entityId.startsWith('device:') && x.label).map((x) => [x.entityId.slice(7), x.label]))
   sensors = sensors.filter((x) => !x.entityId.startsWith('device:'))
   const devices = deviceIds.length ? sensorsOfDevices({ deviceIds }, sensorValues) : []
   const printer = devices.find((d) => d.byKey.print_progress || d.byKey.stage)
@@ -420,6 +432,10 @@ export function HAPrinterCard({ card, sensors, sensorValues }) {
   let nozzleT = null
   let bed = null
   let bedT = null
+  let chamber = null
+  let chamberT = null
+  let speed = ''
+  let printError = false
   let job = ''
   const extras = []
   if (printer) {
@@ -434,6 +450,10 @@ export function HAPrinterCard({ card, sensors, sensorValues }) {
     nozzleT = numOf(k.target_nozzle_temp?.state)
     bed = numOf(k.bed_temp?.state)
     bedT = numOf(k.target_bed_temp?.state)
+    chamber = numOf(k.chamber_temp?.state)
+    chamberT = numOf(k.target_chamber_temp?.state)
+    speed = ['unknown', 'unavailable'].includes(String(k.speed_profile?.state)) ? '' : String(k.speed_profile?.state || '')
+    printError = k.print_error?.state === 'on'
     job = String(k.subtask_name?.state || k.gcode_file?.state || '')
   } else {
     // single sensors picked by hand: the first one in % is the progress, the rest are listed in the middle
@@ -447,7 +467,7 @@ export function HAPrinterCard({ card, sensors, sensorValues }) {
     if (pct == null && extras.length === 0) return null
   }
   const stageKey = stage.toLowerCase()
-  const chipCls = /print|run/.test(stageKey) ? 'chip-live' : /pause/.test(stageKey) ? 'chip-pre' : /fail|error/.test(stageKey) ? 'chip-flag-red' : 'chip-final'
+  const chipCls = printError ? 'chip-flag-red' : /print|run/.test(stageKey) ? 'chip-live' : /pause/.test(stageKey) ? 'chip-pre' : /fail|error/.test(stageKey) ? 'chip-flag-red' : 'chip-final'
   const idle = printer && (!stageKey || /idle|offline|unavailable|unknown|finish/.test(stageKey)) && !(pct > 0 && pct < 100)
   const tone = [255, 122, 89]
   const showPct = pct != null && !idle
@@ -465,18 +485,20 @@ export function HAPrinterCard({ card, sensors, sensorValues }) {
           <div className="hs-plate">{showPct && layers ? `LAYER ${layer ?? 0} / ${layers}` : (showPct ? job : null) || printer?.name || card.sub || 'PRINTER'}</div>
         </div>
         <div className="hs-seam hs-pr-seam">
-          <span className={`chip ${chipCls}`}>{chipCls === 'chip-live' ? <i className="chip-dot" /> : null}{stage ? stage.replace(/[-_]/g, ' ') : (printer ? 'Idle' : 'Printing')}</span>
+          <span className={`chip ${chipCls}`}>{chipCls === 'chip-live' ? <i className="chip-dot" /> : null}{printError ? 'Print error' : stage ? stage.replace(/[-_]/g, ' ') : (printer ? 'Idle' : 'Printing')}</span>
           {left != null && !idle ? <div className="hs-meta"><b>{fmtMinutes(left)}</b><span>left</span></div> : null}
           {fmtEta && !idle ? <div className="hs-meta hs-meta-eta"><span>ETA</span><b>{fmtEta}</b></div> : null}
           <div className="hs-meta hs-meta2">
             {temp(nozzle, nozzleT) ? <span><em>NOZZLE</em>{temp(nozzle, nozzleT)}</span> : null}
             {temp(bed, bedT) ? <span><em>BED</em>{temp(bed, bedT)}</span> : null}
+            {temp(chamber, chamberT) ? <span><em>CHAMBER</em>{temp(chamber, chamberT)}</span> : null}
+            {speed ? <span><em>SPEED</em>{speed.replace(/[-_]/g, ' ')}</span> : null}
             {extras.slice(0, 3).map((sensor) => (
               <span key={sensor.entityId}>{sensor.label || sensor.entityId.split('.').pop().replace(/_/g, ' ')} {renderEntityValue(sensorValues[sensor.entityId], sensor, 'ha-unit')}</span>
             ))}
           </div>
         </div>
-        {amsUnits.map((u) => <AmsUnit key={u.id} unit={u} />)}
+        {amsUnits.map((u) => <AmsUnit key={u.id} unit={u} label={deviceLabels[u.id]} />)}
       </div>
       {showPct ? (
         <div className="hs-track">

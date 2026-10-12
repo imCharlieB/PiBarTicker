@@ -109,7 +109,8 @@ export default function HADetail({ onBack }) {
           <span className="ha-sensor-domain-chip">device</span>
         </div>
         <span className="ha-sensor-live">{d.count} sensors</span>
-        <span />
+        <input type="text" placeholder="Label (e.g. AMS 2)" value={cfg.label}
+          onChange={(e) => updateSensor(key, { label: e.target.value })} />
         <span />
         <select value={cfg.position} onChange={(e) => updateSensor(key, { position: e.target.value })}>
           {POSITION_OPTIONS.map((opt) => (

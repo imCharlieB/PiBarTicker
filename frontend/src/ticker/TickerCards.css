@@ -1521,3 +1521,4 @@
 .ticker-runtime-shell .hs-dimg { width: 30cqh; height: 30cqh; flex: 0 0 auto; border-radius: 3cqh; overflow: hidden; background: #f4f5f7; display: block; position: relative; }
 .ticker-runtime-shell .hs-dimg img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .ticker-runtime-shell .hs-ams-head .hs-dimg { width: 20cqh; height: 20cqh; border-radius: 2.2cqh; }
+.ticker-runtime-shell .hs-ams-temp { color: #f0894e; }

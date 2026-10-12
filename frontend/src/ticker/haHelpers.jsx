@@ -36,12 +36,11 @@ const WiCloud = ({ fill = '#aab4c3', transform }) => <path className="wi-drift" 
 const WiDrops = ({ xs, y = 64 }) => xs.map((x, i) => <line key={x} className={`wi-drop wi-d${i % 3}`} x1={x} y1={y} x2={x - 3} y2={y + 10} stroke="#5ac8fa" strokeWidth="4" strokeLinecap="round" />)
 const WiFlakes = ({ xs, y = 66 }) => xs.map((x, i) => <circle key={x} className={`wi-flake wi-f${i % 3}`} cx={x} cy={y} r="3.4" fill="#e8f0fa" />)
 
-// Temperature -> colour for the hourly strip (cold blue ... hot red); °F values, °C values are converted
+// Temperature -> colour for the hourly strip (cold blue, hot red, blended between); °F values, °C values are converted
 function tempColor(temp, unit) {
   const f = /c/i.test(String(unit || '')) ? Number(temp) * 9 / 5 + 32 : Number(temp)
-  const lerp = (a, b, x0, x1) => Math.round(a + (b - a) * Math.min(1, Math.max(0, (f - x0) / (x1 - x0))))
-  // cool side stays blue/cyan, warm side amber -> red (never green)
-  return f < 65 ? `hsl(${lerp(215, 190, 20, 64)} 90% 68%)` : `hsl(${lerp(48, 5, 65, 100)} 92% 62%)`
+  const x = Math.min(1, Math.max(0, (f - 30) / 65))  // 30°F and below = full blue, 95°F and above = full red, a blend (purple) in between
+  return `hsl(${Math.round(215 + 145 * x)} 90% 64%)`
 }
 
 export function WeatherIcon({ condition }) {
@@ -276,15 +275,15 @@ export function HAWeatherCard({ card, sensors, sensorValues }) {
   const forecast0 = forecastSource?.attributes?.forecast?.[0]
   const hiTemp = forecast0?.temperature ?? forecast0?.high_temperature
   const loTemp = forecast0?.templow ?? forecast0?.low_temperature
-  // Hourly forecast (the "Hourly forecast" sensor chosen on the Home Assistant Setup page): the next 8 hours, starting with the current hour
+  // Hourly forecast (the "Hourly forecast" sensor chosen on the Home Assistant Setup page): the next 6 hours after the current one (the big card already shows now)
   const hourlyRows = (() => {
     const rows = card.hourlySensorId ? sensorValues[card.hourlySensorId]?.attributes?.forecast : null
     if (!Array.isArray(rows)) return []
-    const from = Date.now() - 30 * 60 * 1000
-    return rows.filter((r) => Number.isFinite(Date.parse(r?.datetime)) && Date.parse(r.datetime) >= from && r.temperature != null).slice(0, 8)
+    const from = Date.now()
+    return rows.filter((r) => Number.isFinite(Date.parse(r?.datetime)) && Date.parse(r.datetime) >= from && r.temperature != null).slice(0, 6)
   })()
   const hasHourly = hourlyRows.length > 1
-  const hourLabel = (iso, i) => (i === 0 ? 'NOW' : new Date(iso).toLocaleTimeString([], { hour: 'numeric' }).replace(' ', ''))
+  const hourLabel = (iso) => new Date(iso).toLocaleTimeString([], { hour: 'numeric' }).replace(' ', '')
   return (
     <div className={`card d-ha d-weather ticker-runtime-card${hasHourly ? ' has-hourly' : ''}`} role="listitem">
       <div className="wx-main">
@@ -328,14 +327,19 @@ export function HAWeatherCard({ card, sensors, sensorValues }) {
         <div className="wx-hourly">
           <div className="wx-hourly-title">NEXT {hourlyRows.length} HOURS</div>
           <div className="wx-hours" style={{ gridTemplateColumns: `repeat(${hourlyRows.length}, 22cqh)` }}>
-            {hourlyRows.map((r, i) => (
-              <div key={r.datetime} className={`wx-hour${i === 0 ? ' now' : ''}`}>
-                <span className="wx-hour-t">{hourLabel(r.datetime, i)}</span>
-                <span className="wx-hour-i"><WeatherIcon condition={r.condition} /></span>
-                <span className="wx-hour-temp" style={{ color: tempColor(r.temperature, tempUnit) }}>{Math.round(Number(r.temperature))}°</span>
-                <span className={`wx-hour-rain${Number(r.precipitation_probability) >= 30 ? ' wet' : ''}`}>{Number(r.precipitation_probability) > 0 ? `${Math.round(Number(r.precipitation_probability))}%` : ' '}</span>
-              </div>
-            ))}
+            {hourlyRows.map((r) => {
+              const rain = Math.round(Number(r.precipitation_probability) || 0)
+              const wind = r.wind_speed != null ? Math.round(Number(r.wind_speed)) : null
+              return (
+                <div key={r.datetime} className="wx-hour" style={{ '--tc': tempColor(r.temperature, tempUnit) }}>
+                  <span className="wx-hour-temp">{Math.round(Number(r.temperature))}°</span>
+                  <span className="wx-hour-i"><WeatherIcon condition={r.condition} /></span>
+                  <span className="wx-hour-wind">{wind != null ? wind : ' '}</span>
+                  <span className={`wx-hour-rain${rain >= 30 ? ' wet' : ''}`}>{rain > 0 ? `${rain}%` : ' '}</span>
+                  <span className="wx-hour-t">{hourLabel(r.datetime)}</span>
+                </div>
+              )
+            })}
           </div>
         </div>
       ) : null}

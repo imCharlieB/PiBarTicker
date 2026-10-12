@@ -333,10 +333,14 @@ function TickerRuntime({
   const sensorValues = useHASensors()
   // The HA cards can get wider after the first measure (sensor data arriving, fonts, a slower Pi): when the track's real width changes the scroll is restarted so its distance always covers the full width
   const [haTrackWidth, setHaTrackWidth] = useState(0)
+  const haMeasuredRef = useRef(0)
   useEffect(() => {
     const track = trackRef.current
     if (!haSlotActive || !track || typeof ResizeObserver === 'undefined') return undefined
-    const obs = new ResizeObserver(() => setHaTrackWidth(Math.round(track.scrollWidth)))
+    const obs = new ResizeObserver(() => {
+      const w = Math.round(track.scrollWidth)
+      if (Math.abs(w - haMeasuredRef.current) > 60) setHaTrackWidth(w)  // small changes (a temperature, a time) must not restart the scroll
+    })
     obs.observe(track)
     return () => obs.disconnect()
   }, [haSlotActive])
@@ -398,6 +402,7 @@ function TickerRuntime({
 
     track.style.opacity = '1'
     const totalWidth = track.scrollWidth
+    haMeasuredRef.current = totalWidth
     if (totalWidth < 10) {
       backupTimerRef.current = setTimeout(() => onAdvanceRef.current(), haRotateMs)
       return

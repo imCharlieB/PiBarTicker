@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 
 from datetime import timedelta
 
@@ -45,7 +46,7 @@ def _tracked(hass: HomeAssistant, entry: ConfigEntry) -> tuple[list[str], dict[s
         for ent in er.async_entries_for_device(ent_reg, device_id):
             if ent.domain not in DEVICE_DOMAINS:
                 continue
-            meta[ent.entity_id] = {**info, "key": ent.translation_key or "", "from_device": True}
+            meta[ent.entity_id] = {**info, "key": _entity_key(ent), "from_device": True}
             if ent.entity_id not in ids:
                 ids.append(ent.entity_id)
     # single picks still carry their device + key so the display can group them
@@ -53,8 +54,14 @@ def _tracked(hass: HomeAssistant, entry: ConfigEntry) -> tuple[list[str], dict[s
         if entity_id in meta:
             continue
         ent = ent_reg.async_get(entity_id)
-        meta[entity_id] = {**_device_info(ent.device_id if ent else None), "key": (ent.translation_key if ent else "") or "", "from_device": False}
+        meta[entity_id] = {**_device_info(ent.device_id if ent else None), "key": _entity_key(ent) if ent else "", "from_device": False}
     return ids, meta
+
+
+def _entity_key(ent) -> str:
+    """The integration's own key for an entity: the Bambu tray sensors all share the translation key "tray", the slot is at the end of the unique id."""
+    match = re.search(r"(tray_\d+|external_spool)$", ent.unique_id or "")
+    return match.group(1) if match else (ent.translation_key or "")
 
 
 def _clean_attrs(attrs: dict) -> dict:

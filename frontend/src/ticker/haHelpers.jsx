@@ -343,7 +343,10 @@ function sensorsOfDevices(card, sensorValues) {
   for (const s of Object.values(sensorValues)) {
     if (!s?.device_id || !wanted.has(s.device_id)) continue
     const d = (devices[s.device_id] = devices[s.device_id] || { id: s.device_id, name: s.device_name, model: s.device_model, byKey: {} })
-    if (s.key) d.byKey[s.key] = s
+    // the Bambu plugin gives every tray sensor the key "tray": the slot number is in the entity id (..._tray_1)
+    const slot = (!s.key || s.key === 'tray') ? String(s.entity_id || '').match(/(tray_\d+)$/) : null
+    const key = slot ? slot[1] : s.key
+    if (key) d.byKey[key] = s
   }
   return Object.values(devices)
 }
@@ -385,8 +388,8 @@ function AmsUnit({ unit }) {
         {trays.map(([key, sensor]) => {
           const a = sensor.attributes || {}
           const color = hexRGB(a.color || a.colour, [70, 78, 92])
-          const remaining = numOf(a.remaining)
-          const empty = /empty/i.test(String(sensor.state)) || (!a.color && !a.colour && !a.type)
+          const remaining = numOf(a.remain ?? a.remaining)
+          const empty = a.empty === true || /empty/i.test(String(sensor.state)) || (!a.color && !a.colour && !a.type)
           return (
             <div key={key} className={`hs-spool${empty ? ' empty' : ''}`}>
               <span className="hs-spool-bar"><i style={{ height: `${empty ? 0 : remaining != null && remaining >= 0 ? remaining : 100}%`, background: rgbOf(color) }} /></span>

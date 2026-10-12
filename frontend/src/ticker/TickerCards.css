@@ -1474,7 +1474,7 @@
 .ticker-runtime-shell .hs-stats { display: flex; flex-wrap: wrap; gap: 1.6cqh 1.8cqh; max-width: 78cqh; }
 .ticker-runtime-shell .hs-stats span { display: inline-flex; align-items: center; gap: .8cqh; font-weight: 800; font-size: 4.4cqh; letter-spacing: .06em; padding: 1.2cqh 2.4cqh; border-radius: 1.4cqh; background: rgba(8,10,14,.6); border: 1px solid rgba(255,255,255,.12); white-space: nowrap; text-transform: uppercase; }
 .ticker-runtime-shell .hs-stats .mdi { font-size: 5cqh; color: #7fd0ff; }
-.ticker-runtime-shell .hs-wx .hs-half { min-width: 84cqh; justify-content: flex-start; gap: 3.4cqh; }  /* the clock badge covers the bottom-left corner: content stays above it */
+.ticker-runtime-shell .hs-wx .hs-half { min-width: 84cqh; }
 .ticker-runtime-shell .hs-hours { flex: 0 0 auto; display: flex; gap: 0; }
 .ticker-runtime-shell .hs-hour { position: relative; flex: 0 0 auto; width: 30cqh; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 4.7cqh 1.6cqh 5.8cqh; border-left: 1px solid #20252f; }
 .ticker-runtime-shell .hs-hchip { font-size: 4.2cqh; padding: 1.1cqh 2.2cqh; }

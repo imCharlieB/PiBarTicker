@@ -43,8 +43,9 @@ export default function HADetail({ onBack }) {
     d.count += 1
   }
   // sensors of a device that a printer card reads are handled by that card — they are not listed one by one below
-  const claimedDevices = new Set(haCards.flatMap((c) => c.deviceIds ?? []))
-  const listedSensors = pushedSensors.filter((s) => !(s.device_id && claimedDevices.has(s.device_id)))
+  const listedSensors = pushedSensors.filter((s) => !s.device_id)
+  const [openDevices, setOpenDevices] = useState(() => new Set())
+  const toggleOpen = (id) => setOpenDevices((o) => { const n = new Set(o); if (n.has(id)) n.delete(id); else n.add(id); return n })
 
   function toggleCardDevice(card, deviceId) {
     const ids = card.deviceIds ?? []
@@ -63,6 +64,42 @@ export default function HADetail({ onBack }) {
       ? savedSensors.map((s) => s.entityId === entityId ? { ...s, ...patch } : s)
       : [...savedSensors, { entityId, label: '', unit: '', position: 'ticker', cardId: '', ...patch }]
     updateBoard('home-assistant', { haSensors: updated })
+  }
+
+  function renderSensorRow(sensor) {
+        const cfg = getSavedConfig(sensor.entity_id)
+        return (
+          <div className={`ha-sensor-row ${haCards.length > 0 ? 'ha-sensor-row-cards' : 'ha-sensor-row-pushed'}`} key={sensor.entity_id}>
+            <div className="ha-sensor-entity">
+              <span className="ha-sensor-entity-name">{sensor.friendly_name || sensor.entity_id}</span>
+              <span className="ha-sensor-entity-id">{sensor.entity_id}</span>
+              {sensor.domain && sensor.domain !== 'sensor' && (
+                <span className="ha-sensor-domain-chip">{sensor.domain}</span>
+              )}
+            </div>
+            <span className="ha-sensor-live">
+              {sensor.state}
+              {sensor.unit ? <span className="ha-sensor-live-unit">{sensor.unit}</span> : null}
+            </span>
+            <input type="text" placeholder={sensor.friendly_name || 'Label'} value={cfg.label}
+              onChange={(e) => updateSensor(sensor.entity_id, { label: e.target.value })} />
+            <input type="text" placeholder={sensor.unit || 'Unit'} value={cfg.unit}
+              onChange={(e) => updateSensor(sensor.entity_id, { unit: e.target.value })} />
+            <select value={cfg.position} onChange={(e) => updateSensor(sensor.entity_id, { position: e.target.value })}>
+              {POSITION_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            {haCards.length > 0 && (
+              cfg.position === 'ticker' ? (
+                <select value={cfg.cardId || ''} onChange={(e) => updateSensor(sensor.entity_id, { cardId: e.target.value })}>
+                  <option value="">— unassigned —</option>
+                  {haCards.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+                </select>
+              ) : <span />
+            )}
+          </div>
+        )
   }
 
   function addCard() {
@@ -186,12 +223,6 @@ export default function HADetail({ onBack }) {
         </p>
       )}
 
-      {loadingState === 'done' && claimedDevices.size > 0 && (
-        <p className="ha-sensor-empty" style={{ textAlign: 'left' }}>
-          {devices.filter((d) => claimedDevices.has(d.id)).map((d) => `${d.name} (${d.count} sensors)`).join(', ')} — read by the printer card, not listed below.
-        </p>
-      )}
-
       {loadingState === 'done' && listedSensors.length > 0 && (
         <div className="ha-sensor-list">
           <div className={`ha-sensor-list-head ${haCards.length > 0 ? 'ha-sensor-list-head-cards' : 'ha-sensor-list-head-pushed'}`}>
@@ -202,38 +233,26 @@ export default function HADetail({ onBack }) {
             <span>Position</span>
             {haCards.length > 0 && <span>Card</span>}
           </div>
-          {listedSensors.map((sensor) => {
-            const cfg = getSavedConfig(sensor.entity_id)
+          {listedSensors.map(renderSensorRow)}
+        </div>
+      )}
+
+      {loadingState === 'done' && devices.length > 0 && (
+        <div className="ha-sensor-list" style={{ marginTop: '1rem' }}>
+          <div className="ha-sensor-list-head" style={{ gridTemplateColumns: '1fr' }}><span>Devices</span></div>
+          {devices.map((d) => {
+            const usedBy = haCards.filter((c) => (c.deviceIds ?? []).includes(d.id)).map((c) => c.title)
+            const open = openDevices.has(d.id)
             return (
-              <div className={`ha-sensor-row ${haCards.length > 0 ? 'ha-sensor-row-cards' : 'ha-sensor-row-pushed'}`} key={sensor.entity_id}>
-                <div className="ha-sensor-entity">
-                  <span className="ha-sensor-entity-name">{sensor.friendly_name || sensor.entity_id}</span>
-                  <span className="ha-sensor-entity-id">{sensor.entity_id}</span>
-                  {sensor.domain && sensor.domain !== 'sensor' && (
-                    <span className="ha-sensor-domain-chip">{sensor.domain}</span>
-                  )}
+              <div key={d.id}>
+                <div className="ha-sensor-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+                  <div className="ha-sensor-entity">
+                    <span className="ha-sensor-entity-name">{d.name}{d.model ? ` · ${d.model}` : ''}</span>
+                    <span className="ha-sensor-entity-id">{d.count} sensors · {usedBy.length ? `used by ${usedBy.join(', ')}` : 'not used by a card yet'}</span>
+                  </div>
+                  <button type="button" className="button-link" onClick={() => toggleOpen(d.id)}>{open ? 'Hide sensors' : 'Show sensors'}</button>
                 </div>
-                <span className="ha-sensor-live">
-                  {sensor.state}
-                  {sensor.unit ? <span className="ha-sensor-live-unit">{sensor.unit}</span> : null}
-                </span>
-                <input type="text" placeholder={sensor.friendly_name || 'Label'} value={cfg.label}
-                  onChange={(e) => updateSensor(sensor.entity_id, { label: e.target.value })} />
-                <input type="text" placeholder={sensor.unit || 'Unit'} value={cfg.unit}
-                  onChange={(e) => updateSensor(sensor.entity_id, { unit: e.target.value })} />
-                <select value={cfg.position} onChange={(e) => updateSensor(sensor.entity_id, { position: e.target.value })}>
-                  {POSITION_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-                {haCards.length > 0 && (
-                  cfg.position === 'ticker' ? (
-                    <select value={cfg.cardId || ''} onChange={(e) => updateSensor(sensor.entity_id, { cardId: e.target.value })}>
-                      <option value="">— unassigned —</option>
-                      {haCards.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
-                    </select>
-                  ) : <span />
-                )}
+                {open ? pushedSensors.filter((x) => x.device_id === d.id).map(renderSensorRow) : null}
               </div>
             )
           })}

@@ -301,16 +301,12 @@ export function HAWeatherCard({ card, sensors, sensorValues }) {
     <div className="card hs-card hs-wx" role="listitem">
       <div className="hs-half" style={{ background: washOf(tone) }}>
         <i className="hs-bar" style={{ background: rgbOf(tone) }} />
-        <div className="hs-top"><span className="hs-abbr">NOW</span></div>
+        <div className="hs-top"><span className="hs-wicon"><WeatherIcon condition={condition} /></span><span className="hs-abbr">NOW</span></div>
         <div className="hs-score">{temp != null ? Math.round(Number(temp)) : '—'}<small>{tempUnit}</small></div>
-        {feels != null ? <div className="hs-plate">FEELS {Math.round(Number(feels))}°</div> : <div className="hs-plate">{card.title}</div>}
-      </div>
-      <div className="hs-seam">
-        <span className="hs-seam-ic"><WeatherIcon condition={condition} /></span>
-        {hiTemp != null || loTemp != null ? (
-          <div className="hs-meta">{hiTemp != null ? <b>H {Math.round(hiTemp)}°</b> : null}{loTemp != null ? <b>L {Math.round(loTemp)}°</b> : null}</div>
-        ) : null}
-        <div className="hs-meta hs-meta2">
+        <div className="hs-stats">
+          {feels != null ? <span>FEELS {Math.round(Number(feels))}°</span> : null}
+          {hiTemp != null ? <span>H {Math.round(hiTemp)}°</span> : null}
+          {loTemp != null ? <span>L {Math.round(loTemp)}°</span> : null}
           {humidity != null ? <span><i className="mdi mdi-water-percent" />{Math.round(humidity)}%</span> : null}
           {windSpeed != null ? <span><i className="mdi mdi-weather-windy" />{Math.round(windSpeed)} {windUnit}</span> : null}
         </div>

@@ -174,7 +174,7 @@ export default function HADetail({ onBack }) {
             </div>
             {card.variant === 'printer' && (
               <div className="ha-card-weather-sensors" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-                <span className="ha-card-weather-sensor-label"><span>Printer devices (all their sensors are used automatically)</span></span>
+                <span className="ha-card-weather-sensor-label"><span>Printer devices — leave all unticked and the printer and AMS units mirrored from Home Assistant are used automatically</span></span>
                 {devices.length === 0 ? (
                   <p className="ha-sensor-empty" style={{ textAlign: 'left', margin: 0 }}>
                     No devices received yet. In Home Assistant open the PiBarTicker integration, choose <strong>Configure</strong> and pick the printer and AMS under <strong>Devices to mirror</strong>.
@@ -241,7 +241,8 @@ export default function HADetail({ onBack }) {
         <div className="ha-sensor-list" style={{ marginTop: '1rem' }}>
           <div className="ha-sensor-list-head" style={{ gridTemplateColumns: '1fr' }}><span>Devices</span></div>
           {devices.map((d) => {
-            const usedBy = haCards.filter((c) => (c.deviceIds ?? []).includes(d.id)).map((c) => c.title)
+            const printerish = pushedSensors.some((x) => x.device_id === d.id && /^(print_progress|stage|external_spool|tray_\d+)$/.test(x.key || ''))
+            const usedBy = haCards.filter((c) => c.variant === 'printer' && (c.deviceIds?.length ? c.deviceIds.includes(d.id) : printerish)).map((c) => c.title)
             const open = openDevices.has(d.id)
             return (
               <div key={d.id}>

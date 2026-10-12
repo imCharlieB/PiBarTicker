@@ -36,6 +36,14 @@ const WiCloud = ({ fill = '#aab4c3', transform }) => <path className="wi-drift" 
 const WiDrops = ({ xs, y = 64 }) => xs.map((x, i) => <line key={x} className={`wi-drop wi-d${i % 3}`} x1={x} y1={y} x2={x - 3} y2={y + 10} stroke="#5ac8fa" strokeWidth="4" strokeLinecap="round" />)
 const WiFlakes = ({ xs, y = 66 }) => xs.map((x, i) => <circle key={x} className={`wi-flake wi-f${i % 3}`} cx={x} cy={y} r="3.4" fill="#e8f0fa" />)
 
+// Temperature -> colour for the hourly strip (cold blue ... hot red); °F values, °C values are converted
+function tempColor(temp, unit) {
+  const f = /c/i.test(String(unit || '')) ? Number(temp) * 9 / 5 + 32 : Number(temp)
+  const lerp = (a, b, x0, x1) => Math.round(a + (b - a) * Math.min(1, Math.max(0, (f - x0) / (x1 - x0))))
+  // cool side stays blue/cyan, warm side amber -> red (never green)
+  return f < 65 ? `hsl(${lerp(215, 190, 20, 64)} 90% 68%)` : `hsl(${lerp(48, 5, 65, 100)} 92% 62%)`
+}
+
 export function WeatherIcon({ condition }) {
   const gid = `wig${useId().replace(/[^a-zA-Z0-9]/g, '')}`
   const c = String(condition || '').toLowerCase()
@@ -319,12 +327,13 @@ export function HAWeatherCard({ card, sensors, sensorValues }) {
       {hasHourly ? (
         <div className="wx-hourly">
           <div className="wx-hourly-title">NEXT {hourlyRows.length} HOURS</div>
-          <div className="wx-hours" style={{ gridTemplateColumns: `repeat(${hourlyRows.length}, 17cqh)` }}>
+          <div className="wx-hours" style={{ gridTemplateColumns: `repeat(${hourlyRows.length}, 22cqh)` }}>
             {hourlyRows.map((r, i) => (
               <div key={r.datetime} className={`wx-hour${i === 0 ? ' now' : ''}`}>
                 <span className="wx-hour-t">{hourLabel(r.datetime, i)}</span>
                 <span className="wx-hour-i"><WeatherIcon condition={r.condition} /></span>
-                <span className="wx-hour-temp">{Math.round(Number(r.temperature))}°</span>
+                <span className="wx-hour-temp" style={{ color: tempColor(r.temperature, tempUnit) }}>{Math.round(Number(r.temperature))}°</span>
+                <span className={`wx-hour-rain${Number(r.precipitation_probability) >= 30 ? ' wet' : ''}`}>{Number(r.precipitation_probability) > 0 ? `${Math.round(Number(r.precipitation_probability))}%` : ' '}</span>
               </div>
             ))}
           </div>

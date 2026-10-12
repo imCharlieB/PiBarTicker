@@ -331,6 +331,8 @@ function TickerRuntime({
 }) {
   const [watermarkSize, setWatermarkSize] = useState('82%')
   const sensorValues = useHASensors()
+  // The cards are wider once the sensor data (hourly forecast) arrives: restart the scroll once then so its distance covers the full width (not the empty-data width)
+  const haDataReady = Object.keys(sensorValues).length > 0
   const haSensors = homeAssistantBoard?.haSensors ?? []
   const shellRef = useRef(null)
   const trackRef = useRef(null)
@@ -405,7 +407,7 @@ function TickerRuntime({
     animRef.current = startScrollTransition(track, startX, endX, dur, doHaAdvance)
     backupTimerRef.current = setTimeout(doHaAdvance, dur + 2000)
     prefetchTimerRef.current = setTimeout(() => onPrefetchNextRef.current?.(), Math.max(dur * 0.5, dur - PREFETCH_LEAD_MS))
-  }, [haSlotActive, haRotateMs, sportsBoard?.scrollSpeed]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [haSlotActive, haDataReady, haRotateMs, sportsBoard?.scrollSpeed]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Sports animation ──────────────────────────────────────────────────────
   useLayoutEffect(() => {

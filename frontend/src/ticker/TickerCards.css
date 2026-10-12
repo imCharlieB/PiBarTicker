@@ -1436,12 +1436,14 @@
 .ticker-runtime-shell .d-weather .wx-main { display: contents; }
 .ticker-runtime-shell .d-weather.has-hourly { width: auto; flex-direction: row; padding: 0; gap: 0; }
 .ticker-runtime-shell .d-weather.has-hourly .wx-main { display: flex; flex-direction: column; gap: 3.7cqh; flex: 0 0 123.7cqh; padding: 5.3cqh 6.8cqh; box-sizing: border-box; }
-.ticker-runtime-shell .wx-hourly { flex: 0 0 auto; border-left: 1px solid #232a36; padding: 0 5cqh; display: flex; flex-direction: column; justify-content: center; gap: 4cqh; }
-.ticker-runtime-shell .wx-hourly-title { font-family: 'Spline Sans Mono', monospace; font-weight: 700; font-size: 4.2cqh; letter-spacing: .2em; color: #8c97a8; }
-.ticker-runtime-shell .wx-hours { display: grid; gap: 1.6cqh; }
-.ticker-runtime-shell .wx-hour { display: flex; flex-direction: column; align-items: center; gap: 2.4cqh; padding: 4cqh 0; border-radius: 3cqh; min-width: 0; }
-.ticker-runtime-shell .wx-hour.now { background: #1a2230; }
-.ticker-runtime-shell .wx-hour-t { font-weight: 800; font-size: 5.4cqh; color: #9aa6b6; white-space: nowrap; }
+.ticker-runtime-shell .wx-hourly { flex: 0 0 auto; border-left: 1px solid #232a36; padding: 0 4cqh; display: flex; flex-direction: column; justify-content: center; gap: 3cqh; background: linear-gradient(180deg, #0f1722, #0c0e13); }
+.ticker-runtime-shell .wx-hourly-title { font-family: 'Spline Sans Mono', monospace; font-weight: 700; font-size: 4.4cqh; letter-spacing: .2em; color: #6fb6ff; }
+.ticker-runtime-shell .wx-hours { display: grid; gap: 1.4cqh; }
+.ticker-runtime-shell .wx-hour { display: flex; flex-direction: column; align-items: center; gap: 2cqh; padding: 3.4cqh 0; border-radius: 3cqh; min-width: 0; background: #131b27; }
+.ticker-runtime-shell .wx-hour.now { background: linear-gradient(180deg, #2a4a7a, #1a2b47); box-shadow: 0 0 0 .5cqh #4da3ff66; }
+.ticker-runtime-shell .wx-hour-t { font-weight: 800; font-size: 6cqh; color: #9fb2cc; white-space: nowrap; }
 .ticker-runtime-shell .wx-hour.now .wx-hour-t { color: #fff; }
-.ticker-runtime-shell .wx-hour-i { display: inline-block; width: 16cqh; height: 16cqh; }
-.ticker-runtime-shell .wx-hour-temp { font-weight: 900; font-size: 8.4cqh; color: #fff; white-space: nowrap; }
+.ticker-runtime-shell .wx-hour-i { display: inline-block; width: 21cqh; height: 21cqh; }
+.ticker-runtime-shell .wx-hour-temp { font-weight: 900; font-size: 10.5cqh; line-height: 1; white-space: nowrap; }
+.ticker-runtime-shell .wx-hour-rain { font-weight: 800; font-size: 5cqh; color: #5b6b82; white-space: pre; }
+.ticker-runtime-shell .wx-hour-rain.wet { color: #5ac8fa; }

@@ -433,16 +433,18 @@ export function HAPrinterCard({ card, sensors, sensorValues }) {
         <div className="hs-half hs-pr-half" style={{ background: washOf(tone) }}>
           <i className="hs-bar" style={{ background: rgbOf(tone) }} />
           <div className="hs-top"><span className="hs-box hs-box-i"><i className="mdi mdi-printer-3d" /></span><span className="hs-abbr">{card.title && card.title.length <= 7 ? card.title : 'PRINT'}</span></div>
-          <div className="hs-score">{showPct ? Math.round(pct) : '—'}{showPct ? <small>%</small> : null}</div>
-          <div className="hs-plate">{layers ? `LAYER ${layer ?? 0} / ${layers}` : (job || card.sub || 'PRINTER')}</div>
+          {showPct
+            ? <div className="hs-score">{Math.round(pct)}<small>%</small></div>
+            : <div className="hs-score"><span className="hs-score-word">{printer ? (stage ? stage.replace(/[-_]/g, ' ') : 'idle') : '—'}</span></div>}
+          <div className="hs-plate">{showPct && layers ? `LAYER ${layer ?? 0} / ${layers}` : (showPct ? job : null) || printer?.name || card.sub || 'PRINTER'}</div>
         </div>
         <div className="hs-seam hs-pr-seam">
           <span className={`chip ${chipCls}`}>{chipCls === 'chip-live' ? <i className="chip-dot" /> : null}{stage ? stage.replace(/[-_]/g, ' ') : (printer ? 'Idle' : 'Printing')}</span>
           {left != null && !idle ? <div className="hs-meta"><b>{fmtMinutes(left)}</b><span>left</span></div> : null}
           {fmtEta && !idle ? <div className="hs-meta hs-meta-eta"><span>ETA</span><b>{fmtEta}</b></div> : null}
           <div className="hs-meta hs-meta2">
-            {temp(nozzle, nozzleT) ? <span><i className="mdi mdi-printer-3d-nozzle" />{temp(nozzle, nozzleT)}</span> : null}
-            {temp(bed, bedT) ? <span><i className="mdi mdi-radiator" />{temp(bed, bedT)}</span> : null}
+            {temp(nozzle, nozzleT) ? <span><em>NOZZLE</em>{temp(nozzle, nozzleT)}</span> : null}
+            {temp(bed, bedT) ? <span><em>BED</em>{temp(bed, bedT)}</span> : null}
             {extras.slice(0, 3).map((sensor) => (
               <span key={sensor.entityId}>{sensor.label || sensor.entityId.split('.').pop().replace(/_/g, ' ')} {renderEntityValue(sensorValues[sensor.entityId], sensor, 'ha-unit')}</span>
             ))}

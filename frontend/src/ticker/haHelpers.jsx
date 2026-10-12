@@ -348,6 +348,28 @@ function sensorsOfDevices(card, sensorValues) {
   return Object.values(devices)
 }
 
+// Product picture of a Home Assistant device (the Pi downloads it once and caches it; see backend/app/api/ha_images.py). Shown in a light tile
+// like the logo boxes on the sports cards; each picture has its own framing so the product fills the tile.
+const DEVICE_IMAGE_FRAME = { h2d: [1.5, 52, 56], ams: [1.25, 50, 50], ams_ht: [1.4, 50, 50] }
+function deviceImageKey(model) {
+  const m = String(model || '').toLowerCase()
+  if (m.includes('ams') && m.includes('ht')) return 'ams_ht'
+  if (m.includes('ams')) return 'ams'
+  if (m.includes('h2d')) return 'h2d'
+  return null
+}
+function DeviceImage({ model, fallback }) {
+  const [failed, setFailed] = useState(false)
+  const key = deviceImageKey(model)
+  if (!key || failed) return fallback ?? null
+  const [scale, x, y] = DEVICE_IMAGE_FRAME[key]
+  return (
+    <span className="hs-dimg">
+      <img src={`/api/v1/ha/device-image/${key}`} alt="" onError={() => setFailed(true)} style={{ transform: `scale(${scale})`, transformOrigin: `${x}% ${y}%` }} />
+    </span>
+  )
+}
+
 function AmsUnit({ unit }) {
   const trays = Object.entries(unit.byKey).filter(([k]) => /^tray_\d+$/.test(k) || k === 'external_spool').sort(([x], [y]) => x.localeCompare(y))
   const humidity = numOf(unit.byKey.humidity?.state)
@@ -355,6 +377,7 @@ function AmsUnit({ unit }) {
   return (
     <div className="hs-ams">
       <div className="hs-ams-head">
+        <DeviceImage model={unit.model} />
         <span className="chip chip-final">{unit.name || 'AMS'}</span>
         {drying ? <span className="chip chip-live">Drying</span> : humidity != null ? <span className="hs-ams-hum"><i className="mdi mdi-water-percent" />{Math.round(humidity)}%</span> : null}
       </div>
@@ -432,7 +455,7 @@ export function HAPrinterCard({ card, sensors, sensorValues }) {
       <div className="hs-pr-main">
         <div className="hs-half hs-pr-half" style={{ background: washOf(tone) }}>
           <i className="hs-bar" style={{ background: rgbOf(tone) }} />
-          <div className="hs-top"><span className="hs-box hs-box-i"><i className="mdi mdi-printer-3d" /></span><span className="hs-abbr">{card.title && card.title.length <= 7 ? card.title : 'PRINT'}</span></div>
+          <div className="hs-top"><DeviceImage model={printer?.model} fallback={<span className="hs-box hs-box-i"><i className="mdi mdi-printer-3d" /></span>} /><span className="hs-abbr">{card.title && card.title.length <= 7 ? card.title : 'PRINT'}</span></div>
           {showPct
             ? <div className="hs-score">{Math.round(pct)}<small>%</small></div>
             : <div className="hs-score"><span className="hs-score-word">{printer ? (stage ? stage.replace(/[-_]/g, ' ') : 'idle') : '—'}</span></div>}

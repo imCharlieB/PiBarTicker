@@ -9,6 +9,7 @@ from .api.alerts import router as alerts_router
 from .api.config import router as config_router
 from .api.display import router as display_router
 from .api.espn import router as espn_router
+from .api.ha_images import router as ha_images_router
 from .api.ha_sensors import router as ha_sensors_router
 from .api.kiosk import router as kiosk_router
 from .api.logos.router import router as logos_router
@@ -27,6 +28,7 @@ app.include_router(config_router)
 app.include_router(display_router)
 app.include_router(alerts_router)
 app.include_router(ha_sensors_router)
+app.include_router(ha_images_router)
 app.include_router(espn_router)
 app.include_router(kiosk_router)
 app.include_router(logos_router)

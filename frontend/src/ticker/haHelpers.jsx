@@ -289,12 +289,12 @@ export function HAWeatherCard({ card, sensors, sensorValues }) {
   const forecast0 = forecastSource?.attributes?.forecast?.[0]
   const hiTemp = forecast0?.temperature ?? forecast0?.high_temperature
   const loTemp = forecast0?.templow ?? forecast0?.low_temperature
-  // Hourly forecast (the "Hourly forecast" sensor chosen on the Home Assistant Setup page): the next 8 hours after the current one (the big card already shows now)
+  // Hourly forecast (the "Hourly forecast" sensor chosen on the Home Assistant Setup page): the next 7 hours after the current one (the big card already shows now)
   const hourlyRows = (() => {
     const rows = card.hourlySensorId ? sensorValues[card.hourlySensorId]?.attributes?.forecast : null
     if (!Array.isArray(rows)) return []
     const from = Date.now()
-    return rows.filter((r) => Number.isFinite(Date.parse(r?.datetime)) && Date.parse(r.datetime) >= from && r.temperature != null).slice(0, 8)
+    return rows.filter((r) => Number.isFinite(Date.parse(r?.datetime)) && Date.parse(r.datetime) >= from && r.temperature != null).slice(0, 7)
   })()
   const hasHourly = hourlyRows.length > 1
   const hourLabel = (iso) => new Date(iso).toLocaleTimeString([], { hour: 'numeric' }).replace(' ', '')

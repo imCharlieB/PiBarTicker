@@ -42,15 +42,11 @@ export default function HADetail({ onBack }) {
     if (!d) { d = { id: s.device_id, name: s.device_name || s.device_id, model: s.device_model || '', count: 0 }; devices.push(d) }
     d.count += 1
   }
-  // sensors of a device that a printer card reads are handled by that card — they are not listed one by one below
-  const listedSensors = pushedSensors.filter((s) => !s.device_id)
-  const [openDevices, setOpenDevices] = useState(() => new Set())
-  const toggleOpen = (id) => setOpenDevices((o) => { const n = new Set(o); if (n.has(id)) n.delete(id); else n.add(id); return n })
-
-  function toggleCardDevice(card, deviceId) {
-    const ids = card.deviceIds ?? []
-    updateCard(card.id, { deviceIds: ids.includes(deviceId) ? ids.filter((x) => x !== deviceId) : [...ids, deviceId] })
-  }
+  // a device with many sensors (a printer, an AMS unit) is ONE row, set up like a sensor (Position + Card); the app reads its sensors itself.
+  // Devices with a few sensors (a lock, a hue sensor) stay as plain sensor rows.
+  const groupedDevices = devices.filter((d) => d.count >= 4)
+  const groupedIds = new Set(groupedDevices.map((d) => d.id))
+  const listedSensors = pushedSensors.filter((s) => !groupedIds.has(s.device_id))
 
   function getSavedConfig(entityId) {
     return savedSensors.find((s) => s.entityId === entityId) ?? {
@@ -100,6 +96,36 @@ export default function HADetail({ onBack }) {
             )}
           </div>
         )
+  }
+
+  function renderDeviceRow(d) {
+    const key = `device:${d.id}`
+    const cfg = getSavedConfig(key)
+    return (
+      <div className={`ha-sensor-row ${haCards.length > 0 ? 'ha-sensor-row-cards' : 'ha-sensor-row-pushed'}`} key={key}>
+        <div className="ha-sensor-entity">
+          <span className="ha-sensor-entity-name">{d.name}</span>
+          <span className="ha-sensor-entity-id">{d.model || 'device'} · {d.count} sensors</span>
+          <span className="ha-sensor-domain-chip">device</span>
+        </div>
+        <span className="ha-sensor-live">{d.count} sensors</span>
+        <span />
+        <span />
+        <select value={cfg.position} onChange={(e) => updateSensor(key, { position: e.target.value })}>
+          {POSITION_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+        {haCards.length > 0 && (
+          cfg.position === 'ticker' ? (
+            <select value={cfg.cardId || ''} onChange={(e) => updateSensor(key, { cardId: e.target.value })}>
+              <option value="">— unassigned —</option>
+              {haCards.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+            </select>
+          ) : <span />
+        )}
+      </div>
+    )
   }
 
   function addCard() {
@@ -172,21 +198,6 @@ export default function HADetail({ onBack }) {
               </label>
               <button className="ha-card-remove-btn" onClick={() => removeCard(card.id)}>×</button>
             </div>
-            {card.variant === 'printer' && (
-              <div className="ha-card-weather-sensors" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-                <span className="ha-card-weather-sensor-label"><span>Printer devices — leave all unticked and the printer and AMS units mirrored from Home Assistant are used automatically</span></span>
-                {devices.length === 0 ? (
-                  <p className="ha-sensor-empty" style={{ textAlign: 'left', margin: 0 }}>
-                    No devices received yet. In Home Assistant open the PiBarTicker integration, choose <strong>Configure</strong> and pick the printer and AMS under <strong>Devices to mirror</strong>.
-                  </p>
-                ) : devices.map((d) => (
-                  <label key={d.id} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                    <input type="checkbox" checked={(card.deviceIds ?? []).includes(d.id)} onChange={() => toggleCardDevice(card, d.id)} />
-                    <span>{d.name}{d.model ? ` · ${d.model}` : ''} <span className="ha-sensor-entity-id">{d.count} sensors</span></span>
-                  </label>
-                ))}
-              </div>
-            )}
             {card.variant === 'weather' && (
               <div className="ha-card-weather-sensors">
                 <label className="ha-card-weather-sensor-label">
@@ -223,7 +234,7 @@ export default function HADetail({ onBack }) {
         </p>
       )}
 
-      {loadingState === 'done' && listedSensors.length > 0 && (
+      {loadingState === 'done' && (listedSensors.length > 0 || groupedDevices.length > 0) && (
         <div className="ha-sensor-list">
           <div className={`ha-sensor-list-head ${haCards.length > 0 ? 'ha-sensor-list-head-cards' : 'ha-sensor-list-head-pushed'}`}>
             <span>Sensor</span>
@@ -234,29 +245,7 @@ export default function HADetail({ onBack }) {
             {haCards.length > 0 && <span>Card</span>}
           </div>
           {listedSensors.map(renderSensorRow)}
-        </div>
-      )}
-
-      {loadingState === 'done' && devices.length > 0 && (
-        <div className="ha-sensor-list" style={{ marginTop: '1rem' }}>
-          <div className="ha-sensor-list-head" style={{ gridTemplateColumns: '1fr' }}><span>Devices</span></div>
-          {devices.map((d) => {
-            const printerish = pushedSensors.some((x) => x.device_id === d.id && /^(print_progress|stage|external_spool|tray_\d+)$/.test(x.key || ''))
-            const usedBy = haCards.filter((c) => c.variant === 'printer' && (c.deviceIds?.length ? c.deviceIds.includes(d.id) : printerish)).map((c) => c.title)
-            const open = openDevices.has(d.id)
-            return (
-              <div key={d.id}>
-                <div className="ha-sensor-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
-                  <div className="ha-sensor-entity">
-                    <span className="ha-sensor-entity-name">{d.name}{d.model ? ` · ${d.model}` : ''}</span>
-                    <span className="ha-sensor-entity-id">{d.count} sensors · {usedBy.length ? `used by ${usedBy.join(', ')}` : 'not used by a card yet'}</span>
-                  </div>
-                  <button type="button" className="button-link" onClick={() => toggleOpen(d.id)}>{open ? 'Hide sensors' : 'Show sensors'}</button>
-                </div>
-                {open ? pushedSensors.filter((x) => x.device_id === d.id).map(renderSensorRow) : null}
-              </div>
-            )
-          })}
+          {groupedDevices.map(renderDeviceRow)}
         </div>
       )}
 

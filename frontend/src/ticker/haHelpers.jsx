@@ -218,16 +218,18 @@ export function HATickerCards({ homeAssistantBoard, sensorValues }) {
   const sensors = homeAssistantBoard?.haSensors ?? []
   const cards = homeAssistantBoard?.haCards ?? []
   const tickerSensors = sensors.filter((s) => s.position === 'ticker')
+  // a device row (device:<id>) only means something to a printer card
+  const sensorsFor = (card) => tickerSensors.filter((s) => s.cardId === card.id && (card.variant === 'printer' || !s.entityId.startsWith('device:')))
 
   if (cards.length === 0) {
     if (tickerSensors.length === 0) return null
-    return <HASensorCard card={{ title: 'HOME', sub: '' }} sensors={tickerSensors} sensorValues={sensorValues} />
+    return <HASensorCard card={{ title: 'HOME', sub: '' }} sensors={tickerSensors.filter((s) => !s.entityId.startsWith('device:'))} sensorValues={sensorValues} />
   }
 
   const cardEls = cards.map((card) => {
     if (card.enabled === false) return null
-    const cardSensors = tickerSensors.filter((s) => s.cardId === card.id)
-    if (cardSensors.length === 0 && !(card.variant === 'printer' && (card.deviceIds?.length || Object.values(sensorValues).some((s) => s?.device_id && isPrinterKey(s.key))))) return null
+    const cardSensors = sensorsFor(card)
+    if (cardSensors.length === 0 && !(card.variant === 'printer' && card.deviceIds?.length)) return null
     if (card.variant === 'weather') return <HAWeatherCard key={card.id} card={card} sensors={cardSensors} sensorValues={sensorValues} />
     if (card.variant === 'printer') return <HAPrinterCard key={card.id} card={card} sensors={cardSensors} sensorValues={sensorValues} />
     return <HASensorCard key={card.id} card={card} sensors={cardSensors} sensorValues={sensorValues} />
@@ -237,7 +239,7 @@ export function HATickerCards({ homeAssistantBoard, sensorValues }) {
   const hasVisible = cardEls.some(Boolean)
   if (!hasVisible) {
     if (tickerSensors.length === 0) return null
-    return <HASensorCard card={{ title: 'HOME', sub: '' }} sensors={tickerSensors} sensorValues={sensorValues} />
+    return <HASensorCard card={{ title: 'HOME', sub: '' }} sensors={tickerSensors.filter((s) => !s.entityId.startsWith('device:'))} sensorValues={sensorValues} />
   }
 
   return cardEls
@@ -335,12 +337,8 @@ export function HAWeatherCard({ card, sensors, sensorValues }) {
 }
 
 // The pushed sensors that belong to the Home Assistant devices picked on a printer card (a Bambu Lab printer + its AMS units), grouped per device and keyed by the integration's own key
-const isPrinterKey = (k) => k === 'print_progress' || k === 'stage' || k === 'external_spool' || /^tray_\d+$/.test(k)
 function sensorsOfDevices(card, sensorValues) {
-  // no devices ticked on the card: every printer / AMS device that was mirrored is used automatically
-  const explicit = card.deviceIds?.length ? new Set(card.deviceIds) : null
-  const auto = new Set(Object.values(sensorValues).filter((s) => s?.device_id && isPrinterKey(s.key)).map((s) => s.device_id))
-  const wanted = explicit || auto
+  const wanted = new Set(card.deviceIds || [])
   const devices = {}
   for (const s of Object.values(sensorValues)) {
     if (!s?.device_id || !wanted.has(s.device_id)) continue
@@ -380,7 +378,10 @@ function AmsUnit({ unit }) {
 }
 
 export function HAPrinterCard({ card, sensors, sensorValues }) {
-  const devices = sensorsOfDevices(card, sensorValues)
+  // devices assigned to this card in Setup (rows named device:<id>) + single sensors
+  const deviceIds = sensors.filter((x) => x.entityId.startsWith('device:')).map((x) => x.entityId.slice(7))
+  sensors = sensors.filter((x) => !x.entityId.startsWith('device:'))
+  const devices = deviceIds.length ? sensorsOfDevices({ deviceIds }, sensorValues) : []
   const printer = devices.find((d) => d.byKey.print_progress || d.byKey.stage)
   const amsUnits = devices.filter((d) => d !== printer && Object.keys(d.byKey).some((k) => /^tray_\d+$/.test(k) || k === 'external_spool'))
   let pct = null

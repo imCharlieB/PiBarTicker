@@ -1439,8 +1439,8 @@
 .ticker-runtime-shell .wx-hourly { flex: 0 0 auto; border-left: 1px solid #232a36; padding: 0 4cqh; display: flex; flex-direction: column; justify-content: center; gap: 3cqh; background: linear-gradient(180deg, #0f1722, #0c0e13); }
 .ticker-runtime-shell .wx-hourly-title { font-family: 'Spline Sans Mono', monospace; font-weight: 700; font-size: 4.4cqh; letter-spacing: .2em; color: #6fb6ff; }
 .ticker-runtime-shell .wx-hours { display: grid; gap: 1.4cqh; }
-.ticker-runtime-shell .wx-hour { display: flex; flex-direction: column; align-items: center; min-width: 0; border-radius: 2.4cqh; overflow: hidden; background: color-mix(in srgb, var(--tc) 14%, #101722); }
-.ticker-runtime-shell .wx-hour-temp { align-self: stretch; text-align: center; padding: 2cqh 0; font-weight: 900; font-size: 10cqh; line-height: 1; color: #fff; white-space: nowrap; background: color-mix(in srgb, var(--tc) 62%, #0c0e13); }
+.ticker-runtime-shell .wx-hour { display: flex; flex-direction: column; align-items: center; min-width: 0; border-radius: 2.4cqh; overflow: hidden; background: var(--tc-body); border-top: 1.2cqh solid var(--tc); }
+.ticker-runtime-shell .wx-hour-temp { align-self: stretch; text-align: center; padding: 2cqh 0; font-weight: 900; font-size: 10cqh; line-height: 1; color: #fff; white-space: nowrap; background: var(--tc-head); }
 .ticker-runtime-shell .wx-hour-i { display: inline-block; width: 19cqh; height: 19cqh; margin-top: 2.4cqh; }
 .ticker-runtime-shell .wx-hour-wind { font-weight: 800; font-size: 4.6cqh; color: #c7d3e4; white-space: pre; margin-top: 1.4cqh; }
 .ticker-runtime-shell .wx-hour-wind:not(:empty)::after { content: ' mph'; font-size: 3.2cqh; color: #8c97a8; }

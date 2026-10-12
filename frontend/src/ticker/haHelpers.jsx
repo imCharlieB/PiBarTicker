@@ -36,11 +36,25 @@ const WiCloud = ({ fill = '#aab4c3', transform }) => <path className="wi-drift" 
 const WiDrops = ({ xs, y = 64 }) => xs.map((x, i) => <line key={x} className={`wi-drop wi-d${i % 3}`} x1={x} y1={y} x2={x - 3} y2={y + 10} stroke="#5ac8fa" strokeWidth="4" strokeLinecap="round" />)
 const WiFlakes = ({ xs, y = 66 }) => xs.map((x, i) => <circle key={x} className={`wi-flake wi-f${i % 3}`} cx={x} cy={y} r="3.4" fill="#e8f0fa" />)
 
-// Temperature -> colour for the hourly strip (cold blue, hot red, blended between); °F values, °C values are converted
-function tempColor(temp, unit) {
+// Temperature -> tile colours for the hourly strip, computed here (no color-mix: the Pi's older Chromium ignores it).
+// Cold = blue, hot = red, in between passes through a pale neutral then amber (never purple or green). °C is converted to °F.
+const TEMP_STOPS = [[30, [59, 130, 246]], [50, [56, 189, 248]], [62, [226, 232, 240]], [74, [251, 191, 36]], [86, [249, 115, 22]], [98, [239, 68, 68]]]
+function tempTile(temp, unit) {
   const f = /c/i.test(String(unit || '')) ? Number(temp) * 9 / 5 + 32 : Number(temp)
-  const x = Math.min(1, Math.max(0, (f - 30) / 65))  // 30°F and below = full blue, 95°F and above = full red, a blend (purple) in between
-  return `hsl(${Math.round(215 + 145 * x)} 90% 64%)`
+  let rgb = TEMP_STOPS[TEMP_STOPS.length - 1][1]
+  if (f <= TEMP_STOPS[0][0]) rgb = TEMP_STOPS[0][1]
+  else {
+    for (let k = 1; k < TEMP_STOPS.length; k++) {
+      if (f <= TEMP_STOPS[k][0]) {
+        const [x0, c0] = TEMP_STOPS[k - 1]; const [x1, c1] = TEMP_STOPS[k]
+        const p = (f - x0) / (x1 - x0)
+        rgb = c0.map((v, n) => v + (c1[n] - v) * p)
+        break
+      }
+    }
+  }
+  const mix = (k) => `rgb(${rgb.map((v, n) => Math.round(v * k + [12, 14, 19][n] * (1 - k))).join(',')})`
+  return { '--tc': mix(1), '--tc-head': mix(0.62), '--tc-body': mix(0.2) }
 }
 
 export function WeatherIcon({ condition }) {
@@ -275,12 +289,12 @@ export function HAWeatherCard({ card, sensors, sensorValues }) {
   const forecast0 = forecastSource?.attributes?.forecast?.[0]
   const hiTemp = forecast0?.temperature ?? forecast0?.high_temperature
   const loTemp = forecast0?.templow ?? forecast0?.low_temperature
-  // Hourly forecast (the "Hourly forecast" sensor chosen on the Home Assistant Setup page): the next 6 hours after the current one (the big card already shows now)
+  // Hourly forecast (the "Hourly forecast" sensor chosen on the Home Assistant Setup page): the next 8 hours after the current one (the big card already shows now)
   const hourlyRows = (() => {
     const rows = card.hourlySensorId ? sensorValues[card.hourlySensorId]?.attributes?.forecast : null
     if (!Array.isArray(rows)) return []
     const from = Date.now()
-    return rows.filter((r) => Number.isFinite(Date.parse(r?.datetime)) && Date.parse(r.datetime) >= from && r.temperature != null).slice(0, 6)
+    return rows.filter((r) => Number.isFinite(Date.parse(r?.datetime)) && Date.parse(r.datetime) >= from && r.temperature != null).slice(0, 8)
   })()
   const hasHourly = hourlyRows.length > 1
   const hourLabel = (iso) => new Date(iso).toLocaleTimeString([], { hour: 'numeric' }).replace(' ', '')
@@ -331,7 +345,7 @@ export function HAWeatherCard({ card, sensors, sensorValues }) {
               const rain = Math.round(Number(r.precipitation_probability) || 0)
               const wind = r.wind_speed != null ? Math.round(Number(r.wind_speed)) : null
               return (
-                <div key={r.datetime} className="wx-hour" style={{ '--tc': tempColor(r.temperature, tempUnit) }}>
+                <div key={r.datetime} className="wx-hour" style={tempTile(r.temperature, tempUnit)}>
                   <span className="wx-hour-temp">{Math.round(Number(r.temperature))}°</span>
                   <span className="wx-hour-i"><WeatherIcon condition={r.condition} /></span>
                   <span className="wx-hour-wind">{wind != null ? wind : ' '}</span>

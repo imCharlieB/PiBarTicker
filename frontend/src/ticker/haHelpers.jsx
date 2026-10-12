@@ -321,8 +321,10 @@ export function HAWeatherCard({ card, sensors, sensorValues }) {
                 <i className="hs-bar" style={{ background: rgbOf(hc) }} />
                 <span className="chip chip-final hs-hchip">{hourLabel(r.datetime)}</span>
                 <span className="hs-hicon"><WeatherIcon condition={r.condition} /></span>
-                <span className="hs-htemp">{Math.round(Number(r.temperature))}°</span>
-                <span className="hs-hrain">{rain > 0 ? `${rain}%` : '\u00a0'}</span>
+                <div className="hs-hbot">
+                  <span className="hs-htemp">{Math.round(Number(r.temperature))}°</span>
+                  {rain > 0 ? <span className="hs-hrain">{rain}%</span> : null}
+                </div>
               </div>
             )
           })}

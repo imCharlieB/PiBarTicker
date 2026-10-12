@@ -1476,10 +1476,11 @@
 .ticker-runtime-shell .hs-stats .mdi { font-size: 5cqh; color: #7fd0ff; }
 .ticker-runtime-shell .hs-wx .hs-half { min-width: 84cqh; justify-content: flex-start; gap: 3.4cqh; }  /* the clock badge covers the bottom-left corner: content stays above it */
 .ticker-runtime-shell .hs-hours { flex: 0 0 auto; display: flex; gap: 0; }
-.ticker-runtime-shell .hs-hour { position: relative; flex: 0 0 auto; width: 30cqh; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 5.2cqh 1.6cqh 4.4cqh; border-left: 1px solid #20252f; }
+.ticker-runtime-shell .hs-hour { position: relative; flex: 0 0 auto; width: 30cqh; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 4.7cqh 1.6cqh 5.8cqh; border-left: 1px solid #20252f; }
 .ticker-runtime-shell .hs-hchip { font-size: 4.2cqh; padding: 1.1cqh 2.2cqh; }
 .ticker-runtime-shell .hs-hicon { width: 19cqh; height: 19cqh; display: block; }
 .ticker-runtime-shell .hs-htemp { font-weight: 900; font-size: 12cqh; line-height: .85; font-variant-numeric: tabular-nums; }
+.ticker-runtime-shell .hs-hbot { display: flex; flex-direction: column; align-items: center; gap: 1.6cqh; }
 .ticker-runtime-shell .hs-hrain { font-weight: 800; font-size: 4.4cqh; color: #7fd0ff; letter-spacing: .04em; }
 
 /* sensors: one colour panel per sensor */

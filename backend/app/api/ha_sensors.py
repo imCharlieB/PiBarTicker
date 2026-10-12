@@ -37,6 +37,11 @@ class SensorPush(BaseModel):
     friendly_name: str = ""
     domain: str = ""
     attributes: dict = Field(default_factory=dict)
+    # set when the entity belongs to a Home Assistant device (e.g. a Bambu Lab printer or AMS): lets the display group a device's sensors
+    device_id: str = ""
+    device_name: str = ""
+    device_model: str = ""
+    key: str = ""  # the integration's own entity key (e.g. print_progress, tray_1)
 
 
 @router.get("/sensors")

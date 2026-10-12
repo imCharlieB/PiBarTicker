@@ -20,9 +20,10 @@
     "step": {
       "init": {
         "title": "Sensor mirroring",
-        "description": "Pick Home Assistant entities to mirror to the PiBarTicker display. Configure display position in the PiBarTicker setup UI.",
+        "description": "Pick whole devices (every sensor on them is mirrored, e.g. a Bambu Lab printer and its AMS units) and/or single entities to mirror to the PiBarTicker display. Configure display position in the PiBarTicker setup UI.",
         "data": {
-          "sensors": "Entities to mirror"
+          "devices": "Devices to mirror (all their sensors)",
+          "sensors": "Single entities to mirror"
         }
       }
     }

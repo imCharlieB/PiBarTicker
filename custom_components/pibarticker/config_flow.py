@@ -8,11 +8,13 @@ from homeassistant.core import callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
+    DeviceSelector,
+    DeviceSelectorConfig,
     EntitySelector,
     EntitySelectorConfig,
 )
 
-from .const import CONF_SENSORS, CONF_URL, DEFAULT_NAME, DOMAIN
+from .const import CONF_DEVICES, CONF_SENSORS, CONF_URL, DEFAULT_NAME, DOMAIN
 
 
 class PiBarTickerConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -63,11 +65,15 @@ class PiBarTickerOptionsFlow(OptionsFlow):
             return self.async_create_entry(title="", data=user_input)
 
         current_sensors = self._config_entry.options.get(CONF_SENSORS, [])
+        current_devices = self._config_entry.options.get(CONF_DEVICES, [])
 
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(
                 {
+                    vol.Optional(CONF_DEVICES, default=current_devices): DeviceSelector(
+                        DeviceSelectorConfig(multiple=True)
+                    ),
                     vol.Optional(CONF_SENSORS, default=current_sensors): EntitySelector(
                         EntitySelectorConfig(multiple=True)
                     ),

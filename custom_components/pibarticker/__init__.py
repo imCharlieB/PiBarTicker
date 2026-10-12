@@ -1,6 +1,7 @@
 """PiBarTicker Home Assistant integration."""
 from __future__ import annotations
 
+import json
 import logging
 
 from datetime import timedelta
@@ -9,14 +10,70 @@ import aiohttp
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
 
-from .const import CONF_SENSORS, CONF_URL, DOMAIN
+from .const import CONF_DEVICES, CONF_SENSORS, CONF_URL, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = [Platform.SWITCH, Platform.SENSOR]
+
+# Entity types mirrored from a picked device (its sensors and binary sensors; buttons, switches, updates... are not display data)
+DEVICE_DOMAINS = {"sensor", "binary_sensor"}
+_SKIP_ATTRS = {"friendly_name", "icon", "entity_picture", "supported_features", "attribution", "device_class", "state_class", "unit_of_measurement"}
+
+
+def _tracked(hass: HomeAssistant, entry: ConfigEntry) -> tuple[list[str], dict[str, dict]]:
+    """Every entity to mirror: the single entities picked + all sensors of the devices picked, with their device info."""
+    ids: list[str] = list(entry.options.get(CONF_SENSORS, []))
+    meta: dict[str, dict] = {}
+    ent_reg = er.async_get(hass)
+    dev_reg = dr.async_get(hass)
+
+    def _device_info(device_id):
+        device = dev_reg.async_get(device_id) if device_id else None
+        return {
+            "device_id": device_id or "",
+            "device_name": ((device.name_by_user or device.name) if device else "") or "",
+            "device_model": (device.model if device else "") or "",
+        }
+
+    for device_id in entry.options.get(CONF_DEVICES, []):
+        info = _device_info(device_id)
+        for ent in er.async_entries_for_device(ent_reg, device_id):
+            if ent.domain not in DEVICE_DOMAINS:
+                continue
+            meta[ent.entity_id] = {**info, "key": ent.translation_key or "", "from_device": True}
+            if ent.entity_id not in ids:
+                ids.append(ent.entity_id)
+    # single picks still carry their device + key so the display can group them
+    for entity_id in ids:
+        if entity_id in meta:
+            continue
+        ent = ent_reg.async_get(entity_id)
+        meta[entity_id] = {**_device_info(ent.device_id if ent else None), "key": (ent.translation_key if ent else "") or "", "from_device": False}
+    return ids, meta
+
+
+def _clean_attrs(attrs: dict) -> dict:
+    """Small JSON-safe copy of an entity's attributes (e.g. a Bambu AMS tray's colour / type / remaining)."""
+    out: dict = {}
+    for key, val in attrs.items():
+        if key in _SKIP_ATTRS:
+            continue
+        if val is None or isinstance(val, (bool, int, float)):
+            out[key] = val
+        elif isinstance(val, str):
+            out[key] = val[:200]
+        elif isinstance(val, (list, dict)):
+            try:
+                if len(json.dumps(val)) < 2000:
+                    out[key] = val
+            except (TypeError, ValueError):
+                pass
+    return out
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -24,8 +81,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN][entry.entry_id] = {
         "url": entry.data[CONF_URL],
         "session": async_get_clientsession(hass),
-        "tracked_sensors": list(entry.options.get(CONF_SENSORS, [])),
+        "tracked_sensors": [],
+        "meta": {},
     }
+    tracked, meta = _tracked(hass, entry)
+    hass.data[DOMAIN][entry.entry_id]["tracked_sensors"] = tracked
+    hass.data[DOMAIN][entry.entry_id]["meta"] = meta
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -67,14 +128,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.services.async_register(DOMAIN, "clear_alert", handle_clear_alert)
 
     # Watch configured sensor entities and push their state to the display
-    sensors: list[str] = entry.options.get(CONF_SENSORS, [])
+    sensors: list[str] = hass.data[DOMAIN][entry.entry_id]["tracked_sensors"]
     if sensors:
         _setup_sensor_bridge(hass, entry, sensors)
 
     # Periodic re-push — catches missed initial pushes (backend starting up) and
     # ensures fresh attribute data after HACS integration updates without user action.
     async def _periodic_push(now=None) -> None:
-        for entity_id in entry.options.get(CONF_SENSORS, []):
+        for entity_id in hass.data[DOMAIN][entry.entry_id]["tracked_sensors"]:
             state = hass.states.get(entity_id)
             if state:
                 await _push_sensor(hass, entry, state)
@@ -142,6 +203,9 @@ async def _push_sensor(hass: HomeAssistant, entry: ConfigEntry, state) -> None:
         forecast = state.attributes.get("forecast")
         if forecast is not None:
             attrs["forecast"] = forecast
+    meta = hass.data.get(DOMAIN, {}).get(entry.entry_id, {}).get("meta", {}).get(state.entity_id, {})
+    if meta.get("from_device") and domain in DEVICE_DOMAINS:
+        attrs.update(_clean_attrs(state.attributes))
 
     try:
         await session.post(
@@ -153,6 +217,10 @@ async def _push_sensor(hass: HomeAssistant, entry: ConfigEntry, state) -> None:
                 "friendly_name": friendly,
                 "domain": domain,
                 "attributes": attrs,
+                "device_id": meta.get("device_id", ""),
+                "device_name": meta.get("device_name", ""),
+                "device_model": meta.get("device_model", ""),
+                "key": meta.get("key", ""),
             },
             timeout=aiohttp.ClientTimeout(total=5),
         )
@@ -163,7 +231,7 @@ async def _push_sensor(hass: HomeAssistant, entry: ConfigEntry, state) -> None:
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
     domain_data = hass.data.get(DOMAIN, {}).get(entry.entry_id, {})
     old_sensors = set(domain_data.get("tracked_sensors", []))
-    new_sensors = set(entry.options.get(CONF_SENSORS, []))
+    new_sensors = set(_tracked(hass, entry)[0])
     removed = old_sensors - new_sensors
 
     if removed:

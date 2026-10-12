@@ -34,6 +34,23 @@ export default function HADetail({ onBack }) {
     return () => { cancelled = true; clearInterval(id) }
   }, [])
 
+  // Home Assistant devices that sent sensors (picked as whole devices in the integration, e.g. a Bambu Lab printer and its AMS units)
+  const devices = []
+  for (const s of pushedSensors) {
+    if (!s.device_id) continue
+    let d = devices.find((x) => x.id === s.device_id)
+    if (!d) { d = { id: s.device_id, name: s.device_name || s.device_id, model: s.device_model || '', count: 0 }; devices.push(d) }
+    d.count += 1
+  }
+  // sensors of a device that a printer card reads are handled by that card — they are not listed one by one below
+  const claimedDevices = new Set(haCards.flatMap((c) => c.deviceIds ?? []))
+  const listedSensors = pushedSensors.filter((s) => !(s.device_id && claimedDevices.has(s.device_id)))
+
+  function toggleCardDevice(card, deviceId) {
+    const ids = card.deviceIds ?? []
+    updateCard(card.id, { deviceIds: ids.includes(deviceId) ? ids.filter((x) => x !== deviceId) : [...ids, deviceId] })
+  }
+
   function getSavedConfig(entityId) {
     return savedSensors.find((s) => s.entityId === entityId) ?? {
       entityId, label: '', unit: '', position: 'ticker', cardId: '',
@@ -118,6 +135,21 @@ export default function HADetail({ onBack }) {
               </label>
               <button className="ha-card-remove-btn" onClick={() => removeCard(card.id)}>×</button>
             </div>
+            {card.variant === 'printer' && (
+              <div className="ha-card-weather-sensors" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                <span className="ha-card-weather-sensor-label"><span>Printer devices (all their sensors are used automatically)</span></span>
+                {devices.length === 0 ? (
+                  <p className="ha-sensor-empty" style={{ textAlign: 'left', margin: 0 }}>
+                    No devices received yet. In Home Assistant open the PiBarTicker integration, choose <strong>Configure</strong> and pick the printer and AMS under <strong>Devices to mirror</strong>.
+                  </p>
+                ) : devices.map((d) => (
+                  <label key={d.id} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <input type="checkbox" checked={(card.deviceIds ?? []).includes(d.id)} onChange={() => toggleCardDevice(card, d.id)} />
+                    <span>{d.name}{d.model ? ` · ${d.model}` : ''} <span className="ha-sensor-entity-id">{d.count} sensors</span></span>
+                  </label>
+                ))}
+              </div>
+            )}
             {card.variant === 'weather' && (
               <div className="ha-card-weather-sensors">
                 <label className="ha-card-weather-sensor-label">
@@ -154,7 +186,13 @@ export default function HADetail({ onBack }) {
         </p>
       )}
 
-      {loadingState === 'done' && pushedSensors.length > 0 && (
+      {loadingState === 'done' && claimedDevices.size > 0 && (
+        <p className="ha-sensor-empty" style={{ textAlign: 'left' }}>
+          {devices.filter((d) => claimedDevices.has(d.id)).map((d) => `${d.name} (${d.count} sensors)`).join(', ')} — read by the printer card, not listed below.
+        </p>
+      )}
+
+      {loadingState === 'done' && listedSensors.length > 0 && (
         <div className="ha-sensor-list">
           <div className={`ha-sensor-list-head ${haCards.length > 0 ? 'ha-sensor-list-head-cards' : 'ha-sensor-list-head-pushed'}`}>
             <span>Sensor</span>
@@ -164,7 +202,7 @@ export default function HADetail({ onBack }) {
             <span>Position</span>
             {haCards.length > 0 && <span>Card</span>}
           </div>
-          {pushedSensors.map((sensor) => {
+          {listedSensors.map((sensor) => {
             const cfg = getSavedConfig(sensor.entity_id)
             return (
               <div className={`ha-sensor-row ${haCards.length > 0 ? 'ha-sensor-row-cards' : 'ha-sensor-row-pushed'}`} key={sensor.entity_id}>

@@ -140,6 +140,8 @@ class HACardConfig(AppBaseModel):
     enabled: bool = True
     hourlySensorId: str = ""
     dailySensorId: str = ""
+    # printer card: the Home Assistant devices (printer, AMS units) whose sensors it reads
+    deviceIds: list[str] = Field(default_factory=list)
 
 
 class HomeAssistantBoardConfig(AppBaseModel):

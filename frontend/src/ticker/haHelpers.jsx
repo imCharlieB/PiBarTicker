@@ -1,4 +1,5 @@
 import { useEffect, useId, useState } from 'react'
+import { hexToRgb } from './cardHelpers.js'
 
 export const WEATHER_ICON_MAP = {
   sunny:             { icon: 'mdi-weather-sunny',           color: '#f5b945' },
@@ -36,26 +37,27 @@ const WiCloud = ({ fill = '#aab4c3', transform }) => <path className="wi-drift" 
 const WiDrops = ({ xs, y = 64 }) => xs.map((x, i) => <line key={x} className={`wi-drop wi-d${i % 3}`} x1={x} y1={y} x2={x - 3} y2={y + 10} stroke="#5ac8fa" strokeWidth="4" strokeLinecap="round" />)
 const WiFlakes = ({ xs, y = 66 }) => xs.map((x, i) => <circle key={x} className={`wi-flake wi-f${i % 3}`} cx={x} cy={y} r="3.4" fill="#e8f0fa" />)
 
-// Temperature -> tile colours for the hourly strip, computed here (no color-mix: the Pi's older Chromium ignores it).
-// Cold = blue, hot = red, in between passes through a pale neutral then amber (never purple or green). °C is converted to °F.
+// ── Home Assistant cards in the board's own look: a colour-washed half with a top bar and a big number, a dark seam with a status chip ──
+// Cold = blue, hot = red, in between passes through a pale neutral then amber (never purple or green). Colours are computed here (no color-mix:
+// the Pi's older Chromium ignores it). °C is converted to °F.
 const TEMP_STOPS = [[30, [59, 130, 246]], [50, [56, 189, 248]], [62, [226, 232, 240]], [74, [251, 191, 36]], [86, [249, 115, 22]], [98, [239, 68, 68]]]
-function tempTile(temp, unit) {
+function tempRGB(temp, unit) {
   const f = /c/i.test(String(unit || '')) ? Number(temp) * 9 / 5 + 32 : Number(temp)
-  let rgb = TEMP_STOPS[TEMP_STOPS.length - 1][1]
-  if (f <= TEMP_STOPS[0][0]) rgb = TEMP_STOPS[0][1]
-  else {
-    for (let k = 1; k < TEMP_STOPS.length; k++) {
-      if (f <= TEMP_STOPS[k][0]) {
-        const [x0, c0] = TEMP_STOPS[k - 1]; const [x1, c1] = TEMP_STOPS[k]
-        const p = (f - x0) / (x1 - x0)
-        rgb = c0.map((v, n) => v + (c1[n] - v) * p)
-        break
-      }
+  if (!Number.isFinite(f)) return [154, 163, 177]
+  if (f <= TEMP_STOPS[0][0]) return TEMP_STOPS[0][1]
+  for (let k = 1; k < TEMP_STOPS.length; k++) {
+    if (f <= TEMP_STOPS[k][0]) {
+      const [x0, c0] = TEMP_STOPS[k - 1]; const [x1, c1] = TEMP_STOPS[k]
+      return c0.map((v, n) => Math.round(v + (c1[n] - v) * (f - x0) / (x1 - x0)))
     }
   }
-  const mix = (k) => `rgb(${rgb.map((v, n) => Math.round(v * k + [12, 14, 19][n] * (1 - k))).join(',')})`
-  return { '--tc': mix(1), '--tc-head': mix(0.62), '--tc-body': mix(0.2) }
+  return TEMP_STOPS[TEMP_STOPS.length - 1][1]
 }
+const rgbOf = (c, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`
+const washOf = (c) => `linear-gradient(160deg, ${rgbOf(c, 0.5)} 0%, ${rgbOf(c, 0.16)} 62%, #0e1117 100%)`
+const hexRGB = (hex, fallback = [154, 163, 177]) => { const c = hexToRgb(String(hex || '').slice(0, 7)); return c ? [c.r, c.g, c.b] : fallback }
+const numOf = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : null }
+const fmtMinutes = (m) => (m == null ? '' : m >= 60 ? `${Math.floor(m / 60)}h ${Math.round(m % 60)}m` : `${Math.round(m)}m`)
 
 export function WeatherIcon({ condition }) {
   const gid = `wig${useId().replace(/[^a-zA-Z0-9]/g, '')}`
@@ -225,7 +227,7 @@ export function HATickerCards({ homeAssistantBoard, sensorValues }) {
   const cardEls = cards.map((card) => {
     if (card.enabled === false) return null
     const cardSensors = tickerSensors.filter((s) => s.cardId === card.id)
-    if (cardSensors.length === 0) return null
+    if (cardSensors.length === 0 && !(card.variant === 'printer' && card.deviceIds?.length)) return null
     if (card.variant === 'weather') return <HAWeatherCard key={card.id} card={card} sensors={cardSensors} sensorValues={sensorValues} />
     if (card.variant === 'printer') return <HAPrinterCard key={card.id} card={card} sensors={cardSensors} sensorValues={sensorValues} />
     return <HASensorCard key={card.id} card={card} sensors={cardSensors} sensorValues={sensorValues} />
@@ -243,26 +245,23 @@ export function HATickerCards({ homeAssistantBoard, sensorValues }) {
 
 export function HASensorCard({ card, sensors, sensorValues }) {
   if (sensors.length === 0) return null
+  const cols = sensors.length <= 3 ? 1 : sensors.length <= 8 ? 2 : 3
   return (
-    <div className="card d-ha ticker-runtime-card" role="listitem">
-      <div className="ha-head">
-        <div className="ha-titles">
-          <span className="ha-title">{card.title}</span>
-          {card.sub && <span className="ha-sub">{card.sub}</span>}
-        </div>
-        <span className="ha-badge"><i className="mdi mdi-home-assistant" />HOME</span>
+    <div className="card hs-card hs-se" style={{ '--cols': cols }} role="listitem">
+      <div className="hs-se-head">
+        <span className="chip chip-live">{card.title}</span>
+        {card.sub ? <span className="hs-se-sub">{card.sub}</span> : null}
       </div>
-      <div className="ha-rows">
+      <div className="hs-se-grid">
         {sensors.map((sensor) => {
           const live = sensorValues[sensor.entityId]
           const label = sensor.label || sensor.entityId.split('.').pop().replace(/_/g, ' ')
-          const icon = haIconFor(live, sensor)
-          const color = haColorFor(live, sensor)
+          const tone = hexRGB(haColorFor(live, sensor))
           return (
-            <div key={sensor.entityId} className="ha-row">
-              <i className={`mdi ${icon} ha-row-icon`} style={{ '--ic': color }} />
-              <span className="ha-row-label">{label}</span>
-              <span className="ha-row-val">{renderEntityValue(live, sensor, 'ha-unit')}</span>
+            <div key={sensor.entityId} className="hs-tile" style={{ background: washOf(tone) }}>
+              <i className="hs-bar" style={{ background: rgbOf(tone) }} />
+              <span className="hs-tile-l"><i className={`mdi ${haIconFor(live, sensor)}`} style={{ color: rgbOf(tone) }} />{label}</span>
+              <span className="hs-tile-v">{renderEntityValue(live, sensor, 'ha-unit')}</span>
             </div>
           )
         })}
@@ -280,8 +279,8 @@ export function HAWeatherCard({ card, sensors, sensorValues }) {
   const dailyLive = card.dailySensorId ? (sensorValues[card.dailySensorId] ?? null) : null
   const forecastSource = dailyLive ?? live
   const condition = live?.state ?? '—'
-  const wx = WEATHER_ICON_MAP[condition] ?? { icon: 'mdi-weather-cloudy', color: '#9aa3b1' }
   const temp = live?.attributes?.temperature
+  const feels = live?.attributes?.apparent_temperature
   const tempUnit = live?.attributes?.temperature_unit ?? '°'
   const humidity = live?.attributes?.humidity
   const windSpeed = live?.attributes?.wind_speed
@@ -289,123 +288,175 @@ export function HAWeatherCard({ card, sensors, sensorValues }) {
   const forecast0 = forecastSource?.attributes?.forecast?.[0]
   const hiTemp = forecast0?.temperature ?? forecast0?.high_temperature
   const loTemp = forecast0?.templow ?? forecast0?.low_temperature
-  // Hourly forecast (the "Hourly forecast" sensor chosen on the Home Assistant Setup page): the next 7 hours after the current one (the big card already shows now)
+  // Hourly forecast (the "Hourly forecast" sensor chosen on the Home Assistant Setup page): the next 7 hours after the current one (the big panel already shows now)
   const hourlyRows = (() => {
     const rows = card.hourlySensorId ? sensorValues[card.hourlySensorId]?.attributes?.forecast : null
     if (!Array.isArray(rows)) return []
     const from = Date.now()
     return rows.filter((r) => Number.isFinite(Date.parse(r?.datetime)) && Date.parse(r.datetime) >= from && r.temperature != null).slice(0, 7)
   })()
-  const hasHourly = hourlyRows.length > 1
   const hourLabel = (iso) => new Date(iso).toLocaleTimeString([], { hour: 'numeric' }).replace(' ', '')
+  const tone = tempRGB(temp, tempUnit)
   return (
-    <div className={`card d-ha d-weather ticker-runtime-card${hasHourly ? ' has-hourly' : ''}`} role="listitem">
-      <div className="wx-main">
-      <div className="ha-head">
-        <div className="ha-titles">
-          <span className="ha-title">{card.title}</span>
-          {card.sub && <span className="ha-sub">{card.sub}</span>}
+    <div className="card hs-card hs-wx" role="listitem">
+      <div className="hs-half" style={{ background: washOf(tone) }}>
+        <i className="hs-bar" style={{ background: rgbOf(tone) }} />
+        <div className="hs-top"><span className="hs-box"><WeatherIcon condition={condition} /></span><span className="hs-abbr">NOW</span></div>
+        <div className="hs-score">{temp != null ? Math.round(Number(temp)) : '—'}<small>{tempUnit}</small></div>
+        {feels != null ? <div className="hs-plate">FEELS {Math.round(Number(feels))}°</div> : <div className="hs-plate">{card.title}</div>}
+      </div>
+      <div className="hs-seam">
+        <span className="chip chip-pre">{String(condition).replace(/[-_]/g, ' ')}</span>
+        {hiTemp != null || loTemp != null ? (
+          <div className="hs-meta">{hiTemp != null ? <b>H {Math.round(hiTemp)}°</b> : null}{loTemp != null ? <b>L {Math.round(loTemp)}°</b> : null}</div>
+        ) : null}
+        <div className="hs-meta hs-meta2">
+          {humidity != null ? <span><i className="mdi mdi-water-percent" />{Math.round(humidity)}%</span> : null}
+          {windSpeed != null ? <span><i className="mdi mdi-weather-windy" />{Math.round(windSpeed)} {windUnit}</span> : null}
         </div>
-        <span className="ha-badge"><i className="mdi mdi-home-assistant" />HOME</span>
       </div>
-      <div className="wx-hero">
-        <span className="wx-icon wx-svg"><WeatherIcon condition={condition} /></span>
-        <div className="wx-temp">{temp != null ? temp : '—'}<span className="wx-deg">{tempUnit}</span></div>
-        <div className="wx-cond">{condition}</div>
-      </div>
-      <div className="wx-stats">
-        {hiTemp != null && loTemp != null && (
-          <div className="wx-stat">
-            <i className="mdi mdi-thermometer" style={{ '--ic': '#f0894e' }} />
-            <span className="wx-stat-val">{hiTemp}° / {loTemp}°</span>
-            <span className="wx-stat-label">Hi / Lo</span>
-          </div>
-        )}
-        {humidity != null && (
-          <div className="wx-stat">
-            <i className="mdi mdi-water-percent" style={{ '--ic': '#5ac8fa' }} />
-            <span className="wx-stat-val">{humidity}%</span>
-            <span className="wx-stat-label">Humidity</span>
-          </div>
-        )}
-        {windSpeed != null && (
-          <div className="wx-stat">
-            <i className="mdi mdi-weather-windy" style={{ '--ic': '#4fd1c5' }} />
-            <span className="wx-stat-val">{windSpeed}{windUnit ? ` ${windUnit}` : ''}</span>
-            <span className="wx-stat-label">Wind</span>
-          </div>
-        )}
-      </div>
-      </div>
-      {hasHourly ? (
-        <div className="wx-hourly">
-          <div className="wx-hourly-title">NEXT {hourlyRows.length} HOURS</div>
-          <div className="wx-hours">
-            {hourlyRows.map((r) => {
-              const rain = Math.round(Number(r.precipitation_probability) || 0)
-              const wind = r.wind_speed != null ? Math.round(Number(r.wind_speed)) : null
-              return (
-                <div key={r.datetime} className="wx-hour" style={tempTile(r.temperature, tempUnit)}>
-                  <span className="wx-hour-temp">{Math.round(Number(r.temperature))}°</span>
-                  <span className="wx-hour-i"><WeatherIcon condition={r.condition} /></span>
-                  <span className="wx-hour-wind">{wind != null ? wind : ' '}</span>
-                  <span className={`wx-hour-rain${rain >= 30 ? ' wet' : ''}`}>{rain > 0 ? `${rain}%` : ' '}</span>
-                  <span className="wx-hour-t">{hourLabel(r.datetime)}</span>
-                </div>
-              )
-            })}
-          </div>
+      {hourlyRows.length > 1 ? (
+        <div className="hs-hours">
+          {hourlyRows.map((r) => {
+            const hc = tempRGB(r.temperature, tempUnit)
+            const rain = Math.round(Number(r.precipitation_probability) || 0)
+            return (
+              <div key={r.datetime} className="hs-hour" style={{ background: washOf(hc) }}>
+                <i className="hs-bar" style={{ background: rgbOf(hc) }} />
+                <span className="chip chip-final hs-hchip">{hourLabel(r.datetime)}</span>
+                <span className="hs-hicon"><WeatherIcon condition={r.condition} /></span>
+                <span className="hs-htemp">{Math.round(Number(r.temperature))}°</span>
+                <span className="hs-hrain">{rain > 0 ? `${rain}%` : '\u00a0'}</span>
+              </div>
+            )
+          })}
         </div>
       ) : null}
     </div>
   )
 }
 
-export function HAPrinterCard({ card, sensors, sensorValues }) {
-  if (sensors.length === 0) return null
-  let progressSensor = null
-  let progressPct = null
-  const otherSensors = []
-  for (const sensor of sensors) {
-    const live = sensorValues[sensor.entityId]
-    const unit = sensor.unit || live?.unit || live?.attributes?.unit_of_measurement || ''
-    const val = parseFloat(live?.state)
-    if (!progressSensor && unit === '%' && !isNaN(val) && val >= 0 && val <= 100) {
-      progressSensor = sensor; progressPct = val
-    } else { otherSensors.push(sensor) }
+// The pushed sensors that belong to the Home Assistant devices picked on a printer card (a Bambu Lab printer + its AMS units), grouped per device and keyed by the integration's own key
+function sensorsOfDevices(card, sensorValues) {
+  const wanted = new Set(card.deviceIds || [])
+  const devices = {}
+  for (const s of Object.values(sensorValues)) {
+    if (!s?.device_id || !wanted.has(s.device_id)) continue
+    const d = (devices[s.device_id] = devices[s.device_id] || { id: s.device_id, name: s.device_name, model: s.device_model, byKey: {} })
+    if (s.key) d.byKey[s.key] = s
   }
+  return Object.values(devices)
+}
+
+function AmsUnit({ unit }) {
+  const trays = Object.entries(unit.byKey).filter(([k]) => /^tray_\d+$/.test(k) || k === 'external_spool').sort(([x], [y]) => x.localeCompare(y))
+  const humidity = numOf(unit.byKey.humidity?.state)
+  const drying = unit.byKey.drying?.state === 'on'
   return (
-    <div className="card d-ha d-printer ticker-runtime-card" role="listitem">
-      <div className="ha-head">
-        <div className="ha-titles">
-          <span className="ha-title">{card.title}</span>
-          {card.sub && <span className="ha-sub">{card.sub}</span>}
-        </div>
-        <span className="ha-badge"><i className="mdi mdi-printer-3d" />PRINT</span>
+    <div className="hs-ams">
+      <div className="hs-ams-head">
+        <span className="chip chip-final">{unit.name || 'AMS'}</span>
+        {drying ? <span className="chip chip-live">Drying</span> : humidity != null ? <span className="hs-ams-hum"><i className="mdi mdi-water-percent" />{Math.round(humidity)}%</span> : null}
       </div>
-      {progressPct != null && (
-        <div className="printer-progress">
-          <div className="printer-progress-bar"><div className="printer-progress-fill" style={{ width: `${progressPct}%` }} /></div>
-          <span className="printer-progress-pct">{Math.round(progressPct)}%</span>
+      <div className="hs-spools">
+        {trays.map(([key, sensor]) => {
+          const a = sensor.attributes || {}
+          const color = hexRGB(a.color || a.colour, [70, 78, 92])
+          const remaining = numOf(a.remaining)
+          const empty = /empty/i.test(String(sensor.state)) || (!a.color && !a.colour && !a.type)
+          return (
+            <div key={key} className={`hs-spool${empty ? ' empty' : ''}`}>
+              <span className="hs-spool-bar"><i style={{ height: `${empty ? 0 : remaining != null && remaining >= 0 ? remaining : 100}%`, background: rgbOf(color) }} /></span>
+              <span className="hs-spool-t">{empty ? '—' : (a.type || a.filament_type || '').toString().replace(/^Bambu /i, '')}</span>
+              <span className="hs-spool-r">{!empty && remaining != null && remaining >= 0 ? `${Math.round(remaining)}%` : '\u00a0'}</span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+export function HAPrinterCard({ card, sensors, sensorValues }) {
+  const devices = card.deviceIds?.length ? sensorsOfDevices(card, sensorValues) : []
+  const printer = devices.find((d) => d.byKey.print_progress || d.byKey.stage)
+  const amsUnits = devices.filter((d) => d !== printer && Object.keys(d.byKey).some((k) => /^tray_\d+$/.test(k) || k === 'external_spool'))
+  let pct = null
+  let stage = ''
+  let left = null
+  let eta = ''
+  let layer = null
+  let layers = null
+  let nozzle = null
+  let nozzleT = null
+  let bed = null
+  let bedT = null
+  let job = ''
+  const extras = []
+  if (printer) {
+    const k = printer.byKey
+    pct = numOf(k.print_progress?.state)
+    stage = String(k.stage?.state || k.print_status?.state || '')
+    left = numOf(k.remaining_time?.state)
+    eta = k.end_time?.state && k.end_time.state !== 'unknown' ? k.end_time.state : ''
+    layer = numOf(k.current_layer?.state)
+    layers = numOf(k.total_layers?.state)
+    nozzle = numOf(k.nozzle_temp?.state)
+    nozzleT = numOf(k.target_nozzle_temp?.state)
+    bed = numOf(k.bed_temp?.state)
+    bedT = numOf(k.target_bed_temp?.state)
+    job = String(k.subtask_name?.state || k.gcode_file?.state || '')
+  } else {
+    // single sensors picked by hand: the first one in % is the progress, the rest are listed in the middle
+    for (const sensor of sensors) {
+      const live = sensorValues[sensor.entityId]
+      const unit = sensor.unit || live?.unit || live?.attributes?.unit_of_measurement || ''
+      const val = parseFloat(live?.state)
+      if (pct == null && unit === '%' && !isNaN(val) && val >= 0 && val <= 100) pct = val
+      else extras.push(sensor)
+    }
+    if (pct == null && extras.length === 0) return null
+  }
+  const stageKey = stage.toLowerCase()
+  const chipCls = /print|run/.test(stageKey) ? 'chip-live' : /pause/.test(stageKey) ? 'chip-pre' : /fail|error/.test(stageKey) ? 'chip-flag-red' : 'chip-final'
+  const idle = printer && (!stageKey || /idle|offline|unavailable|unknown|finish/.test(stageKey)) && !(pct > 0 && pct < 100)
+  const tone = [255, 122, 89]
+  const showPct = pct != null && !idle
+  const fmtEta = eta ? new Date(eta).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''
+  const temp = (v, t) => (v == null ? null : t != null && t > 0 ? `${Math.round(v)}→${Math.round(t)}°` : `${Math.round(v)}°`)
+  return (
+    <div className="card hs-card hs-pr" role="listitem">
+      <div className="hs-pr-main">
+        <div className="hs-half hs-pr-half" style={{ background: washOf(tone) }}>
+          <i className="hs-bar" style={{ background: rgbOf(tone) }} />
+          <div className="hs-top"><span className="hs-box hs-box-i"><i className="mdi mdi-printer-3d" /></span><span className="hs-abbr">{card.title && card.title.length <= 7 ? card.title : 'PRINT'}</span></div>
+          <div className="hs-score">{showPct ? Math.round(pct) : '—'}{showPct ? <small>%</small> : null}</div>
+          <div className="hs-plate">{layers ? `LAYER ${layer ?? 0} / ${layers}` : (job || card.sub || 'PRINTER')}</div>
         </div>
-      )}
-      {otherSensors.length > 0 && (
-        <div className="ha-rows">
-          {otherSensors.map((sensor) => {
-            const live = sensorValues[sensor.entityId]
-            const label = sensor.label || sensor.entityId.split('.').pop().replace(/_/g, ' ')
-            const icon = haIconFor(live, sensor)
-            const color = haColorFor(live, sensor)
-            return (
-              <div key={sensor.entityId} className="ha-row">
-                <i className={`mdi ${icon} ha-row-icon`} style={{ '--ic': color }} />
-                <span className="ha-row-label">{label}</span>
-                <span className="ha-row-val">{renderEntityValue(live, sensor, 'ha-unit')}</span>
-              </div>
-            )
-          })}
+        <div className="hs-seam hs-pr-seam">
+          <span className={`chip ${chipCls}`}>{chipCls === 'chip-live' ? <i className="chip-dot" /> : null}{stage ? stage.replace(/[-_]/g, ' ') : (printer ? 'Idle' : 'Printing')}</span>
+          {left != null && !idle ? <div className="hs-meta"><b>{fmtMinutes(left)}</b><span>left</span></div> : null}
+          {fmtEta && !idle ? <div className="hs-meta hs-meta-eta"><span>ETA</span><b>{fmtEta}</b></div> : null}
+          <div className="hs-meta hs-meta2">
+            {temp(nozzle, nozzleT) ? <span><i className="mdi mdi-printer-3d-nozzle" />{temp(nozzle, nozzleT)}</span> : null}
+            {temp(bed, bedT) ? <span><i className="mdi mdi-radiator" />{temp(bed, bedT)}</span> : null}
+            {extras.slice(0, 3).map((sensor) => (
+              <span key={sensor.entityId}>{sensor.label || sensor.entityId.split('.').pop().replace(/_/g, ' ')} {renderEntityValue(sensorValues[sensor.entityId], sensor, 'ha-unit')}</span>
+            ))}
+          </div>
         </div>
-      )}
+        {amsUnits.map((u) => <AmsUnit key={u.id} unit={u} />)}
+      </div>
+      {showPct ? (
+        <div className="hs-track">
+          <div className="hs-track-bar">
+            {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((t) => <i key={t} style={{ left: `${t * 12.5}%` }} />)}
+            <div className="hs-track-fill" style={{ width: `${pct}%` }} />
+            <span className="hs-track-ball" style={{ left: `${pct}%` }} />
+          </div>
+          <div className="hs-track-l"><span>{job ? job.slice(0, 60) : 'START'}</span><span>DONE</span></div>
+        </div>
+      ) : null}
     </div>
   )
 }

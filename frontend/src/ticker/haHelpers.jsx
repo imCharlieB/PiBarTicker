@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 
 export const WEATHER_ICON_MAP = {
   sunny:             { icon: 'mdi-weather-sunny',           color: '#f5b945' },
@@ -17,6 +17,68 @@ export const WEATHER_ICON_MAP = {
   windy:             { icon: 'mdi-weather-windy',           color: '#4fd1c5' },
   'windy-variant':   { icon: 'mdi-weather-windy-variant',   color: '#4fd1c5' },
   exceptional:       { icon: 'mdi-alert-circle',            color: '#f87171' },
+}
+
+// ── Animated weather icons (SVG + CSS keyframes in TickerCards.css, classes wi-*) — used by the weather card hero and its hourly strip ──
+const WI_CLOUD = 'M28 70 a14 14 0 0 1 2-28 a21 21 0 0 1 40 5 a12 12 0 0 1 0 23 Z'
+const WI_RAYS = [0, 45, 90, 135, 180, 225, 270, 315]
+
+function WiSun({ gid }) {
+  return (
+    <>
+      <defs><radialGradient id={gid} cx=".4" cy=".35"><stop offset="0" stopColor="#ffe9a0" /><stop offset="1" stopColor="#f5a623" /></radialGradient></defs>
+      <g className="wi-spin">{WI_RAYS.map((a) => <rect key={a} x="47" y="8" width="6" height="14" rx="3" fill="#f5b945" transform={`rotate(${a} 50 50)`} />)}</g>
+      <circle className="wi-pulse" cx="50" cy="50" r="19" fill={`url(#${gid})`} />
+    </>
+  )
+}
+const WiCloud = ({ fill = '#aab4c3', transform }) => <path className="wi-drift" d={WI_CLOUD} fill={fill} transform={transform} />
+const WiDrops = ({ xs, y = 64 }) => xs.map((x, i) => <line key={x} className={`wi-drop wi-d${i % 3}`} x1={x} y1={y} x2={x - 3} y2={y + 10} stroke="#5ac8fa" strokeWidth="4" strokeLinecap="round" />)
+const WiFlakes = ({ xs, y = 66 }) => xs.map((x, i) => <circle key={x} className={`wi-flake wi-f${i % 3}`} cx={x} cy={y} r="3.4" fill="#e8f0fa" />)
+
+export function WeatherIcon({ condition }) {
+  const gid = `wig${useId().replace(/[^a-zA-Z0-9]/g, '')}`
+  const c = String(condition || '').toLowerCase()
+  let body
+  if (c === 'sunny') body = <WiSun gid={gid} />
+  else if (c === 'clear-night') {
+    body = (
+      <>
+        <g className="wi-bob"><path d="M60 16 A34 34 0 1 0 84 62 A27 27 0 0 1 60 16 Z" fill="#7fd0ff" /></g>
+        <path className="wi-twk1" d="M78 22 l2.5 6 6 2.5 -6 2.5 -2.5 6 -2.5 -6 -6 -2.5 6 -2.5Z" fill="#cfeaff" />
+        <path className="wi-twk2" d="M88 48 l1.6 3.8 3.8 1.6 -3.8 1.6 -1.6 3.8 -1.6 -3.8 -3.8 -1.6 3.8 -1.6Z" fill="#cfeaff" />
+        <path className="wi-twk3" d="M66 8 l1.4 3.2 3.2 1.4 -3.2 1.4 -1.4 3.2 -1.4 -3.2 -3.2 -1.4 3.2 -1.4Z" fill="#cfeaff" />
+      </>
+    )
+  } else if (c === 'partlycloudy' || c === 'partly-cloudy') {
+    body = (
+      <>
+        <g transform="translate(-12,-16) scale(.7)"><WiSun gid={gid} /></g>
+        <WiCloud transform="translate(6,8)" />
+      </>
+    )
+  } else if (c === 'rainy' || c === 'pouring') {
+    body = <><WiCloud fill="#9aa7b8" transform="translate(0,-10)" /><WiDrops xs={c === 'pouring' ? [34, 44, 54, 64, 72] : [38, 52, 66]} /></>
+  } else if (c === 'snowy') {
+    body = <><WiCloud fill="#a9b6c8" transform="translate(0,-10)" /><WiFlakes xs={[36, 50, 64]} /></>
+  } else if (c === 'snowy-rainy') {
+    body = <><WiCloud fill="#9fb0c4" transform="translate(0,-10)" /><WiDrops xs={[40, 62]} /><WiFlakes xs={[51, 72]} /></>
+  } else if (c === 'lightning' || c === 'lightning-rainy') {
+    body = (
+      <>
+        <WiCloud fill="#7a8496" transform="translate(0,-12)" />
+        {c === 'lightning-rainy' ? <WiDrops xs={[34, 70]} y={60} /> : null}
+        <path className="wi-bolt" d="M55 52 L42 76 L52 76 L46 96 L66 68 L55 68 L61 52 Z" fill="#ffd84d" />
+      </>
+    )
+  } else if (c === 'hail') {
+    body = <><WiCloud fill="#9aa7b8" transform="translate(0,-10)" />{[38, 52, 66].map((x, i) => <circle key={x} className={`wi-drop wi-d${i}`} cx={x} cy="66" r="3.6" fill="#dff3ff" />)}</>
+  } else if (c === 'fog') {
+    body = <><WiCloud fill="#9aa3b1" transform="translate(0,-14)" />{[66, 76, 86].map((y, i) => <line key={y} className={`wi-fogline wi-d${i}`} x1="24" y1={y} x2="76" y2={y} stroke="#b8c2d0" strokeWidth="4.5" strokeLinecap="round" />)}</>
+  } else if (c === 'windy' || c === 'windy-variant') {
+    body = <>{[34, 50, 66].map((y, i) => <path key={y} className={`wi-wind wi-d${i}`} d={`M14 ${y} H62 a9 9 0 1 0 -9 -9`} fill="none" stroke="#4fd1c5" strokeWidth="5" strokeLinecap="round" />)}</>
+  } else body = <WiCloud />
+  return <svg className="wi" viewBox="0 0 100 100" aria-hidden="true">{body}</svg>
 }
 
 export function useHASensors() {
@@ -206,8 +268,18 @@ export function HAWeatherCard({ card, sensors, sensorValues }) {
   const forecast0 = forecastSource?.attributes?.forecast?.[0]
   const hiTemp = forecast0?.temperature ?? forecast0?.high_temperature
   const loTemp = forecast0?.templow ?? forecast0?.low_temperature
+  // Hourly forecast (the "Hourly forecast" sensor chosen on the Home Assistant Setup page): the next 8 hours, starting with the current hour
+  const hourlyRows = (() => {
+    const rows = card.hourlySensorId ? sensorValues[card.hourlySensorId]?.attributes?.forecast : null
+    if (!Array.isArray(rows)) return []
+    const from = Date.now() - 30 * 60 * 1000
+    return rows.filter((r) => Number.isFinite(Date.parse(r?.datetime)) && Date.parse(r.datetime) >= from && r.temperature != null).slice(0, 8)
+  })()
+  const hasHourly = hourlyRows.length > 1
+  const hourLabel = (iso, i) => (i === 0 ? 'NOW' : new Date(iso).toLocaleTimeString([], { hour: 'numeric' }).replace(' ', ''))
   return (
-    <div className="card d-ha d-weather ticker-runtime-card" role="listitem">
+    <div className={`card d-ha d-weather ticker-runtime-card${hasHourly ? ' has-hourly' : ''}`} role="listitem">
+      <div className="wx-main">
       <div className="ha-head">
         <div className="ha-titles">
           <span className="ha-title">{card.title}</span>
@@ -216,7 +288,7 @@ export function HAWeatherCard({ card, sensors, sensorValues }) {
         <span className="ha-badge"><i className="mdi mdi-home-assistant" />HOME</span>
       </div>
       <div className="wx-hero">
-        <i className={`mdi ${wx.icon} wx-icon`} style={{ '--ic': wx.color }} />
+        <span className="wx-icon wx-svg"><WeatherIcon condition={condition} /></span>
         <div className="wx-temp">{temp != null ? temp : '—'}<span className="wx-deg">{tempUnit}</span></div>
         <div className="wx-cond">{condition}</div>
       </div>
@@ -243,6 +315,21 @@ export function HAWeatherCard({ card, sensors, sensorValues }) {
           </div>
         )}
       </div>
+      </div>
+      {hasHourly ? (
+        <div className="wx-hourly">
+          <div className="wx-hourly-title">NEXT {hourlyRows.length} HOURS</div>
+          <div className="wx-hours" style={{ gridTemplateColumns: `repeat(${hourlyRows.length}, 1fr)` }}>
+            {hourlyRows.map((r, i) => (
+              <div key={r.datetime} className={`wx-hour${i === 0 ? ' now' : ''}`}>
+                <span className="wx-hour-t">{hourLabel(r.datetime, i)}</span>
+                <span className="wx-hour-i"><WeatherIcon condition={r.condition} /></span>
+                <span className="wx-hour-temp">{Math.round(Number(r.temperature))}°</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

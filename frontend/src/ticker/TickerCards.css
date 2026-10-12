@@ -1404,3 +1404,43 @@
 /* slab live cards: the column starts right under the banner (no dead space above the LIVE chip); spare height goes to the bottom */
 /* slab: a one-digit score is centered in its team panel (two and three digits stay at the outer edge) */
 .ticker-runtime-shell .d-slab:not(.d-board) .score.score-1 { align-self: center; }
+
+/* ── Animated weather icons (WeatherIcon in haHelpers.jsx) ── */
+.ticker-runtime-shell .wx-svg { display: inline-block; width: 25cqh; height: 25cqh; font-size: 0; filter: none; }
+.ticker-runtime-shell .wi { overflow: visible; width: 100%; height: 100%; display: block; }
+.ticker-runtime-shell .wi-spin { transform-origin: 50px 50px; animation: wi-spin 14s linear infinite; }
+.ticker-runtime-shell .wi-pulse { transform-origin: 50px 50px; animation: wi-pulse 3.2s ease-in-out infinite; }
+.ticker-runtime-shell .wi-twk1 { animation: wi-twk 2.4s ease-in-out infinite; }
+.ticker-runtime-shell .wi-twk2 { animation: wi-twk 2.4s ease-in-out .8s infinite; }
+.ticker-runtime-shell .wi-twk3 { animation: wi-twk 2.4s ease-in-out 1.6s infinite; }
+.ticker-runtime-shell .wi-bob { animation: wi-bob 4s ease-in-out infinite; }
+.ticker-runtime-shell .wi-drift { animation: wi-drift 6s ease-in-out infinite; }
+.ticker-runtime-shell .wi-drop { animation: wi-fall 1.1s linear infinite; }
+.ticker-runtime-shell .wi-d1 { animation-delay: .35s; } .ticker-runtime-shell .wi-d2 { animation-delay: .7s; }
+.ticker-runtime-shell .wi-flake { animation: wi-snow 2.6s linear infinite; }
+.ticker-runtime-shell .wi-f1 { animation-delay: .9s; } .ticker-runtime-shell .wi-f2 { animation-delay: 1.7s; }
+.ticker-runtime-shell .wi-bolt { animation: wi-flash 2.6s ease-in-out infinite; transform-origin: 52px 70px; }
+.ticker-runtime-shell .wi-fogline { animation: wi-drift 5s ease-in-out infinite; }
+.ticker-runtime-shell .wi-wind { animation: wi-drift 3.4s ease-in-out infinite; }
+@keyframes wi-spin { to { transform: rotate(360deg); } }
+@keyframes wi-pulse { 0%, 100% { transform: scale(1); filter: drop-shadow(0 0 4px #f5b94588); } 50% { transform: scale(1.07); filter: drop-shadow(0 0 12px #f5b945cc); } }
+@keyframes wi-twk { 0%, 100% { opacity: .25; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.15); } }
+@keyframes wi-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes wi-drift { 0%, 100% { transform: translateX(-3px); } 50% { transform: translateX(4px); } }
+@keyframes wi-fall { 0% { transform: translateY(-6px); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(24px); opacity: 0; } }
+@keyframes wi-snow { 0% { transform: translate(0, -6px); opacity: 0; } 20% { opacity: 1; } 50% { transform: translate(4px, 10px); } 100% { transform: translate(-2px, 26px); opacity: 0; } }
+@keyframes wi-flash { 0%, 55%, 100% { opacity: .15; } 60%, 66% { opacity: 1; filter: drop-shadow(0 0 8px #ffe27a); } 72% { opacity: .3; } 78% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .ticker-runtime-shell .wi * { animation: none !important; opacity: 1; } }
+
+/* weather card with the hourly forecast: the card gets wider, the current weather stays on the left */
+.ticker-runtime-shell .d-weather .wx-main { display: contents; }
+.ticker-runtime-shell .d-weather.has-hourly { width: auto; flex-direction: row; padding: 0; gap: 0; }
+.ticker-runtime-shell .d-weather.has-hourly .wx-main { display: flex; flex-direction: column; gap: 3.7cqh; flex: 0 0 123.7cqh; padding: 5.3cqh 6.8cqh; box-sizing: border-box; }
+.ticker-runtime-shell .wx-hourly { flex: 1; min-width: 92cqh; border-left: 1px solid #232a36; padding: 0 3.4cqh; display: flex; flex-direction: column; justify-content: center; gap: 2.4cqh; }
+.ticker-runtime-shell .wx-hourly-title { font-family: 'Spline Sans Mono', monospace; font-weight: 700; font-size: 3.2cqh; letter-spacing: .2em; color: #8c97a8; }
+.ticker-runtime-shell .wx-hours { display: grid; gap: 1.4cqh; }
+.ticker-runtime-shell .wx-hour { display: flex; flex-direction: column; align-items: center; gap: 1.4cqh; padding: 2cqh 0; border-radius: 2cqh; }
+.ticker-runtime-shell .wx-hour.now { background: #1a2230; }
+.ticker-runtime-shell .wx-hour-t { font-weight: 700; font-size: 3.6cqh; color: #9aa6b6; white-space: nowrap; }
+.ticker-runtime-shell .wx-hour-i { display: inline-block; width: 10cqh; height: 10cqh; }
+.ticker-runtime-shell .wx-hour-temp { font-weight: 900; font-size: 5.4cqh; color: #fff; }

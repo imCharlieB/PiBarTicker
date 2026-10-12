@@ -1470,6 +1470,8 @@
 .ticker-runtime-shell .hs-meta2 .mdi { font-size: 5.4cqh; color: #7fd0ff; }
 
 /* weather: the next hours, each its own colour panel */
+.ticker-runtime-shell .hs-wx .hs-seam { min-width: 0; }
+.ticker-runtime-shell .hs-seam-ic { width: 30cqh; height: 30cqh; display: block; flex: 0 0 auto; }
 .ticker-runtime-shell .hs-hours { flex: 0 0 auto; display: flex; gap: 0; }
 .ticker-runtime-shell .hs-hour { position: relative; flex: 0 0 auto; width: 30cqh; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 5.2cqh 1.6cqh 4.4cqh; border-left: 1px solid #20252f; }
 .ticker-runtime-shell .hs-hchip { font-size: 4.2cqh; padding: 1.1cqh 2.2cqh; }
@@ -1478,10 +1480,10 @@
 .ticker-runtime-shell .hs-hrain { font-weight: 800; font-size: 4.4cqh; color: #7fd0ff; letter-spacing: .04em; }
 
 /* sensors: one colour panel per sensor */
-.ticker-runtime-shell .hs-se { flex-direction: column; width: calc(var(--cols, 2) * 84cqh + 4.2cqh); padding: 4.2cqh 4.2cqh 4.4cqh; gap: 3cqh; }
+.ticker-runtime-shell .hs-se { flex-direction: column; width: max-content; padding: 4.2cqh 4.2cqh 4.4cqh; gap: 3cqh; }
 .ticker-runtime-shell .hs-se-head { display: flex; align-items: center; justify-content: space-between; gap: 3cqh; }
 .ticker-runtime-shell .hs-se-sub { font-weight: 800; font-size: 4.2cqh; letter-spacing: .12em; color: #8c97a8; text-transform: uppercase; white-space: nowrap; }
-.ticker-runtime-shell .hs-se-grid { flex: 1; display: grid; grid-template-columns: repeat(var(--cols, 2), 1fr); grid-auto-rows: 1fr; gap: 2cqh; min-height: 0; }
+.ticker-runtime-shell .hs-se-grid { flex: 1; display: grid; grid-template-columns: repeat(var(--cols, 2), minmax(48cqh, max-content)); grid-auto-rows: 1fr; gap: 2cqh; min-height: 0; }
 .ticker-runtime-shell .hs-tile { position: relative; border-radius: 2.2cqh; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; padding: 3.2cqh 3cqh 2.2cqh; border: 1px solid #20252f; min-height: 0; }
 .ticker-runtime-shell .hs-tile-l { display: flex; align-items: center; gap: 1.2cqh; font-weight: 800; font-size: 3.7cqh; letter-spacing: .08em; text-transform: uppercase; color: #cfd6e2; white-space: nowrap; }
 .ticker-runtime-shell .hs-tile-l .mdi { font-size: 5cqh; }

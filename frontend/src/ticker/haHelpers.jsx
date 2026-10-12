@@ -301,12 +301,12 @@ export function HAWeatherCard({ card, sensors, sensorValues }) {
     <div className="card hs-card hs-wx" role="listitem">
       <div className="hs-half" style={{ background: washOf(tone) }}>
         <i className="hs-bar" style={{ background: rgbOf(tone) }} />
-        <div className="hs-top"><span className="hs-box"><WeatherIcon condition={condition} /></span><span className="hs-abbr">NOW</span></div>
+        <div className="hs-top"><span className="hs-abbr">NOW</span></div>
         <div className="hs-score">{temp != null ? Math.round(Number(temp)) : '—'}<small>{tempUnit}</small></div>
         {feels != null ? <div className="hs-plate">FEELS {Math.round(Number(feels))}°</div> : <div className="hs-plate">{card.title}</div>}
       </div>
       <div className="hs-seam">
-        <span className="chip chip-pre">{String(condition).replace(/[-_]/g, ' ')}</span>
+        <span className="hs-seam-ic"><WeatherIcon condition={condition} /></span>
         {hiTemp != null || loTemp != null ? (
           <div className="hs-meta">{hiTemp != null ? <b>H {Math.round(hiTemp)}°</b> : null}{loTemp != null ? <b>L {Math.round(loTemp)}°</b> : null}</div>
         ) : null}

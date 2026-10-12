@@ -319,7 +319,7 @@ export function HAWeatherCard({ card, sensors, sensorValues }) {
       {hasHourly ? (
         <div className="wx-hourly">
           <div className="wx-hourly-title">NEXT {hourlyRows.length} HOURS</div>
-          <div className="wx-hours" style={{ gridTemplateColumns: `repeat(${hourlyRows.length}, 1fr)` }}>
+          <div className="wx-hours" style={{ gridTemplateColumns: `repeat(${hourlyRows.length}, 17cqh)` }}>
             {hourlyRows.map((r, i) => (
               <div key={r.datetime} className={`wx-hour${i === 0 ? ' now' : ''}`}>
                 <span className="wx-hour-t">{hourLabel(r.datetime, i)}</span>

@@ -1436,11 +1436,12 @@
 .ticker-runtime-shell .d-weather .wx-main { display: contents; }
 .ticker-runtime-shell .d-weather.has-hourly { width: auto; flex-direction: row; padding: 0; gap: 0; }
 .ticker-runtime-shell .d-weather.has-hourly .wx-main { display: flex; flex-direction: column; gap: 3.7cqh; flex: 0 0 123.7cqh; padding: 5.3cqh 6.8cqh; box-sizing: border-box; }
-.ticker-runtime-shell .wx-hourly { flex: 1; min-width: 92cqh; border-left: 1px solid #232a36; padding: 0 3.4cqh; display: flex; flex-direction: column; justify-content: center; gap: 2.4cqh; }
-.ticker-runtime-shell .wx-hourly-title { font-family: 'Spline Sans Mono', monospace; font-weight: 700; font-size: 3.2cqh; letter-spacing: .2em; color: #8c97a8; }
-.ticker-runtime-shell .wx-hours { display: grid; gap: 1.4cqh; }
-.ticker-runtime-shell .wx-hour { display: flex; flex-direction: column; align-items: center; gap: 1.4cqh; padding: 2cqh 0; border-radius: 2cqh; }
+.ticker-runtime-shell .wx-hourly { flex: 0 0 auto; border-left: 1px solid #232a36; padding: 0 5cqh; display: flex; flex-direction: column; justify-content: center; gap: 4cqh; }
+.ticker-runtime-shell .wx-hourly-title { font-family: 'Spline Sans Mono', monospace; font-weight: 700; font-size: 4.2cqh; letter-spacing: .2em; color: #8c97a8; }
+.ticker-runtime-shell .wx-hours { display: grid; gap: 1.6cqh; }
+.ticker-runtime-shell .wx-hour { display: flex; flex-direction: column; align-items: center; gap: 2.4cqh; padding: 4cqh 0; border-radius: 3cqh; min-width: 0; }
 .ticker-runtime-shell .wx-hour.now { background: #1a2230; }
-.ticker-runtime-shell .wx-hour-t { font-weight: 700; font-size: 3.6cqh; color: #9aa6b6; white-space: nowrap; }
-.ticker-runtime-shell .wx-hour-i { display: inline-block; width: 10cqh; height: 10cqh; }
-.ticker-runtime-shell .wx-hour-temp { font-weight: 900; font-size: 5.4cqh; color: #fff; }
+.ticker-runtime-shell .wx-hour-t { font-weight: 800; font-size: 5.4cqh; color: #9aa6b6; white-space: nowrap; }
+.ticker-runtime-shell .wx-hour.now .wx-hour-t { color: #fff; }
+.ticker-runtime-shell .wx-hour-i { display: inline-block; width: 16cqh; height: 16cqh; }
+.ticker-runtime-shell .wx-hour-temp { font-weight: 900; font-size: 8.4cqh; color: #fff; white-space: nowrap; }

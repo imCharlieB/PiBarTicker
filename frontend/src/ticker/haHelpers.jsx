@@ -340,7 +340,7 @@ export function HAWeatherCard({ card, sensors, sensorValues }) {
       {hasHourly ? (
         <div className="wx-hourly">
           <div className="wx-hourly-title">NEXT {hourlyRows.length} HOURS</div>
-          <div className="wx-hours" style={{ gridTemplateColumns: `repeat(${hourlyRows.length}, 22cqh)` }}>
+          <div className="wx-hours">
             {hourlyRows.map((r) => {
               const rain = Math.round(Number(r.precipitation_probability) || 0)
               const wind = r.wind_speed != null ? Math.round(Number(r.wind_speed)) : null

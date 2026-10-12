@@ -1434,11 +1434,11 @@
 
 /* weather card with the hourly forecast: the card gets wider, the current weather stays on the left */
 .ticker-runtime-shell .d-weather .wx-main { display: contents; }
-.ticker-runtime-shell .d-weather.has-hourly { width: auto; flex-direction: row; padding: 0; gap: 0; }
-.ticker-runtime-shell .d-weather.has-hourly .wx-main { display: flex; flex-direction: column; gap: 3.7cqh; flex: 0 0 123.7cqh; padding: 5.3cqh 6.8cqh; box-sizing: border-box; }
-.ticker-runtime-shell .wx-hourly { flex: 0 0 auto; border-left: 1px solid #232a36; padding: 0 4cqh; display: flex; flex-direction: column; justify-content: center; gap: 3cqh; background: linear-gradient(180deg, #0f1722, #0c0e13); }
+.ticker-runtime-shell .d-weather.has-hourly { width: max-content; min-width: 123.7cqh; flex-direction: row; padding: 0; gap: 0; }
+.ticker-runtime-shell .d-weather.has-hourly .wx-main { display: flex; flex-direction: column; gap: 3.7cqh; flex: 0 0 auto; width: 123.7cqh; padding: 5.3cqh 6.8cqh; box-sizing: border-box; }
+.ticker-runtime-shell .wx-hourly { flex: 0 0 auto; min-width: max-content; border-left: 1px solid #232a36; padding: 0 4cqh; display: flex; flex-direction: column; justify-content: center; gap: 3cqh; background: linear-gradient(180deg, #0f1722, #0c0e13); }
 .ticker-runtime-shell .wx-hourly-title { font-family: 'Spline Sans Mono', monospace; font-weight: 700; font-size: 4.4cqh; letter-spacing: .2em; color: #6fb6ff; }
-.ticker-runtime-shell .wx-hours { display: grid; gap: 1.4cqh; }
+.ticker-runtime-shell .wx-hours { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(22cqh, max-content); gap: 1.4cqh; }
 .ticker-runtime-shell .wx-hour { display: flex; flex-direction: column; align-items: center; min-width: 0; border-radius: 2.4cqh; overflow: hidden; background: var(--tc-body); border-top: 1.2cqh solid var(--tc); }
 .ticker-runtime-shell .wx-hour-temp { align-self: stretch; text-align: center; padding: 2cqh 0; font-weight: 900; font-size: 10cqh; line-height: 1; color: #fff; white-space: nowrap; background: var(--tc-head); }
 .ticker-runtime-shell .wx-hour-i { display: inline-block; width: 19cqh; height: 19cqh; margin-top: 2.4cqh; }

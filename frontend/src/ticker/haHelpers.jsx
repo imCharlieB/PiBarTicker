@@ -482,7 +482,7 @@ export function HAPrinterCard({ card, sensors, sensorValues }) {
           {showPct
             ? <div className="hs-score">{Math.round(pct)}<small>%</small></div>
             : <div className="hs-score"><span className="hs-score-word">{printer ? (stage ? stage.replace(/[-_]/g, ' ') : 'idle') : '—'}</span></div>}
-          <div className="hs-plate">{showPct && layers ? `LAYER ${layer ?? 0} / ${layers}` : (showPct ? job : null) || printer?.name || card.sub || 'PRINTER'}</div>
+          <div className="hs-plate">{showPct && layers ? `LAYER ${layer ?? 0} / ${layers}` : (showPct ? job : null) || deviceLabels[printer?.id] || printer?.model || card.sub || 'PRINTER'}</div>
         </div>
         <div className="hs-seam hs-pr-seam">
           <span className={`chip ${chipCls}`}>{chipCls === 'chip-live' ? <i className="chip-dot" /> : null}{printError ? 'Print error' : stage ? stage.replace(/[-_]/g, ' ') : (printer ? 'Idle' : 'Printing')}</span>

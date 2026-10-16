@@ -35,10 +35,77 @@ from ...core.groups_util import (
     college_standings_snapshot,
     build_team_group_memberships_from_groups,
     build_team_group_memberships_from_standings,
+    carry_streak,
+    results_from_schedule,
 )
 from ...core.logo_store import LogoStore
 from ...core.paths import get_runtime_paths
 from ._utils import _groups_endpoint_url, _http_client, _normalized, _rankings_url, _site_standings_url
+
+
+def _scoreboard_season_type(payload) -> int | None:
+    return ((payload or {}).get("season") or {}).get("type") if isinstance(payload, dict) else None
+
+
+def _carry_postseason_streaks(entry, normalized_games: list[dict]) -> None:
+    """Set team["standing"]["streak"] for the teams on the board: the regular-season streak carried through the playoff games played so far."""
+    team_game: dict[str, tuple[str, str]] = {}
+    for game in normalized_games:
+        for side in ("away", "home"):
+            tid = str(((game.get("teams") or {}).get(side) or {}).get("id") or "")
+            if tid:
+                team_game[tid] = (str(game.get("id") or ""), str(game.get("state") or ""))
+    if not team_game:
+        return
+    stored = load_results(entry.league_id)
+    base_by_team: dict[str, str] = {}
+    for game in normalized_games:
+        for side in ("away", "home"):
+            team = (game.get("teams") or {}).get(side) or {}
+            base_by_team[str(team.get("id") or "")] = str(((team.get("standing") or {}).get("streak")) or "")
+
+    def _look_up(tid: str) -> tuple[str, str, dict | None]:
+        game_id, state = team_game[tid]
+        base = base_by_team.get(tid, "")
+
+        def fetch_events() -> list[dict]:
+            payload_sched = _http_client.get_json(
+                f"https://site.api.espn.com/apis/site/v2/sports/{entry.sport}/{entry.league}/teams/{tid}/schedule",
+                use_cache=False,
+            )
+            return payload_sched.get("events") or []
+
+        def compute(events: list[dict], team_id: str) -> str:
+            playoff = [
+                e for e in events
+                if int(((e.get("seasonType") or {}).get("type")) or 0) == 3
+            ]
+            return carry_streak(base, results_from_schedule(playoff, team_id))
+
+        streak, new_entry = resolve_streak(stored.get(tid), tid, game_id, state, fetch_events, compute)
+        return tid, streak, new_entry
+
+    streaks: dict[str, str] = {}
+    pool = ThreadPoolExecutor(max_workers=8)
+    futures = [pool.submit(_look_up, tid) for tid in team_game]
+    try:
+        for future in as_completed(futures, timeout=15):
+            tid, streak, new_entry = future.result()
+            if streak:
+                streaks[tid] = streak
+            if new_entry is not None:
+                stored[tid] = new_entry
+    except Exception:
+        pass  # a slow team keeps its regular-season streak
+    pool.shutdown(wait=False)
+    save_results(entry.league_id, stored)
+    for game in normalized_games:
+        for side in ("away", "home"):
+            team = (game.get("teams") or {}).get(side) or {}
+            streak = streaks.get(str(team.get("id") or ""))
+            if streak:
+                team["standing"] = {**(team.get("standing") or {}), "streak": streak}
+
 
 router = APIRouter()
 
@@ -529,6 +596,15 @@ def get_scoreboard(
                     standing = division_standings.get(str(team.get("id") or ""))
                     if standing:
                         team["standing"] = {k: v for k, v in standing.items() if k not in ("stats", "group")}
+
+    # Postseason: ESPN's standings streak stays frozen at the end of the regular season, so each team's streak carries on through its playoff games
+    # (the team schedule ESPN returns during the postseason holds the playoff games). Stored per team like the college streaks: a team is looked up
+    # again only when one of its finished games on the board is not counted yet.
+    if (
+        include_standings and _normalized(entry.sport) != "racing" and "college" not in _normalized(entry.league_id)
+        and normalized_games and _scoreboard_season_type(payload) == 3
+    ):
+        _carry_postseason_streaks(entry, normalized_games)
 
     # MLB series (regular season, every postseason round, World Series) from the MLB Stats API — one call for the whole slate
     if include_standings and _normalized(entry.league_id) == "mlb" and normalized_games:

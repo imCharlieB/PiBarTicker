@@ -52,6 +52,7 @@ def resolve_streak(
     game_id: str,
     state: str,
     fetch_events: Callable[[], list[dict]],
+    compute: Callable[[list[dict], str], str] = streak_from_schedule,
 ) -> tuple[str, dict[str, Any] | None]:
     """(streak to show, new stored entry or None when nothing changed). A failed lookup falls back to the stored streak."""
     if not needs_lookup(entry, game_id, state):
@@ -60,7 +61,7 @@ def resolve_streak(
         events = fetch_events()
     except Exception:  # noqa: BLE001 - keep whatever we already knew
         return str((entry or {}).get("streak") or ""), None
-    streak = streak_from_schedule(events, team_id)
+    streak = compute(events, team_id)
     if not streak:
         return str((entry or {}).get("streak") or ""), None
     return streak, {"streak": streak, "done": sorted(completed_event_ids(events))}

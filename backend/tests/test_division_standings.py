@@ -77,3 +77,28 @@ def test_seed_line_and_conference_abbr():
     assert off["2"]["conferenceAbbr"] == "AFC" and "showSeed" not in off["2"]
     on = build_division_standings([conf], show_seeds_up_to=7)
     assert on["2"]["showSeed"] is True and "showSeed" not in on["15"]
+
+
+def test_carry_streak_continues_through_playoff_games():
+    from app.core.groups_util import carry_streak, results_from_schedule, streak_from_results
+
+    assert carry_streak("W3", [True, True]) == "W5"          # regular season W3 + two playoff wins
+    assert carry_streak("W3", [True, False]) == "L1"         # then a loss resets it
+    assert carry_streak("L2", [False, False, True]) == "W1"
+    assert carry_streak("", [True]) == "W1"                  # no regular-season streak known
+    assert carry_streak("W3", []) == "W3"                    # no playoff game yet: unchanged
+    assert carry_streak("", []) == ""
+    assert streak_from_results([True, True, False]) == "L1"
+    assert streak_from_results([]) == ""
+
+    def ev(date, winner):
+        return {"date": date, "competitions": [{"status": {"type": {"completed": True}}, "competitors": [{"team": {"id": "5"}, "winner": winner}]}]}
+
+    assert results_from_schedule([ev("2026-10-05", True), ev("2026-10-03", False)], "5") == [False, True]
+
+
+def test_resolve_streak_can_count_a_different_way():
+    from app.core.team_results import resolve_streak
+
+    streak, entry = resolve_streak(None, "5", "g1", "post", lambda: [{"id": "e1"}], lambda events, tid: "W7")
+    assert streak == "W7" and entry and entry["streak"] == "W7"

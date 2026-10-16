@@ -220,8 +220,8 @@ def pick_headline_poll(rankings: list[dict], top_n: int = 25) -> tuple[dict[str,
     return (candidates[0][1], candidates[0][0]) if candidates else ({}, "")
 
 
-def streak_from_schedule(events: list[dict], team_id: str) -> str:
-    """Current win/loss streak ("W3", "L1") from an ESPN team schedule's events; "" when no completed game."""
+def results_from_schedule(events: list[dict], team_id: str) -> list[bool]:
+    """Won (True) / lost (False) for every finished game in an ESPN team schedule, oldest first."""
     results: list[tuple[str, bool]] = []
     for event in events or []:
         for competition in event.get("competitions") or []:
@@ -235,15 +235,39 @@ def streak_from_schedule(events: list[dict], team_id: str) -> str:
                 continue
             results.append((str(event.get("date") or ""), bool(mine.get("winner"))))
     results.sort(key=lambda r: r[0])
+    return [won for _, won in results]
+
+
+def streak_from_results(results: list[bool]) -> str:
+    """"W3" / "L1" from oldest-first results; "" when there are none."""
     if not results:
         return ""
-    last_win = results[-1][1]
+    last_win = results[-1]
     run = 0
-    for _, won in reversed(results):
+    for won in reversed(results):
         if won != last_win:
             break
         run += 1
     return f"{'W' if last_win else 'L'}{run}"
+
+
+def streak_from_schedule(events: list[dict], team_id: str) -> str:
+    """Current win/loss streak ("W3", "L1") from an ESPN team schedule's events; "" when no completed game."""
+    return streak_from_results(results_from_schedule(events, team_id))
+
+
+def carry_streak(base: str, later_results: list[bool]) -> str:
+    """A streak that goes on through more games: `base` is the streak so far ("W3"), `later_results` the games since, oldest first.
+    ESPN's standings streak is frozen at the end of the regular season, so the playoff games are added to it here."""
+    letter = base[:1] if base[:1] in ("W", "L") else ""
+    run = int(base[1:]) if letter and base[1:].isdigit() else 0
+    for won in later_results:
+        mark = "W" if won else "L"
+        if mark == letter:
+            run += 1
+        else:
+            letter, run = mark, 1
+    return f"{letter}{run}" if letter and run else ""
 
 
 def completed_event_ids(events: list[dict]) -> set[str]:

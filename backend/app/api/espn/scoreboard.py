@@ -93,11 +93,10 @@ def _carry_postseason_streaks(entry, normalized_games: list[dict]) -> None:
         base = base_by_team.get(tid, "")
 
         def fetch_events() -> list[dict]:
-            payload_sched = _http_client.get_json(
-                f"https://site.api.espn.com/apis/site/v2/sports/{entry.sport}/{entry.league}/teams/{tid}/schedule",
-                use_cache=False,
-            )
-            return payload_sched.get("events") or []
+            sched_url = f"https://site.api.espn.com/apis/site/v2/sports/{entry.sport}/{entry.league}/teams/{tid}/schedule"
+            events = _http_client.get_json(sched_url, use_cache=False).get("events") or []
+            # ESPN's default schedule is not always the postseason one (a finished NFL season returns the regular season only): ask for it explicitly too
+            return merge_schedule_events(events, _http_client.get_json(sched_url + "?seasontype=3", use_cache=False).get("events") or [])
 
         def compute(events: list[dict], team_id: str) -> str:
             playoff = [

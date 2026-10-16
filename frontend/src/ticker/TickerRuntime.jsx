@@ -1,6 +1,7 @@
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import './TickerRuntime.css'
 import './TickerCards.css'
+import haIcon from '../assets/home-assistant-icon.png'  // official Home Assistant icon (brands.home-assistant.io) for the lower-third mark while the HOME cards are on
 import WireframeCard, { BoardCard } from './WireframeCards.jsx'
 import BaseballCard from './BaseballCard.jsx'
 import GameCard from './GameCard.jsx'
@@ -205,7 +206,7 @@ function LowerThird({ clockFormat, haSlotActive, leagueName, leagueId, leagueLog
       <LeagueMark
         league={haSlotActive ? 'HOME' : leagueName}
         leagueId={haSlotActive ? '' : leagueId}
-        logo={haSlotActive ? '' : leagueLogo}
+        logo={haSlotActive ? haIcon : leagueLogo}
       />
       <span className="l3-time" ref={timeRef} />
     </div>

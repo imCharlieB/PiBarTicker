@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { hexToRgb } from './cardHelpers.js'
 
 export const WEATHER_ICON_MAP = {
@@ -414,7 +414,31 @@ function AmsUnit({ unit, label }) {
   )
 }
 
+// The card is exactly as wide as what is in it. `width: max-content` normally does that; when the browser works the width out too small (the Pi's
+// Chromium cut the AMS header off) the contents' real width is used instead. Runs after every render because the contents change with the data.
+function useFitWidth(cardRef, mainRef) {
+  useLayoutEffect(() => {
+    const card = cardRef.current
+    const main = mainRef.current
+    if (!card || !main) return undefined
+    const fit = () => {
+      card.style.width = ''
+      if (main.scrollWidth > main.clientWidth + 1) card.style.width = `${main.scrollWidth}px`
+    }
+    fit()
+    if (typeof ResizeObserver === 'undefined') return undefined
+    const observer = new ResizeObserver(fit)
+    observer.observe(main)
+    Array.from(main.children).forEach((child) => observer.observe(child))
+    if (document.fonts?.ready) document.fonts.ready.then(fit)
+    return () => observer.disconnect()
+  })
+}
+
 export function HAPrinterCard({ card, sensors, sensorValues }) {
+  const cardRef = useRef(null)
+  const mainRef = useRef(null)
+  useFitWidth(cardRef, mainRef)
   // devices assigned to this card in Setup (rows named device:<id>) + single sensors
   const deviceIds = sensors.filter((x) => x.entityId.startsWith('device:')).map((x) => x.entityId.slice(7))
   const deviceLabels = Object.fromEntries(sensors.filter((x) => x.entityId.startsWith('device:') && x.label).map((x) => [x.entityId.slice(7), x.label]))
@@ -474,8 +498,8 @@ export function HAPrinterCard({ card, sensors, sensorValues }) {
   const fmtEta = eta ? new Date(eta).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''
   const temp = (v, t) => (v == null ? null : t != null && t > 0 ? `${Math.round(v)}→${Math.round(t)}°` : `${Math.round(v)}°`)
   return (
-    <div className="card hs-card hs-pr" role="listitem">
-      <div className="hs-pr-main">
+    <div className="card hs-card hs-pr" role="listitem" ref={cardRef}>
+      <div className="hs-pr-main" ref={mainRef}>
         <div className="hs-half hs-pr-half" style={{ background: washOf(tone) }}>
           <i className="hs-bar" style={{ background: rgbOf(tone) }} />
           <div className="hs-top"><DeviceImage model={printer?.model} fallback={<span className="hs-box hs-box-i"><i className="mdi mdi-printer-3d" /></span>} /><span className="hs-abbr">{card.title && card.title.length <= 7 ? card.title : 'PRINT'}</span></div>
@@ -483,8 +507,15 @@ export function HAPrinterCard({ card, sensors, sensorValues }) {
             ? <div className="hs-score">{Math.round(pct)}<small>%</small></div>
             : <div className="hs-score"><span className="hs-score-word">{printer ? (stage ? stage.replace(/[-_]/g, ' ') : 'idle') : '—'}</span></div>}
           <div className="hs-plate">{showPct && layers ? `LAYER ${layer ?? 0} / ${layers}` : (showPct ? job : null) || deviceLabels[printer?.id] || printer?.model || card.sub || 'PRINTER'}</div>
+          {idle ? (
+            <div className="hs-stats">
+              {temp(nozzle, nozzleT) ? <span>NOZZLE {temp(nozzle, nozzleT)}</span> : null}
+              {temp(bed, bedT) ? <span>BED {temp(bed, bedT)}</span> : null}
+              {temp(chamber, chamberT) ? <span>CHAMBER {temp(chamber, chamberT)}</span> : null}
+            </div>
+          ) : null}
         </div>
-        <div className="hs-seam hs-pr-seam">
+        {idle ? null : <div className="hs-seam hs-pr-seam">
           <span className={`chip ${chipCls}`}>{chipCls === 'chip-live' ? <i className="chip-dot" /> : null}{printError ? 'Print error' : stage ? stage.replace(/[-_]/g, ' ') : (printer ? 'Idle' : 'Printing')}</span>
           {left != null && !idle ? <div className="hs-meta"><b>{fmtMinutes(left)}</b><span>left</span></div> : null}
           {fmtEta && !idle ? <div className="hs-meta hs-meta-eta"><span>ETA</span><b>{fmtEta}</b></div> : null}
@@ -497,7 +528,7 @@ export function HAPrinterCard({ card, sensors, sensorValues }) {
               <span key={sensor.entityId}>{sensor.label || sensor.entityId.split('.').pop().replace(/_/g, ' ')} {renderEntityValue(sensorValues[sensor.entityId], sensor, 'ha-unit')}</span>
             ))}
           </div>
-        </div>
+        </div>}
         {amsUnits.map((u) => <AmsUnit key={u.id} unit={u} label={deviceLabels[u.id]} />)}
       </div>
       {showPct ? (

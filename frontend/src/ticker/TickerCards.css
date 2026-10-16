@@ -1543,3 +1543,9 @@
 .ticker-runtime-shell .fade-in { animation: live-fade-in .8s ease-out 1; }
 @keyframes live-fade-in { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .ticker-runtime-shell .fade-in { animation: none; } .ticker-runtime-shell .fld-ball, .ticker-runtime-shell .fld-drive, .ticker-runtime-shell .sc-ball { transition: none; } }
+/* printer card sizing (same pattern as slab): a block is never narrower than what is in it, so the AMS header (name, humidity, temperature, drying) can't be cut off */
+.ticker-runtime-shell .hs-pr-main { min-width: max-content; }
+.ticker-runtime-shell .hs-pr-main > * { flex-shrink: 0; }
+.ticker-runtime-shell .hs-ams { width: max-content; min-width: max-content; }
+.ticker-runtime-shell .hs-ams-head { white-space: nowrap; flex-wrap: nowrap; }
+.ticker-runtime-shell .hs-ams-head > * { flex: 0 0 auto; }

@@ -582,7 +582,7 @@ function TickerRuntime({
         >
           <div className="ticker-runtime-marquee-window" ref={windowRef}>
             <div
-              className="ticker-runtime-track"
+              className={`ticker-runtime-track${haSlotActive ? ' ha-track' : ''}`}
               ref={trackRef}
               role="list"
               aria-label="Ticker games"

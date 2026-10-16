@@ -1481,3 +1481,8 @@
   color: #02120a;
   background: linear-gradient(135deg, #35ff72, #84ff4b);
 }
+
+/* The track is shrink-wrapped to its cards and `contain: paint` clips whatever sticks out of it. The Home Assistant cards are measured to fit their
+   contents, so the printer card can end up a few dozen px wider than the track's own width: that overhang (the end of the AMS header, "29%") was
+   being cut off. Each card clips itself (overflow hidden), so the track does not have to. */
+.ticker-runtime-track.ha-track { contain: layout style; }

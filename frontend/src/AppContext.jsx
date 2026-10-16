@@ -916,6 +916,34 @@ export function AppContextProvider({ children }) {
     }
   }, [isTickerRuntime, runtimeDisplayLeague?.id])
 
+  // ── Live updates while a league scrolls ─────────────────────────────────
+  // The league on screen is fetched once just before it starts (above). While it has a game in progress it is asked again every
+  // LIVE_REFRESH_MS and the new numbers are merged into the cards that are already scrolling, matched by game id: the scroll is never restarted
+  // and no card is added or removed mid-pass (games that start / finish are picked up on the next rotation).
+  const livePayloadsRef = useRef({})
+  useEffect(() => { livePayloadsRef.current = runtimePayloadByLeagueId }, [runtimePayloadByLeagueId])
+  useEffect(() => {
+    if (!isTickerRuntime || !initialPreFetchesComplete || !runtimeDisplayLeague?.id) return undefined
+    const league = runtimeDisplayLeague
+    let busy = false
+    const timer = setInterval(async () => {
+      if (busy) return
+      const current = livePayloadsRef.current[league.id]
+      const games = Array.isArray(current?.normalizedGames) ? current.normalizedGames : []
+      if (!games.some((g) => String(g?.state || '').toLowerCase() === 'in')) return  // nothing live: nothing to refresh
+      busy = true
+      try {
+        const fresh = await fetchLeagueScoreboard(league, { cacheTtlSeconds: 0 })
+        setRuntimePayloadByLeagueId((cur) => {
+          const merged = mergeLivePayload(cur[league.id], fresh)
+          return merged === cur[league.id] ? cur : { ...cur, [league.id]: merged }
+        })
+      } catch { /* keep showing what is on screen */ }
+      busy = false
+    }, LIVE_REFRESH_MS)
+    return () => clearInterval(timer)
+  }, [isTickerRuntime, initialPreFetchesComplete, runtimeDisplayLeague?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Eagerly load cached logo meta for all leagues when in setup mode so the league
   // list shows real synced-team counts without requiring the user to click each league.
   useEffect(() => {
@@ -981,4 +1009,28 @@ export function AppContextProvider({ children }) {
   }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>
+}
+
+// How often the league on screen is refreshed while one of its games is live
+const LIVE_REFRESH_MS = 20000
+
+// New numbers for the games already on screen. Same games, same order, same count (the scroll must not change); a game missing from the
+// fresh answer (e.g. a "live only" filter dropping a finished game) stays as it is. Returns `prev` itself when nothing changed.
+function mergeLivePayload(prev, fresh) {
+  if (!prev || !Array.isArray(prev.normalizedGames) || !Array.isArray(fresh?.normalizedGames)) return prev
+  const freshById = new Map(fresh.normalizedGames.map((g) => [String(g?.id || ''), g]))
+  let changed = false
+  const normalizedGames = prev.normalizedGames.map((game) => {
+    const next = freshById.get(String(game?.id || ''))
+    if (!next || JSON.stringify(next) === JSON.stringify(game)) return game
+    changed = true
+    return next
+  })
+  if (!changed) return prev
+  // the cards also read the raw ESPN events (situation, odds, drive...): refresh those the same way
+  const freshEvents = new Map((fresh.scoreboard?.events || []).map((e) => [String(e?.id || ''), e]))
+  const events = Array.isArray(prev.scoreboard?.events)
+    ? prev.scoreboard.events.map((e) => freshEvents.get(String(e?.id || '')) || e)
+    : prev.scoreboard?.events
+  return { ...prev, normalizedGames, scoreboard: prev.scoreboard ? { ...prev.scoreboard, events } : prev.scoreboard }
 }

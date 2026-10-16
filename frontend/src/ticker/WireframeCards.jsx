@@ -553,12 +553,29 @@ function MatchupTab({ game }) {
   return matchupTag(game) ? <span className="calltab">{matchupTag(game)}</span> : null
 }
 
+// true for a couple of seconds after a score changed (never when the card first appears). The last score seen is kept OUTSIDE the card
+// (per game + team) because some card styles rebuild their team panels on every update, which would forget it.
+const lastScoreSeen = new Map()
+function useChangeFlash(key, value) {
+  const [flash, setFlash] = useState(false)
+  useEffect(() => {
+    const before = lastScoreSeen.get(key)
+    lastScoreSeen.set(key, value)
+    if (before === undefined || before === value) return undefined
+    setFlash(true)
+    const timer = setTimeout(() => setFlash(false), 2400)
+    return () => clearTimeout(timer)
+  }, [key, value])
+  return flash
+}
+
 function ScoreOrDash({ team, game }) {
   const state = String(game?.state || '').toLowerCase()
+  const flash = useChangeFlash(`${game?.id}:${team?.id}`, team?.score)
   if (state === 'pre') return <span className="score score-dim">—</span>
   const digits = String(team?.score ?? '').length
   const wide = digits >= 3
-  return <span className={`score ${wide ? 'score-3d' : ''}${digits === 1 ? ' score-1' : ''}`}>{team?.score}</span>
+  return <span className={`score ${wide ? 'score-3d' : ''}${digits === 1 ? ' score-1' : ''}${flash ? ' score-flash' : ''}`}>{team?.score}</span>
 }
 
 // ── DIRECTION 1 · SLAB ─────────────────────────────────────────────────────

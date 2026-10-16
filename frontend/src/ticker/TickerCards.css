@@ -1522,3 +1522,13 @@
 .ticker-runtime-shell .hs-dimg img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .ticker-runtime-shell .hs-ams-head .hs-dimg { width: 20cqh; height: 20cqh; border-radius: 2.2cqh; }
 .ticker-runtime-shell .hs-ams-temp { color: #f0894e; }
+
+/* a score that just changed pulses for a moment (live updates) */
+.ticker-runtime-shell .score-flash { animation: score-flash 2.4s ease-out 1; }
+@keyframes score-flash {
+  0%   { transform: scale(1);    text-shadow: 0 0 0 rgba(255,215,64,0); }
+  12%  { transform: scale(1.22); text-shadow: 0 0 4cqh rgba(255,215,64,.95), 0 0 9cqh rgba(255,215,64,.6); color: #ffe27a; }
+  60%  { transform: scale(1.08); text-shadow: 0 0 3cqh rgba(255,215,64,.5); color: #ffe27a; }
+  100% { transform: scale(1);    text-shadow: 0 0 0 rgba(255,215,64,0); }
+}
+@media (prefers-reduced-motion: reduce) { .ticker-runtime-shell .score-flash { animation: none; } }

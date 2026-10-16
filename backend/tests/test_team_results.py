@@ -222,3 +222,13 @@ def test_missing_ap_or_coaches_is_rechecked_soon_not_in_a_week():
     assert polls_due(only_coaches, _at("2026-10-11T20:40Z")) is True        # AP is missing: ask again after 30 minutes
     both = {"polls": [_poll("AP", "2026-10-11T21:07Z"), _poll("COACHES", "2026-10-11T19:58Z")], "checkedAt": "2026-10-11T22:00:00+00:00"}
     assert polls_due(both, _at("2026-10-14T00:00Z")) is False               # both stored and fresh: no calls for days
+
+
+def test_postseason_standings_are_not_pulled_again_for_every_finished_playoff_game():
+    from app.core.team_results import needs_standings_refresh
+
+    snap = {"teams": {"1": {}}, "counted": ["g1"]}
+    finished_unreflected = [_game("g1", "post"), _game("g2", "post")]
+    assert needs_standings_refresh(snap, finished_unreflected) is True                # regular season: g2 is new, ask ESPN
+    assert needs_standings_refresh(snap, finished_unreflected, frozen=True) is False  # playoffs: standings never change, keep the stored copy
+    assert needs_standings_refresh(None, finished_unreflected, frozen=True) is True   # but nothing stored yet: pull once

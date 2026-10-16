@@ -510,9 +510,9 @@ def get_scoreboard(
 
     # Standings are pulled from ESPN once, stored in team-meta, and the ticker reads the stored copy. ESPN is asked again only when a game on
     # the board has finished that the stored copy does not reflect yet (a finished game's result never changes).
-    def _stored_standings(parse) -> dict[str, dict]:
+    def _stored_standings(parse, frozen: bool = False) -> dict[str, dict]:
         snapshot = load_snapshot(entry.league_id)
-        if not needs_standings_refresh(snapshot, normalized_games):
+        if not needs_standings_refresh(snapshot, normalized_games, frozen):
             return (snapshot or {}).get("teams") or {}
         try:
             fresh_payload = _http_client.get_json(
@@ -609,7 +609,8 @@ def get_scoreboard(
             _normalized(entry.league) == "nfl"
             and (season_type == 3 or (season_type == 2 and isinstance(week_no, int) and week_no >= 10))
         ) else None
-        division_standings = apply_seed_line(_stored_standings(build_division_standings), seed_line)
+        # in a pro league's postseason ESPN's standings are frozen (the playoff streak is carried separately below): keep the stored copy
+        division_standings = apply_seed_line(_stored_standings(build_division_standings, frozen=(season_type == 3)), seed_line)
         if division_standings:
             for game in normalized_games:
                 for side in ("away", "home"):

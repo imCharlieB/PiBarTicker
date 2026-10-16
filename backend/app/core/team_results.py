@@ -98,10 +98,14 @@ def _finished(games: list[dict]) -> list[dict]:
     return [g for g in games if str(g.get("state") or "").lower() == "post" and g.get("id")]
 
 
-def needs_standings_refresh(snapshot: dict[str, Any] | None, games: list[dict]) -> bool:
-    """True when we have nothing stored, or a game on the board has finished that the stored standings do not reflect yet."""
+def needs_standings_refresh(snapshot: dict[str, Any] | None, games: list[dict], frozen: bool = False) -> bool:
+    """True when we have nothing stored, or a game on the board has finished that the stored standings do not reflect yet.
+    `frozen`: the postseason of a pro league - ESPN's standings no longer change (a playoff game never moves the regular-season record), so every
+    finished playoff game would look "not reflected" and the standings would be pulled again every rotation for nothing. Keep the stored copy."""
     if not snapshot:
         return True
+    if frozen:
+        return False
     counted = set(snapshot.get("counted") or [])
     return any(str(g["id"]) not in counted for g in _finished(games))
 

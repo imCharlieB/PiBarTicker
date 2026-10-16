@@ -538,7 +538,17 @@ const seriesTag = (game) => {
   const parts = seriesParts(game)
   return parts ? [parts.roundLabel, parts.gameLabel, parts.status].filter(Boolean).join(' · ') : ''
 }
-const matchupTag = (game) => (game?.showStandings ? (seriesTag(game) || String(game?.matchupText || '')) : '')
+// ESPN's name for the game ("College Football Playoff Quarterfinal at the Rose Bowl Presented by Prudential") -> "CFP QUARTERFINAL · ROSE BOWL". Team sports only.
+const eventTag = (game) => {
+  if (game?.combat || game?.isRacing) return ''
+  return String(game?.eventNote || '').trim()
+    .replace(/\s+presented by\s.*$/i, '')
+    .replace(/^College Football Playoff\b/i, 'CFP')
+    .replace(/\s+at the\s+/i, ' · ')
+    .replace(/\s+Game$/i, '')
+    .toUpperCase()
+}
+const matchupTag = (game) => (game?.showStandings ? (seriesTag(game) || eventTag(game) || String(game?.matchupText || '')) : '')
 function MatchupTab({ game }) {
   const [logoFailed, setLogoFailed] = useState(false)
   const parts = seriesParts(game)

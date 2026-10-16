@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from ...core.espn_normalizer import normalize_scoreboard_events
 from ...core.espn_registry import resolve_registry_entry
-from ...core.espn_scoreboard import EspnScoreboardClient, resolve_calendar_weeks
+from ...core.espn_scoreboard import EspnScoreboardClient, current_week_index, resolve_calendar_weeks
 from .teams import standings_stats_by_team
 from ...core.football_drive import drive_start_from_summary, win_probability_from_summary
 from ...core.points_store import counted_after_pull, load_points, points_due, save_points
@@ -36,6 +36,7 @@ from ...core.groups_util import (
     build_team_group_memberships_from_groups,
     build_team_group_memberships_from_standings,
     carry_streak,
+    merge_schedule_events,
     results_from_schedule,
 )
 from ...core.logo_store import LogoStore
@@ -44,7 +45,30 @@ from ._utils import _groups_endpoint_url, _http_client, _normalized, _rankings_u
 
 
 def _scoreboard_season_type(payload) -> int | None:
-    return ((payload or {}).get("season") or {}).get("type") if isinstance(payload, dict) else None
+    """ESPN season type (2 regular, 3 postseason) of a scoreboard answer: top-level season, else the league header, else its first event."""
+    if not isinstance(payload, dict):
+        return None
+    candidates = [
+        (payload.get("season") or {}).get("type"),
+        ((((payload.get("leagues") or [{}])[0]) or {}).get("season") or {}).get("type"),
+        (((payload.get("events") or [{}])[0]) or {}).get("season", {}).get("type") if (payload.get("events") or []) else None,
+    ]
+    for value in candidates:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def _has_unknown_team(event: dict) -> bool:
+    """True for a game whose teams are placeholders (ESPN id -1 / -2, abbreviation TBD)."""
+    for competition in (event or {}).get("competitions") or []:
+        for competitor in (competition or {}).get("competitors") or []:
+            team = (competitor or {}).get("team") or {}
+            if str(team.get("id") or "") in ("-1", "-2") or str(team.get("abbreviation") or "").strip().upper() == "TBD":
+                return True
+    return False
 
 
 def _carry_postseason_streaks(entry, normalized_games: list[dict]) -> None:
@@ -303,14 +327,7 @@ def get_scoreboard(
         # `use_week_filter`, since nothing in the frontend UI ever sets that to true.
         if entry.supports_week_filter and week is None and _normalized(game_filter) not in ("", "all"):
             calendar_weeks = resolve_calendar_weeks(fetch_result.payload)
-            start_idx = None
-            for idx, cw in enumerate(calendar_weeks):
-                if cw.start <= now:
-                    start_idx = idx
-                else:
-                    break
-            if start_idx is None and calendar_weeks:
-                start_idx = 0  # season hasn't started yet -- use the first upcoming week
+            start_idx = current_week_index(calendar_weeks, now)  # (before the season starts: the first upcoming week)
 
             if start_idx is not None:
                 # Bounded look-ahead so an extended offseason/gap can't trigger a long chain
@@ -481,6 +498,9 @@ def get_scoreboard(
             # best-effort only; fall back to whatever (possibly empty) we had
             pass
 
+    # Games whose teams are not known yet (playoff rounds ESPN lists as "TBD @ TBD") are not shown until the teams are set
+    filtered_events = [e for e in filtered_events if not _has_unknown_team(e)]
+
     filtered_payload = dict(payload) if isinstance(payload, dict) else {"events": filtered_events}
     filtered_payload["events"] = filtered_events
     normalized_games = normalize_scoreboard_events(
@@ -544,11 +564,12 @@ def get_scoreboard(
             game_id, state = team_game[tid]
 
             def fetch_events() -> list[dict]:
-                payload_sched = _http_client.get_json(
-                    f"https://site.api.espn.com/apis/site/v2/sports/{entry.sport}/{entry.league}/teams/{tid}/schedule",
-                    use_cache=False,
-                )
-                return payload_sched.get("events") or []
+                sched_url = f"https://site.api.espn.com/apis/site/v2/sports/{entry.sport}/{entry.league}/teams/{tid}/schedule"
+                events = _http_client.get_json(sched_url, use_cache=False).get("events") or []
+                if _scoreboard_season_type(payload) == 3:
+                    # bowl season: ESPN's default schedule holds the regular season only, the bowl / playoff games need seasontype=3
+                    events = merge_schedule_events(events, _http_client.get_json(sched_url + "?seasontype=3", use_cache=False).get("events") or [])
+                return events
 
             streak, new_entry = resolve_streak(stored.get(tid), tid, game_id, state, fetch_events)
             return tid, streak, new_entry

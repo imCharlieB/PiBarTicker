@@ -314,3 +314,9 @@ def apply_seed_line(teams: dict[str, dict], line: int | None) -> dict[str, dict]
             item["showSeed"] = True
         out[team_id] = item
     return out
+
+
+def merge_schedule_events(first: list[dict], extra: list[dict]) -> list[dict]:
+    """A team's regular-season schedule plus its postseason games (ESPN returns them from separate calls), without duplicates."""
+    seen = {str(e.get("id") or "") for e in first or []}
+    return list(first or []) + [e for e in (extra or []) if str(e.get("id") or "") not in seen]

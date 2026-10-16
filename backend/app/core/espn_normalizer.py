@@ -406,6 +406,13 @@ def normalize_scoreboard_events(
                 if isinstance(first_odds, dict):
                     odds_detail = str(first_odds.get("details") or first_odds.get("displayValue") or "").strip()
 
+            # ESPN's own name for the game: "College Football Playoff Quarterfinal at the Rose Bowl Presented by Prudential", a bowl name, "Super Bowl LX"...
+            event_note = ""
+            for note in (competition.get("notes") if isinstance(competition, dict) else None) or []:
+                if isinstance(note, dict) and str(note.get("headline") or "").strip():
+                    event_note = str(note.get("headline")).strip()
+                    break
+
             state = _normalized(status.get("state"))
             is_live = state == "in"
             is_completed = bool(status.get("completed"))
@@ -429,6 +436,7 @@ def normalize_scoreboard_events(
                     "league": entry.league,
                     "leagueId": entry.league_id,
                     "title": title,
+                    "eventNote": event_note,
                     "startTimeUtc": start_time.isoformat() if start_time else "",
                     "startsInMinutes": int((start_time - now).total_seconds() // 60) if start_time else None,
                     "state": state or "unknown",

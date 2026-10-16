@@ -67,6 +67,10 @@ def resolve_calendar_weeks(payload: dict[str, Any]) -> list[CalendarWeek]:
                     week = int(entry_item.get("value"))
                 except (TypeError, ValueError):
                     continue
+                if week >= 900:
+                    # ESPN's college calendar lists the playoff as a pseudo week (999) that overlaps the real "Bowls" week (1), which already
+                    # holds every bowl AND every playoff game. Rolling onto the pseudo week would show the playoff games only.
+                    continue
                 if start and end:
                     weeks.append(CalendarWeek(week=week, seasontype=seasontype, start=start, end=end))
         else:
@@ -82,6 +86,19 @@ def resolve_calendar_weeks(payload: dict[str, Any]) -> list[CalendarWeek]:
 
     weeks.sort(key=lambda w: w.start)
     return weeks
+
+
+def current_week_index(weeks: list[CalendarWeek], now: datetime) -> int | None:
+    """Index of the calendar week we are inside (the latest one that has started); the first upcoming week before the season starts; None without a calendar."""
+    index = None
+    for idx, cw in enumerate(weeks):
+        if cw.start <= now:
+            index = idx
+        else:
+            break
+    if index is None and weeks:
+        index = 0
+    return index
 
 
 class EspnScoreboardClient:

@@ -11,6 +11,7 @@ from ...core.espn_registry import resolve_registry_entry
 from ...core.espn_scoreboard import EspnScoreboardClient, current_week_index, resolve_calendar_weeks
 from .teams import standings_stats_by_team
 from ...core.football_drive import drive_start_from_summary, win_probability_from_summary
+from ...core.soccer_live import last_page, latest_ball_position
 from ...core.points_store import counted_after_pull, load_points, points_due, save_points
 from ...core.poll_store import headline_from_stored, load_polls, merge_polls, parse_polls, polls_due, save_polls, touch_checked
 from ...core.team_results import (
@@ -1830,17 +1831,23 @@ def get_scoreboard(
                     "corners":       {"a": _int(a.get("wonCorners", "0")),         "h": _int(h.get("wonCorners", "0"))},
                 }
                 try:
-                    plays_resp = _http_client.get_json(
-                        f"https://sports.core.api.espn.com/v2/sports/soccer/leagues/{entry.league}/events/{event_id}/competitions/{event_id}/plays?limit=300",
-                        use_cache=True,
-                        cache_ttl_seconds=20.0,
-                    )
-                    for play in reversed(plays_resp.get("items") or []):
-                        if not isinstance(play, dict):
-                            continue
-                        fx = play.get("fieldPositionX")
-                        if fx is not None and fx != 0.0:
-                            soccer_live["ballOn"] = max(0, min(100, round((float(fx) + 1.0) / 2.0 * 100)))
+                    # The plays feed is oldest-first (~1400 per match): ask for the count, then for the LAST page. fieldPositionX is 0-100 from the
+                    # acting team's own goal to the opponent's, so it has to be flipped for the home team (see core/soccer_live.py).
+                    side_by_team_id = {
+                        str(((block.get("team") or {}).get("id")) or ""): str(block.get("homeAway") or "").lower()
+                        for block in teams_data
+                    }
+                    plays_url = f"https://sports.core.api.espn.com/v2/sports/soccer/leagues/{entry.league}/events/{event_id}/competitions/{event_id}/plays"
+                    total = int((_http_client.get_json(plays_url + "?limit=1", use_cache=True, cache_ttl_seconds=20.0) or {}).get("count") or 0)
+                    page_size = 25
+                    newest_page = last_page(total, page_size)
+                    for page in (newest_page, newest_page - 1):
+                        if page < 1:
+                            break
+                        plays_resp = _http_client.get_json(f"{plays_url}?limit={page_size}&page={page}", use_cache=True, cache_ttl_seconds=20.0)
+                        ball = latest_ball_position(plays_resp.get("items") or [], side_by_team_id)
+                        if ball is not None:
+                            soccer_live["ballOn"] = ball
                             break
                 except Exception:
                     pass

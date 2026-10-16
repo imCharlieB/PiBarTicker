@@ -771,113 +771,7 @@
   margin-left: 0.5cqh;
 }
 
-/* ── HOME ASSISTANT · sensor / device cards (d-ha / d-weather) ───────────── */
-.ticker-runtime-shell .d-ha {
-  width: 123.7cqh;
-  flex-direction: column;
-  padding: 5.3cqh 6.8cqh;
-  background: #0c0e13;
-  gap: 3.7cqh;
-}
-
-.ticker-runtime-shell .ha-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 3.2cqh;
-  flex-shrink: 0;
-}
-
-.ticker-runtime-shell .ha-titles {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.05;
-}
-
-.ticker-runtime-shell .ha-title {
-  font-weight: 900;
-  font-size: 6.8cqh;
-  letter-spacing: 0.03em;
-  color: #eef2f8;
-}
-
-.ticker-runtime-shell .ha-sub {
-  font-size: 3.7cqh;
-  color: #9aa3b1;
-  font-weight: 700;
-  margin-top: 1.3cqh;
-  letter-spacing: 0.02em;
-}
-
-.ticker-runtime-shell .ha-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 1.6cqh;
-  font-size: 3.4cqh;
-  font-weight: 900;
-  letter-spacing: 0.1em;
-  color: #7CF29B;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.ticker-runtime-shell .ha-badge .mdi {
-  font-size: 5.8cqh;
-  color: #41bdf5;
-}
-
-.ticker-runtime-shell .ha-rows {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  justify-content: space-evenly;
-}
-
-.ticker-runtime-shell .ha-row {
-  display: flex;
-  align-items: center;
-  gap: 4.2cqh;
-  padding: 2.6cqh 0;
-  border-bottom: 1px dashed #1b212b;
-}
-
-.ticker-runtime-shell .ha-row:last-child {
-  border-bottom: none;
-}
-
-.ticker-runtime-shell .ha-row-icon {
-  font-size: 6.8cqh;
-  width: 12.6cqh;
-  height: 12.6cqh;
-  border-radius: 3.4cqh;
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  color: var(--ic, #cfd6e2);
-  background: color-mix(in srgb, var(--ic, #6b7480) 18%, #0c0e12);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ic, #6b7480) 32%, transparent);
-}
-
-.ticker-runtime-shell .ha-row-label {
-  font-size: 5.3cqh;
-  font-weight: 700;
-  color: #aeb6c2;
-  flex: 1;
-  min-width: 0;
-}
-
-.ticker-runtime-shell .ha-row-val {
-  font-family: 'Spline Sans Mono', monospace;
-  font-size: 10.5cqh;
-  font-weight: 700;
-  color: #e7edf6;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  gap: 1.1cqh;
-  white-space: nowrap;
-}
-
+/* Home Assistant values (renderEntityValue in haHelpers.jsx): unit text, ON/OFF badges, climate */
 .ticker-runtime-shell .ha-unit {
   font-size: 5.3cqh;
   font-weight: 500;
@@ -928,125 +822,6 @@
   color: #6b7480;
   margin-left: 8px;
   align-self: center;
-}
-
-/* PRINTER variant */
-.ticker-runtime-shell .d-printer {
-  width: 131.6cqh;
-}
-
-.ticker-runtime-shell .d-printer .ha-badge .mdi {
-  color: #7CF29B;
-}
-
-.ticker-runtime-shell .printer-progress {
-  display: flex;
-  align-items: center;
-  gap: 3.7cqh;
-  flex-shrink: 0;
-}
-
-.ticker-runtime-shell .printer-progress-bar {
-  flex: 1;
-  height: 3.7cqh;
-  border-radius: 1.8cqh;
-  background: rgba(255,255,255,0.08);
-  overflow: hidden;
-}
-
-.ticker-runtime-shell .printer-progress-fill {
-  height: 100%;
-  border-radius: 1.8cqh;
-  background: linear-gradient(90deg, #7CF29B, #4fd1c5);
-  transition: width 1s ease;
-}
-
-.ticker-runtime-shell .printer-progress-pct {
-  font-family: 'Spline Sans Mono', monospace;
-  font-size: 8.4cqh;
-  font-weight: 700;
-  color: #7CF29B;
-  white-space: nowrap;
-  flex: 0 0 auto;
-  min-width: 16.8cqh;
-  text-align: right;
-}
-
-/* WEATHER variant */
-.ticker-runtime-shell .d-weather .wx-hero {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-  gap: 0.5cqh;
-}
-
-.ticker-runtime-shell .wx-icon {
-  font-size: 20cqh;
-  color: var(--ic, #cfd6e2);
-  line-height: 1;
-  filter: drop-shadow(0 4px 14px color-mix(in srgb, var(--ic, #000) 40%, transparent));
-}
-
-.ticker-runtime-shell .wx-temp {
-  font-family: 'Spline Sans Mono', monospace;
-  font-weight: 700;
-  font-size: 20cqh;
-  color: #fff;
-  line-height: 0.9;
-  font-variant-numeric: tabular-nums;
-}
-
-.ticker-runtime-shell .wx-deg {
-  color: #6b7480;
-}
-
-.ticker-runtime-shell .wx-cond {
-  font-size: 4.7cqh;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  color: #9aa3b1;
-  text-transform: capitalize;
-  margin-top: 1.6cqh;
-}
-
-.ticker-runtime-shell .wx-stats {
-  display: flex;
-  justify-content: space-between;
-  gap: 2.6cqh;
-  border-top: 1px dashed #1b212b;
-  padding-top: 3.7cqh;
-  flex-shrink: 0;
-}
-
-.ticker-runtime-shell .wx-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1.3cqh;
-  flex: 1;
-}
-
-.ticker-runtime-shell .wx-stat .mdi {
-  font-size: 7.4cqh;
-  color: var(--ic, #7CF29B);
-}
-
-.ticker-runtime-shell .wx-stat-val {
-  font-family: 'Spline Sans Mono', monospace;
-  font-size: 5.3cqh;
-  font-weight: 700;
-  color: #e7edf6;
-  white-space: nowrap;
-}
-
-.ticker-runtime-shell .wx-stat-label {
-  font-size: 2.9cqh;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  color: #6b7480;
-  text-transform: uppercase;
 }
 
 /* ── Standings card: foil trading-card layout ───────────────────────────────
@@ -1406,7 +1181,7 @@
 .ticker-runtime-shell .d-slab:not(.d-board) .score.score-1 { align-self: center; }
 
 /* ── Animated weather icons (WeatherIcon in haHelpers.jsx) ── */
-.ticker-runtime-shell .wx-svg { display: inline-block; width: 25cqh; height: 25cqh; font-size: 0; filter: none; }
+
 .ticker-runtime-shell .wi { overflow: visible; width: 100%; height: 100%; display: block; }
 .ticker-runtime-shell .wi-spin { transform-origin: 50px 50px; animation: wi-spin 14s linear infinite; }
 .ticker-runtime-shell .wi-pulse { transform-origin: 50px 50px; animation: wi-pulse 3.2s ease-in-out infinite; }
@@ -1431,22 +1206,6 @@
 @keyframes wi-snow { 0% { transform: translate(0, -6px); opacity: 0; } 20% { opacity: 1; } 50% { transform: translate(4px, 10px); } 100% { transform: translate(-2px, 26px); opacity: 0; } }
 @keyframes wi-flash { 0%, 55%, 100% { opacity: .15; } 60%, 66% { opacity: 1; filter: drop-shadow(0 0 8px #ffe27a); } 72% { opacity: .3; } 78% { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .ticker-runtime-shell .wi * { animation: none !important; opacity: 1; } }
-
-/* weather card with the hourly forecast: the card gets wider, the current weather stays on the left */
-.ticker-runtime-shell .d-weather .wx-main { display: contents; }
-.ticker-runtime-shell .d-weather.has-hourly { width: max-content; min-width: 123.7cqh; flex-direction: row; padding: 0; gap: 0; }
-.ticker-runtime-shell .d-weather.has-hourly .wx-main { display: flex; flex-direction: column; gap: 3.7cqh; flex: 0 0 auto; width: 123.7cqh; padding: 5.3cqh 6.8cqh; box-sizing: border-box; }
-.ticker-runtime-shell .wx-hourly { flex: 0 0 auto; min-width: max-content; border-left: 1px solid #232a36; padding: 0 4cqh; display: flex; flex-direction: column; justify-content: center; gap: 3cqh; background: linear-gradient(180deg, #0f1722, #0c0e13); }
-.ticker-runtime-shell .wx-hourly-title { font-family: 'Spline Sans Mono', monospace; font-weight: 700; font-size: 4.4cqh; letter-spacing: .2em; color: #6fb6ff; }
-.ticker-runtime-shell .wx-hours { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(22cqh, max-content); gap: 1.4cqh; }
-.ticker-runtime-shell .wx-hour { display: flex; flex-direction: column; align-items: center; min-width: 0; border-radius: 2.4cqh; overflow: hidden; background: var(--tc-body); border-top: 1.2cqh solid var(--tc); }
-.ticker-runtime-shell .wx-hour-temp { align-self: stretch; text-align: center; padding: 2cqh 0; font-weight: 900; font-size: 10cqh; line-height: 1; color: #fff; white-space: nowrap; background: var(--tc-head); }
-.ticker-runtime-shell .wx-hour-i { display: inline-block; width: 19cqh; height: 19cqh; margin-top: 2.4cqh; }
-.ticker-runtime-shell .wx-hour-wind { font-weight: 800; font-size: 4.6cqh; color: #c7d3e4; white-space: pre; margin-top: 1.4cqh; }
-.ticker-runtime-shell .wx-hour-wind:not(:empty)::after { content: ' mph'; font-size: 3.2cqh; color: #8c97a8; }
-.ticker-runtime-shell .wx-hour-rain { font-weight: 800; font-size: 5cqh; color: #5b6b82; white-space: pre; flex: 1; }
-.ticker-runtime-shell .wx-hour-rain.wet { color: #5ac8fa; }
-.ticker-runtime-shell .wx-hour-t { align-self: stretch; text-align: center; padding: 1.6cqh 0; font-weight: 900; font-size: 5.6cqh; color: #0c0e13; background: #e3eaf4; white-space: nowrap; }
 
 /* ── Home Assistant cards in the board's own look (weather / sensors / printer; see haHelpers.jsx). Everything is cqh like the other cards. ── */
 .ticker-runtime-shell .hs-card { background: #0e1117; border: 1px solid #232833; color: #fff; box-sizing: border-box; padding: 0; gap: 0; }

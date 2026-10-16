@@ -764,6 +764,7 @@ export function buildNewsCards(articles, leagueConfig, leagueLogo = '') {
     leagueLogo,
     headline: String(article.headline || '').trim(),
     description: String(article.description || '').trim(),
+    image: String(article.image || '').trim(),
     published: article.published || '',
     slateOrder: 9000 + i,
     density: leagueConfig?.density || 'bal',

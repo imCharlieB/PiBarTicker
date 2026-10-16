@@ -18,6 +18,15 @@ _NEWS_TTL = 300.0  # 5 minutes — backend handles rate limiting for all clients
 _SKIP_TYPES = {"video", "media", "fantasy"}
 
 
+def _best_image(article: dict) -> str:
+    """The article's picture: the widest one that is not huge (ESPN lists several sizes; a ticker card needs ~600-1300 px)."""
+    images = [i for i in (article.get("images") or []) if isinstance(i, dict) and i.get("url")]
+    if not images:
+        return ""
+    usable = [i for i in images if int(i.get("width") or 0) <= 1400] or images
+    return str(max(usable, key=lambda i: int(i.get("width") or 0)).get("url") or "")
+
+
 def _is_unwanted(article: dict) -> bool:
     art_type = str(article.get("type") or "").strip().lower()
     if art_type in _SKIP_TYPES:
@@ -78,6 +87,7 @@ def get_news(leagues: str = "", limit: int = 10) -> list[dict]:
                     "published": str(article.get("published") or "").strip(),
                     "leagueId": league_id,
                     "link": (article.get("links") or {}).get("web", {}).get("href", ""),
+                    "image": _best_image(article),
                 })
                 if len(articles) >= limit:
                     break

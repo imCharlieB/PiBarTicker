@@ -5,6 +5,7 @@ import { newsLogoCandidates } from './newsLogo.js'
 
 export default function NewsCard({ game, leagueLogoUrl }) {
   const [failed, setFailed] = useState([])
+  const [photoFailed, setPhotoFailed] = useState(false)
   const headline = String(game?.headline || '').trim()
   if (!headline) return null
   // first candidate that has not failed to load (a failed earlier URL must not hide a corrected one)
@@ -28,6 +29,9 @@ export default function NewsCard({ game, leagueLogoUrl }) {
         {description ? <div className="d-news-desc">{description}</div> : null}
         <div className="d-news-rule" />
       </div>
+      {game?.image && !photoFailed ? (
+        <div className="d-news-photo"><img src={game.image} alt="" onError={() => setPhotoFailed(true)} /></div>
+      ) : null}
     </div>
   )
 }

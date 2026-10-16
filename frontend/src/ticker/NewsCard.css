@@ -78,3 +78,9 @@
   color: #aab3c2;
   -webkit-font-smoothing: antialiased;
 }
+
+/* ESPN's picture for the article, on the right (hidden when it does not load). The card may grow by the picture's width. */
+.ticker-runtime-card.ticker-runtime-card-style-news:has(.d-news-photo) { max-width: 420cqh; }
+.d-news-photo { position: relative; flex: 0 0 auto; width: 125cqh; overflow: hidden; }
+.d-news-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.d-news-photo::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 22cqh; z-index: 1; pointer-events: none; background: linear-gradient(90deg, #13161c, rgba(19,22,28,0)); }

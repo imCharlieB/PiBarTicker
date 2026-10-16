@@ -14,8 +14,8 @@ router = APIRouter(prefix="/api/v1/news", tags=["news"])
 _NEWS_TTL = 300.0  # 5 minutes — backend handles rate limiting for all clients
 
 # Article types ESPN returns that are not displayable as ticker headlines.
-# "media" (TV/video segments) is kept — headlines are valid sports items even if content is a clip.
-_SKIP_TYPES = {"video", "fantasy"}
+# Video clips are skipped (user, 2026-10-16: "if it's video we ignore it"): ESPN types them "Media" (and sometimes "Video").
+_SKIP_TYPES = {"video", "media", "fantasy"}
 
 
 def _is_unwanted(article: dict) -> bool:

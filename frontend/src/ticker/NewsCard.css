@@ -67,3 +67,14 @@
   -webkit-font-smoothing: antialiased;
 }
 .d-news-rule { height: 1cqh; width: 24cqh; background: #f59e0b; border-radius: 1cqh; }
+
+/* ESPN's description under the headline. It wraps to the width the headline sets (width: 0 + min-width: 100%) so a long description never stretches the card. */
+.d-news-desc {
+  width: 0;
+  min-width: 100%;
+  font-size: 5.6cqh;
+  font-weight: 500;
+  line-height: 1.3;
+  color: #aab3c2;
+  -webkit-font-smoothing: antialiased;
+}

@@ -1532,3 +1532,14 @@
   100% { transform: scale(1);    text-shadow: 0 0 0 rgba(255,215,64,0); }
 }
 @media (prefers-reduced-motion: reduce) { .ticker-runtime-shell .score-flash { animation: none; } }
+
+/* live updates: graphics glide / fade to the new state instead of snapping (the elements stay in place, only a class or position changes) */
+.ticker-runtime-shell .fld-ball { transition: left .9s ease, box-shadow .6s ease; }
+.ticker-runtime-shell .fld-drive { transition: left .9s ease, width .9s ease; }
+.ticker-runtime-shell .fld-fd, .ticker-runtime-shell .fld-los { transition: left .9s ease; }
+.ticker-runtime-shell .sc-ball { transition: left .9s ease; }
+.ticker-runtime-shell .sc-third { transition: left .9s ease, right .9s ease; }
+.ticker-runtime-shell .dia .base, .ticker-runtime-shell .bb-diamond .base, .ticker-runtime-shell .bb-out { transition: background-color .6s ease, border-color .6s ease, box-shadow .6s ease; }
+.ticker-runtime-shell .fade-in { animation: live-fade-in .8s ease-out 1; }
+@keyframes live-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .ticker-runtime-shell .fade-in { animation: none; } .ticker-runtime-shell .fld-ball, .ticker-runtime-shell .fld-drive, .ticker-runtime-shell .sc-ball { transition: none; } }

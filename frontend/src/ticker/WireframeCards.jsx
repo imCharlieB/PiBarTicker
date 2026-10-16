@@ -244,7 +244,7 @@ function BaseballLive({ game, compact }) {
         <span className="base bb-home" />
       </div>
       <div className="bb-read">
-        <span className="bb-count">{balls}-{strikes}</span>
+        <span key={`${balls}-${strikes}`} className="bb-count fade-in">{balls}-{strikes}</span>
         <span className="bb-outs">
           {[0, 1, 2].map((i) => <i key={i} className={`bb-out ${i < outs ? 'on' : ''}`} />)}
           <em>{outs} OUT</em>
@@ -355,7 +355,7 @@ function FootballLive({ game, compact, lead, wp }) {
         <div className="ff-dd">
           {lead ? <span className="ff-lead">{lead}</span> : null}
           {lead && downDistanceText ? <span className="ff-sep">·</span> : null}
-          {downDistanceText}
+          {downDistanceText ? <span key={downDistanceText} className="fade-in">{downDistanceText}</span> : null}
         </div>
       ) : null}
       {wp ? <WinBar wp={wp} /> : null}

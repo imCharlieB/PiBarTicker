@@ -152,15 +152,18 @@ export function renderEntityValue(live, sensor, unitClass) {
   if (domain === 'climate') {
     const cur = live.attributes?.current_temperature
     const set = live.attributes?.temperature
-    const mode = (live.attributes?.hvac_mode || '').toLowerCase()
-    if (cur != null && set != null) {
+    // the thermostat's mode: the `hvac_mode` attribute when there is one, else the entity's own state (cool / heat / off ... - some thermostats, e.g. the Breez-i, only report it there)
+    const mode = String(live.attributes?.hvac_mode || live.state || '').toLowerCase()
+    const showMode = mode && !['unknown', 'unavailable'].includes(mode)
+    if (cur != null && set != null && mode !== 'off') {
       return (
         <>
           {cur}°<span className="ha-climate-arrow"> → </span>{set}°
-          {mode && mode !== 'off' && <span className="ha-climate-mode">{mode.toUpperCase()}</span>}
+          {showMode && <span className="ha-climate-mode">{mode.replace('_', '/').toUpperCase()}</span>}
         </>
       )
     }
+    if (cur != null) return <>{cur}°{showMode && <span className="ha-climate-mode">{mode.replace('_', '/').toUpperCase()}</span>}</>
     return <>{live.state}</>
   }
 
@@ -185,7 +188,17 @@ export function haIconFor(live, sensor) {
   const domain = live?.domain || sensor.entityId.split('.')[0]
   const dc = live?.attributes?.device_class || inferDeviceClass(live, sensor)
   switch (domain) {
-    case 'climate':       return 'mdi-thermostat'
+    case 'climate':
+      switch (String(live?.state || '').toLowerCase()) {
+        case 'cool':      return 'mdi-snowflake'
+        case 'heat':      return 'mdi-fire'
+        case 'heat_cool':
+        case 'auto':      return 'mdi-thermometer-auto'
+        case 'dry':       return 'mdi-water-percent'
+        case 'fan_only':  return 'mdi-fan'
+        case 'off':       return 'mdi-power'
+        default:          return 'mdi-thermostat'
+      }
     case 'light':         return 'mdi-lightbulb'
     case 'lock':          return live?.state === 'locked' ? 'mdi-lock' : 'mdi-lock-open-variant'
     case 'switch':        return 'mdi-toggle-switch'
@@ -567,7 +580,16 @@ export function haColorFor(live, sensor) {
   const dc = live?.attributes?.device_class || inferDeviceClass(live, sensor)
   const on = live?.state === 'on'
   switch (domain) {
-    case 'climate':       return '#f0894e'
+    case 'climate':
+      switch (String(live?.state || '').toLowerCase()) {
+        case 'cool':      return '#5ac8fa'
+        case 'heat':      return '#f0894e'
+        case 'heat_cool':
+        case 'auto':      return '#f5b945'
+        case 'dry':       return '#5ac8fa'
+        case 'off':       return '#6b7480'
+        default:          return '#9aa3b1'
+      }
     case 'light':         return on ? '#ffc83d' : '#4b5563'
     case 'lock':          return live?.state === 'locked' ? '#7CF29B' : '#f87171'
     case 'switch':        return on ? '#7CF29B' : '#4b5563'

@@ -24,7 +24,7 @@ PLATFORMS = [Platform.SWITCH, Platform.SENSOR]
 
 # Entity types mirrored from a picked device (its sensors and binary sensors; buttons, switches, updates... are not display data).
 # "image": only the Bambu Lab plugin's `cover_image` (the picture of the print that is running) is taken - see _tracked and _push_cover_image.
-DEVICE_DOMAINS = {"sensor", "binary_sensor", "image"}
+DEVICE_DOMAINS = {"sensor", "binary_sensor", "image", "climate"}  # climate: a picked thermostat / mini split device brings its climate entity too
 COVER_IMAGE_KEY = "cover_image"
 _MAX_COVER_BYTES = 5_000_000
 # access_token: an image entity's rotating token for Home Assistant's image proxy - never sent to the display
@@ -195,7 +195,7 @@ async def _push_sensor(hass: HomeAssistant, entry: ConfigEntry, state) -> None:
     # Capture display-relevant attributes per entity type
     attrs: dict = {}
     if domain == "climate":
-        for key in ("current_temperature", "temperature", "hvac_mode", "hvac_action"):
+        for key in ("current_temperature", "temperature", "hvac_mode", "hvac_action", "current_humidity", "fan_mode", "preset_mode", "target_temp_high", "target_temp_low"):
             val = state.attributes.get(key)
             if val is not None:
                 attrs[key] = val

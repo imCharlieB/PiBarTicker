@@ -1,7 +1,7 @@
 {
   "domain": "pibarticker",
   "name": "PiBarTicker",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "config_flow": true,
   "documentation": "https://github.com/charlie/PiBarTicker",
   "iot_class": "local_polling",

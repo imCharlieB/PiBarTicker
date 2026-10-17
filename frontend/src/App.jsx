@@ -137,7 +137,7 @@ function App() {
       ? (newsByLeagueId?.[runtimeDisplayLeague.id] || [])
       : []
     const newsCards = buildNewsCards(newsArticles, runtimeDisplayLeague, resolveLeagueLogoUrl(runtimeDisplayLeague, runtimePayloadByLeagueId?.[runtimeDisplayLeague?.id]))
-    const allCards = [...displayGames, ...newsCards]
+    const allCards = reuseUnchangedCards([...displayGames, ...newsCards])
     return allCards.length ? allCards : stableGames
   }, [activeRuntimePayload, runtimeDisplayLeague, stableGoodGamesByLeagueId, leagueLogoMetaById, config?.theme?.mode, newsByLeagueId, newsInGridPanel, runtimePayloadByLeagueId]) // eslint-disable-line react-hooks/exhaustive-deps
   const panelNewsArticles = useMemo(() => {
@@ -380,3 +380,23 @@ function App() {
 }
 
 export default App
+
+// A live update rebuilds every card object, which makes React redraw every card (a freeze on the Pi). Cards whose content is the same as last time
+// keep their old object, so only the cards that really changed are redrawn (startsInMinutes only sorts the games and moves with the clock, so it is ignored).
+const cardCache = new Map()
+function reuseUnchangedCards(cards) {
+  const cache = cardCache
+  const next = new Map()
+  const out = cards.map((card, i) => {
+    let json
+    try { json = JSON.stringify(card, (k, v) => (k === 'startsInMinutes' ? undefined : v)) } catch { return card }
+    const key = `${card?.id ?? ''}|${i}`
+    const prev = cache.get(key)
+    const kept = prev && prev.json === json ? prev.card : card
+    next.set(key, { json, card: kept })
+    return kept
+  })
+  cache.clear()
+  next.forEach((v, k) => cache.set(k, v))
+  return out
+}

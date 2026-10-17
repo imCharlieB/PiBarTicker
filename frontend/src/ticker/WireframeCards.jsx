@@ -899,10 +899,13 @@ function sessionStops(game, now) {
   return stops.map((s, i) => ({ ...s, next: i === next }))
 }
 
+const sessionDateFormat = new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+const sessionTimeFormat = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })
+
 function sessionParts(ms) {
   const d = new Date(ms)
-  const date = new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).formatToParts(d)
-  const time = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }).formatToParts(d)
+  const date = sessionDateFormat.formatToParts(d)
+  const time = sessionTimeFormat.formatToParts(d)
   const pick = (parts, t) => parts.find((p) => p.type === t)?.value || ''
   return {
     day: `${pick(date, 'weekday')} ${pick(date, 'month')} ${pick(date, 'day')}`.toUpperCase(),

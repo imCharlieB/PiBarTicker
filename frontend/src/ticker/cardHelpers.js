@@ -131,18 +131,15 @@ export function formatRuntimeStatus(game) {
   return 'Scheduled'
 }
 
+// built once: creating an Intl.DateTimeFormat for every game on every refresh was the biggest cost of a live update on a slow device
+const runtimeDateFormat = new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+
 export function formatRuntimeDate(game) {
   const start = String(game?.startTimeUtc || '').trim()
   if (!start) return ''
   const date = new Date(start)
   if (Number.isNaN(date.getTime())) return ''
-  return new Intl.DateTimeFormat('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(date)
+  return runtimeDateFormat.format(date)
 }
 
 export function densityFlags(league) {
@@ -248,17 +245,14 @@ export function isRacingGame(game) {
   return sport === 'racing' || sport === 'golf'
 }
 
+const racingDateFormat = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+
 export function formatRacingCalendarDate(value) {
   const text = String(value || '').trim()
   if (!text) return ''
   const date = new Date(text)
   if (Number.isNaN(date.getTime())) return ''
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(date)
+  return racingDateFormat.format(date)
 }
 
 export function nextRacingCalendarEvent(payload, game) {

@@ -4,6 +4,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from ..core.paths import get_runtime_paths
+from .ha_images import remove_cover
 
 router = APIRouter(prefix="/api/v1/ha", tags=["home-assistant"])
 
@@ -63,4 +64,5 @@ def push_sensor(body: SensorPush) -> dict:
 def delete_sensor(entity_id: str) -> dict:
     _sensors.pop(entity_id, None)
     _save(_sensors)
+    remove_cover(entity_id)
     return {"deleted": entity_id}

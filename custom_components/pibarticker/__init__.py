@@ -14,6 +14,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
+from homeassistant.helpers.network import NoURLAvailableError, get_url
 
 from .const import CONF_DEVICES, CONF_SENSORS, CONF_URL, DOMAIN
 
@@ -21,9 +22,13 @@ _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = [Platform.SWITCH, Platform.SENSOR]
 
-# Entity types mirrored from a picked device (its sensors and binary sensors; buttons, switches, updates... are not display data)
-DEVICE_DOMAINS = {"sensor", "binary_sensor"}
-_SKIP_ATTRS = {"friendly_name", "icon", "entity_picture", "supported_features", "attribution", "device_class", "state_class", "unit_of_measurement"}
+# Entity types mirrored from a picked device (its sensors and binary sensors; buttons, switches, updates... are not display data).
+# "image": only the Bambu Lab plugin's `cover_image` (the picture of the print that is running) is taken - see _tracked and _push_cover_image.
+DEVICE_DOMAINS = {"sensor", "binary_sensor", "image"}
+COVER_IMAGE_KEY = "cover_image"
+_MAX_COVER_BYTES = 5_000_000
+# access_token: an image entity's rotating token for Home Assistant's image proxy - never sent to the display
+_SKIP_ATTRS = {"friendly_name", "icon", "entity_picture", "access_token", "supported_features", "attribution", "device_class", "state_class", "unit_of_measurement"}
 
 
 def _tracked(hass: HomeAssistant, entry: ConfigEntry) -> tuple[list[str], dict[str, dict]]:
@@ -46,7 +51,10 @@ def _tracked(hass: HomeAssistant, entry: ConfigEntry) -> tuple[list[str], dict[s
         for ent in er.async_entries_for_device(ent_reg, device_id):
             if ent.domain not in DEVICE_DOMAINS:
                 continue
-            meta[ent.entity_id] = {**info, "key": _entity_key(ent), "from_device": True}
+            key = _entity_key(ent)
+            if ent.domain == "image" and key != COVER_IMAGE_KEY:
+                continue  # the chamber camera still, the pick image... are not wanted
+            meta[ent.entity_id] = {**info, "key": key, "from_device": True}
             if ent.entity_id not in ids:
                 ids.append(ent.entity_id)
     # single picks still carry their device + key so the display can group them
@@ -233,6 +241,54 @@ async def _push_sensor(hass: HomeAssistant, entry: ConfigEntry, state) -> None:
         )
     except Exception as exc:  # noqa: BLE001
         _LOGGER.debug("PiBarTicker sensor push failed for %s: %s", state.entity_id, exc)
+        return
+
+    if domain == "image":
+        await _push_cover_image(hass, entry, state)
+
+
+async def _push_cover_image(hass: HomeAssistant, entry: ConfigEntry, state) -> None:
+    """Fetch the picture an image entity shows (the print's cover) and send it to the display, once per change of the entity's state (its timestamp).
+
+    Home Assistant serves entity pictures through /api/image_proxy with a token that sits in the entity's `entity_picture` attribute, so the
+    picture is read from Home Assistant's own address with that token (no login needed)."""
+    sent = hass.data.get(DOMAIN, {}).get(entry.entry_id, {}).setdefault("covers_sent", {})
+    stamp = str(state.state)
+    if stamp in ("unknown", "unavailable", "") or sent.get(state.entity_id) == stamp:
+        return
+    picture = state.attributes.get("entity_picture")
+    if not picture:
+        return
+    if not str(picture).startswith("http"):
+        try:
+            base = get_url(hass, prefer_external=False)
+        except NoURLAvailableError:
+            try:
+                base = get_url(hass)
+            except NoURLAvailableError:
+                _LOGGER.debug("PiBarTicker: no Home Assistant URL to read %s from", state.entity_id)
+                return
+        picture = base.rstrip("/") + str(picture)
+    session = async_get_clientsession(hass)
+    try:
+        async with session.get(picture, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+            if resp.status != 200:
+                return
+            content_type = (resp.headers.get("Content-Type") or "image/jpeg").split(";")[0].strip()
+            data = await resp.read()
+        if not data or len(data) > _MAX_COVER_BYTES or not content_type.startswith("image/"):
+            return
+        url = entry.data[CONF_URL].rstrip("/")
+        async with session.post(
+            f"{url}/api/v1/ha/cover/{state.entity_id}",
+            data=data,
+            headers={"Content-Type": content_type},
+            timeout=aiohttp.ClientTimeout(total=15),
+        ) as post:
+            if post.status == 200:
+                sent[state.entity_id] = stamp
+    except Exception as exc:  # noqa: BLE001
+        _LOGGER.debug("PiBarTicker cover image push failed for %s: %s", state.entity_id, exc)
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:

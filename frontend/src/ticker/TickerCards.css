@@ -1308,3 +1308,4 @@
 .ticker-runtime-shell .hs-ams { width: max-content; min-width: max-content; }
 .ticker-runtime-shell .hs-ams-head { white-space: nowrap; flex-wrap: nowrap; }
 .ticker-runtime-shell .hs-ams-head > * { flex: 0 0 auto; }
+.ticker-runtime-shell .hs-cover img { object-fit: cover; }

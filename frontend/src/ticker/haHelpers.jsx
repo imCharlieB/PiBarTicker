@@ -373,6 +373,18 @@ function DeviceImage({ model, fallback }) {
   )
 }
 
+// The picture of the print that is running (the Bambu Lab plugin's cover image, sent to the Pi by the Home Assistant integration). Falls back to
+// `fallback` (the printer's product photo) when it cannot be loaded.
+function CoverImage({ url, fallback }) {
+  const [failedUrl, setFailedUrl] = useState('')
+  if (!url || failedUrl === url) return fallback ?? null
+  return (
+    <span className="hs-dimg hs-cover">
+      <img src={url} alt="" onError={() => setFailedUrl(url)} />
+    </span>
+  )
+}
+
 // "H2D_0947AJ612800457_AMS_1" -> "AMS 2" (AMS 2 Pro), "AMS HT"; a label typed on the device row in Setup wins
 function amsShortName(model, name) {
   const m = String(model || name || '').toLowerCase()
@@ -495,6 +507,11 @@ export function HAPrinterCard({ card, sensors, sensorValues }) {
   const idle = printer && (!stageKey || /idle|offline|unavailable|unknown|finish/.test(stageKey)) && !(pct > 0 && pct < 100)
   const tone = [255, 122, 89]
   const showPct = pct != null && !idle
+  const printing = showPct
+  // the running print's picture: its entity's state is a timestamp that changes with every new picture, so it is also the cache-buster
+  const cover = printer?.byKey?.cover_image
+  const coverUrl = cover && !['unknown', 'unavailable', ''].includes(String(cover.state)) ? `/api/v1/ha/cover/${cover.entity_id}?v=${encodeURIComponent(cover.state)}` : ''
+  const productPhoto = <DeviceImage model={printer?.model} fallback={<span className="hs-box hs-box-i"><i className="mdi mdi-printer-3d" /></span>} />
   const fmtEta = eta ? new Date(eta).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''
   const temp = (v, t) => (v == null ? null : t != null && t > 0 ? `${Math.round(v)}→${Math.round(t)}°` : `${Math.round(v)}°`)
   return (
@@ -502,7 +519,7 @@ export function HAPrinterCard({ card, sensors, sensorValues }) {
       <div className="hs-pr-main" ref={mainRef}>
         <div className="hs-half hs-pr-half" style={{ background: washOf(tone) }}>
           <i className="hs-bar" style={{ background: rgbOf(tone) }} />
-          <div className="hs-top"><DeviceImage model={printer?.model} fallback={<span className="hs-box hs-box-i"><i className="mdi mdi-printer-3d" /></span>} /><span className="hs-abbr">{card.title && card.title.length <= 7 ? card.title : 'PRINT'}</span></div>
+          <div className="hs-top">{printing && coverUrl ? <CoverImage url={coverUrl} fallback={productPhoto} /> : productPhoto}<span className="hs-abbr">{card.title && card.title.length <= 7 ? card.title : 'PRINT'}</span></div>
           {showPct
             ? <div className="hs-score">{Math.round(pct)}<small>%</small></div>
             : <div className="hs-score"><span className="hs-score-word">{printer ? (stage ? stage.replace(/[-_]/g, ' ') : 'idle') : '—'}</span></div>}

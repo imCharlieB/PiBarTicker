@@ -258,6 +258,32 @@ export function HATickerCards({ homeAssistantBoard, sensorValues }) {
   return cardEls
 }
 
+// A thermostat / mini split as an ordinary tile: room temperature -> target, and one line saying what it is running (mode, fan, preset such as Turbo). Nothing else.
+function ClimateTile({ sensor, live, label, tone }) {
+  const a = live?.attributes || {}
+  const mode = String(a.hvac_mode || live?.state || '').toLowerCase()
+  const off = mode === 'off'
+  const action = String(a.hvac_action || '').toLowerCase()
+  const running = [
+    off ? 'OFF' : (action && action !== 'idle' ? action : mode.replace('_', '/')),
+    !off && a.fan_mode ? `FAN ${a.fan_mode}` : '',
+    !off && a.preset_mode && String(a.preset_mode).toLowerCase() !== 'none' ? String(a.preset_mode) : '',  // Turbo, Eco... (nothing when the preset is "none")
+  ].filter((t) => t && t !== 'unknown' && t !== 'unavailable').join(' · ').toUpperCase()
+  const cur = numOf(a.current_temperature)
+  const set = numOf(a.temperature)
+  return (
+    <div className={`hs-tile${off ? ' hs-tile-off' : ''}`} style={{ background: washOf(tone), '--ac': rgbOf(tone) }}>
+      <i className="hs-bar" style={{ background: rgbOf(tone) }} />
+      <span className="hs-tile-l"><i className={`mdi ${haIconFor(live, sensor)}`} style={{ color: rgbOf(tone) }} />{label}</span>
+      <span className="hs-tile-v">
+        {cur != null ? `${Math.round(cur)}°` : '—'}
+        {set != null && !off ? <><span className="hs-tile-arrow">→</span>{Math.round(set)}°</> : null}
+      </span>
+      {running ? <span className="hs-tile-run">{running}</span> : null}
+    </div>
+  )
+}
+
 export function HASensorCard({ card, sensors, sensorValues }) {
   if (sensors.length === 0) return null
   const cols = sensors.length <= 3 ? 1 : sensors.length <= 8 ? 2 : 3
@@ -272,6 +298,7 @@ export function HASensorCard({ card, sensors, sensorValues }) {
           const live = sensorValues[sensor.entityId]
           const label = sensor.label || sensor.entityId.split('.').pop().replace(/_/g, ' ')
           const tone = hexRGB(haColorFor(live, sensor))
+          if ((live?.domain || sensor.entityId.split('.')[0]) === 'climate') return <ClimateTile key={sensor.entityId} sensor={sensor} live={live} label={label} tone={tone} />
           return (
             <div key={sensor.entityId} className="hs-tile" style={{ background: washOf(tone) }}>
               <i className="hs-bar" style={{ background: rgbOf(tone) }} />

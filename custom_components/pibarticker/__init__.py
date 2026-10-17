@@ -195,7 +195,7 @@ async def _push_sensor(hass: HomeAssistant, entry: ConfigEntry, state) -> None:
     # Capture display-relevant attributes per entity type
     attrs: dict = {}
     if domain == "climate":
-        for key in ("current_temperature", "temperature", "hvac_mode", "hvac_action", "current_humidity", "fan_mode", "preset_mode", "target_temp_high", "target_temp_low"):
+        for key in ("current_temperature", "temperature", "hvac_mode", "hvac_action", "fan_mode", "preset_mode"):
             val = state.attributes.get(key)
             if val is not None:
                 attrs[key] = val

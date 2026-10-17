@@ -1309,3 +1309,8 @@
 .ticker-runtime-shell .hs-ams-head { white-space: nowrap; flex-wrap: nowrap; }
 .ticker-runtime-shell .hs-ams-head > * { flex: 0 0 auto; }
 .ticker-runtime-shell .hs-cover img { object-fit: cover; }
+
+/* thermostat tile (ClimateTile in haHelpers.jsx): an ordinary tile with one more small line */
+.ticker-runtime-shell .hs-tile-arrow { font-size: 6cqh; margin: 0 1.2cqh; opacity: .6; }
+.ticker-runtime-shell .hs-tile-run { font-weight: 800; font-size: 3.3cqh; letter-spacing: .1em; color: var(--ac); white-space: nowrap; }
+.ticker-runtime-shell .hs-tile-off { filter: saturate(.5); }

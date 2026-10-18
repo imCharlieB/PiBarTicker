@@ -302,6 +302,18 @@ function startScrollTransition(track, startX, endX, dur, onFinish) {
   }
 }
 
+// Lock every card to the size it measured, then let the browser skip cards that are far off screen (the track width stays exactly the same).
+function lockCardSizes(track) {
+  if (!track) return
+  track.classList.remove('cv-ready')
+  for (const el of track.children) {
+    if (!el.classList.contains('ticker-runtime-card')) continue
+    const r = el.getBoundingClientRect()
+    el.style.containIntrinsicSize = `auto ${r.width}px auto ${r.height}px`
+  }
+  track.classList.add('cv-ready')
+}
+
 // ── TickerRuntime ────────────────────────────────────────────────────────────
 
 function TickerRuntime({
@@ -478,6 +490,15 @@ function TickerRuntime({
     setTimeout(() => onHandoffCheckRef.current(), 600)
   }, [displayLeague?.id, games.length, sessionKey, initialPreFetchesComplete, boardWidth, sportsBoard?.scrollSpeed, sportsBoard?.cardGap]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Skip off-screen cards ───────────────────────────────────────────────────────
+  // Once the league's logos have decoded (the reveal below), each card's size is locked to what it measured and `content-visibility: auto` lets
+  // the browser skip layout/paint/animations of cards far off screen. This cleanup only drops the flag when the cards change, so new cards are never
+  // measured while the flag is on.
+  useLayoutEffect(() => {
+    const track = trackRef.current
+    return () => { if (track) track.classList.remove('cv-ready') }
+  }, [displayLeague?.id, games.length, sessionKey, initialPreFetchesComplete, haSlotActive])
+
   // ── Image preload + reveal ────────────────────────────────────────────────
   // Animation is already running; we just need to make the track visible once
   // all image textures are in GPU memory (prevents mid-animation decode flash).
@@ -490,6 +511,7 @@ function TickerRuntime({
     const revealTrack = () => {
       if (cancelled || currentSlotLeagueIdRef.current !== leagueId) return
       if (trackRef.current) trackRef.current.style.opacity = '1'
+      lockCardSizes(trackRef.current)
     }
 
     const imageUrls = []

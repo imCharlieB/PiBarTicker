@@ -1486,3 +1486,6 @@
    contents, so the printer card can end up a few dozen px wider than the track's own width: that overhang (the end of the AMS header, "29%") was
    being cut off. Each card clips itself (overflow hidden), so the track does not have to. */
 .ticker-runtime-track.ha-track { contain: layout style; }
+
+/* Off-screen cards are skipped (layout, paint, animations) once their measured sizes are locked in by TickerRuntime.jsx */
+.ticker-runtime-track.cv-ready > .ticker-runtime-card { content-visibility: auto; }
